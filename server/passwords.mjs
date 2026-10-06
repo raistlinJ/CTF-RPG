@@ -40,6 +40,11 @@ export function effectiveAccount(row, cfg, config) {
       ? row.hero
       : cfg?.hero || row?.hero || config.characters[0].id,
     role: row?.managed ? row.role : cfg?.role || "student",
+    spawn: row?.managed
+      ? row.spawn
+        ? JSON.parse(row.spawn)
+        : null
+      : cfg?.spawn || null,
     disabled: !!row?.disabled,
     revision: row?.revision || 0,
     source: row?.managed ? "studio" : cfg ? "yaml" : "registration",

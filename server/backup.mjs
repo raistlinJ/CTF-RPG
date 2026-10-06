@@ -1,3 +1,5 @@
+import { presenceSettings } from "./presence.mjs";
+import { spawnSchema } from "../lib/spawn.mjs";
 import { activeTheme, readAsset } from "./packs.mjs";
 import { parseTheme, themeAssetPaths } from "../lib/theme-schema.mjs";
 import { zipSync, unzipSync, strToU8 } from "fflate";
@@ -13,6 +15,7 @@ const account = z
     hash: z.string().regex(/^[a-f0-9]{64}$/),
     salt: z.string().min(1).max(128),
     hero: z.string(),
+    spawn: spawnSchema.nullable().default(null),
     role: z.enum(["student", "admin"]),
     disabled: z.number().int().min(0).max(1),
     managed: z.number().int().min(0).max(1),
@@ -63,6 +66,7 @@ export function validateSnapshot(input) {
         .array(z.object({ user: z.string(), team: z.string() }).strict())
         .max(10000)
         .default([]),
+      playerVisibility: z.enum(["off", "team", "all"]).optional(),
       teamMaxMembers: z.number().int().min(1).max(100).optional(),
       solved: z.array(completion).max(1000000),
       purchasedHints: z.array(purchase).max(1000000),
@@ -214,6 +218,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       hash: credentials.hash,
       salt: credentials.salt,
       hero: effective.hero,
+      spawn: effective.spawn,
       role: effective.role,
       disabled: row.disabled || 0,
       managed: row.managed || 0,
@@ -230,6 +235,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
         hash: credentials.hash,
         salt: credentials.salt,
         hero: cfg.hero || config.characters[0].id,
+        spawn: cfg.spawn || null,
         role: cfg.role || "student",
         disabled: 0,
         managed: 0,
@@ -245,6 +251,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       passwordHash: a.hash,
       salt: a.salt,
       hero: a.hero,
+      spawn: a.spawn,
       role: a.role,
     };
   });
@@ -263,6 +270,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     writtenResponses: responses.results,
     teams: teams.results,
     teamMembers: members.results,
+    playerVisibility: (await presenceSettings(db, config)).visibility,
     teamMaxMembers:
       teamSettings.results[0]?.max_members ?? config.teams?.maxMembers ?? 4,
   });

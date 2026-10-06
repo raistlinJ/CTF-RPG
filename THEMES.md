@@ -177,6 +177,16 @@ world:
 
 The destination and return positions follow map spawn settings automatically. **Undo last save** restores the map and the transport links edited in that save.
 
-### Student starting-map choice
+### Admin-assigned starting positions
 
-Students choose **Starting map** when signing in or registering. Returning signed-in users see a map chooser with a preview before entering an expedition. The selected map's spawn is the starting position; team creation/joining still happens before play. This choice applies to the current expedition and can be chosen again after signing out or reloading. The theme's main map remains the default choice; selecting an entry map does not change building layouts, entrances, saved heroes, scores, or responses.
+In **Manage → Users**, select an account, choose its starting map, then click a reachable tile to set its spawn position. Use **Theme default** to clear the assignment. These positions apply on sign-in and reload; students do not choose them. Assignments are included in full account backups. If a new theme removes a map or blocks an assigned tile, the explorer starts at the new theme’s default spawn until an admin updates the assignment.
+
+Accounts in `content/game.yaml` can also set:
+
+```yaml
+spawn:
+  map: castle
+  location: { x: 20, y: 23 }
+```
+
+Map IDs match the active theme; tile coordinates are zero-based on the 40 × 28 grid. Omit `spawn` or use `spawn: null` for the theme’s default. Admin edits take precedence over YAML for managed accounts.

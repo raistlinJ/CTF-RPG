@@ -158,7 +158,7 @@ h1 {
   background: #dfedef;
   box-shadow: 0 15px 35px #06141b55;
 }
-.world > canvas {
+.world-surface > canvas {
   width: 100%;
   height: auto;
   display: block;
@@ -635,7 +635,7 @@ input::placeholder {
   .game-layout {
     padding: 40px 0;
   }
-  .world > canvas {
+  .world-surface > canvas {
     max-height: 670px;
   }
 }
@@ -1815,16 +1815,19 @@ input::placeholder {
 .transport-list .text-button { font-size: 12px; }
 @media (max-width: 600px) { .map-settings-tabs svg { display: none; } }
 
-.starting-map-field { max-width: 410px; margin-bottom: 22px; display: grid; gap: 8px; }
-.starting-map-field small { color: #93aeb9; line-height: 1.5; }
-.starting-map-field select, .expedition-entry select { width: 100%; padding: 13px 14px; border: 1px solid #3f5967; border-radius: 6px; color: #e7f1ee; background: #102532; font: inherit; }
-.expedition-entry { margin: 42px auto; width: min(1080px,90%); display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 32px; align-items: center; border: 1px solid #3a535f; border-radius: 12px; padding: 28px; background: #162c38; }
-.expedition-entry h1 { font-size: 34px; line-height: 1.2; }
-.expedition-entry p { color: #a7bcc5; line-height: 1.6; }
-.expedition-entry label { display: grid; gap: 8px; margin: 22px 0 16px; }
-.expedition-entry .primary { width: 100%; }
-.expedition-entry-preview { overflow: hidden; border: 1px solid #355563; border-radius: 8px; background: #102532; }
-.expedition-entry-preview img { display: block; width: 100%; aspect-ratio: 40/28; object-fit: cover; image-rendering: pixelated; }
-.expedition-entry-preview > span { display: block; padding: 12px; font-size: 13px; color: #bdd4d4; border-top: 1px solid #355563; }
-.entry-empty-preview { aspect-ratio: 40/28; display: grid; place-items: center; color: #7bb1bd; }
-@media (max-width: 700px) { .expedition-entry { grid-template-columns: 1fr; padding: 20px; gap: 22px; margin: 24px auto; }.expedition-entry h1 { font-size: 29px; } }
+
+.account-spawn { margin: 6px 0; min-width: 0; padding: 16px; border: 1px solid #395864; border-radius: 6px; display: grid; gap: 14px; }
+.account-spawn legend { padding: 0 6px; font-weight: 600; }
+.account-spawn p, .account-spawn small { color: #a7bdc6; line-height: 1.5; }
+.account-spawn .world { width: 100%; }
+.account-spawn .world canvas { cursor: crosshair; }
+.account-spawn .error { color: #f3958d; }
+
+.world-surface { position: relative; }
+.nearby-player-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.nearby-player { position: absolute; transform: translate(-50%,-50%); width: 4.4%; aspect-ratio: 1; display: grid; place-items: center; }
+.nearby-player canvas { width:100%; height:100%; filter: drop-shadow(0 0 2px #c1b1ff); }
+.nearby-player.teammate canvas { filter: drop-shadow(0 0 2px #a4eed6); }
+.nearby-player span { position:absolute; bottom:95%; padding:2px 4px; border:1px solid #665e8a; border-radius:3px; background:#112735; color:#f0e7ff; font-size:11px; white-space:nowrap; }
+.nearby-player.teammate span { border-color:#80c5b0; color:#b4efdb; }
+.presence-note { padding:10px 2px; color:#9cb6bf; font-size:13px; line-height:1.5; }

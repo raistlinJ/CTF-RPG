@@ -1,3 +1,5 @@
+import { handlePresence } from "./presence.mjs";
+import { spawnSchema, canSpawn, resolveSpawn } from "../lib/spawn.mjs";
 import { updateMap } from "./maps.mjs";
 import { handleReview, gradingCompatible } from "./review.mjs";
 import { themePresets, presetCatalog } from "../lib/theme-presets.mjs";
@@ -66,6 +68,7 @@ function createRequestApi({
       username: account.username,
       hero: account.hero,
       role: account.role,
+      spawn: resolveSpawn(account.spawn, theme.world),
     };
   }
   async function accountList() {
@@ -181,6 +184,15 @@ function createRequestApi({
       req.headers.get("origin") !== new URL(req.url).origin
     )
       return json({ error: "Invalid request origin." }, 403);
+    if (["/api/presence", "/api/admin/presence"].includes(path))
+      return handlePresence(req, {
+        db,
+        config,
+        user,
+        platformAdmin,
+        theme,
+        themeRevision,
+      });
     if (["/api/teams", "/api/admin/teams"].includes(path))
       return handleTeams(req, { db, config, user, platformAdmin });
     if (path.startsWith("/api/assets/") && method === "GET") {
@@ -405,7 +417,8 @@ function createRequestApi({
             409,
           );
       }
-      const accountRole = effectiveAccount(account, configured, config).role;
+      const effective = effectiveAccount(account, configured, config);
+      const accountRole = effective.role;
       const token = crypto.randomUUID() + crypto.randomUUID();
       await db
         .prepare("DELETE FROM sessions WHERE expires<?")
@@ -422,6 +435,7 @@ function createRequestApi({
             username: name,
             hero: account.hero,
             role: accountRole,
+            spawn: resolveSpawn(effective.spawn, theme.world),
           },
           admin: platformAdmin || accountRole === "admin",
         },
@@ -473,6 +487,8 @@ function createRequestApi({
           users: await accountList(),
           characters: config.characters,
           viewer: u?.username || null,
+          theme,
+          themeRevision,
         });
       if (method === "POST") {
         const body = await req.json(),
@@ -538,6 +554,38 @@ function createRequestApi({
           );
         if (!exists && !body.password)
           return json({ error: "A new account needs a password." }, 400);
+        let spawn =
+          row || cfg ? effectiveAccount(row, cfg, config).spawn : null;
+        if (body.spawn !== undefined) {
+          if (body.themeRevision !== themeRevision)
+            return json(
+              {
+                error:
+                  "The map changed. Reload users before assigning a starting position.",
+              },
+              409,
+            );
+          const parsed = spawnSchema.nullable().safeParse(body.spawn);
+          if (
+            !parsed.success ||
+            (parsed.data &&
+              !canSpawn(
+                theme.world,
+                parsed.data.map,
+                parsed.data.location.x,
+                parsed.data.location.y,
+              ))
+          )
+            return json(
+              {
+                error:
+                  "Choose a reachable starting tile, away from doors and transport tiles.",
+              },
+              400,
+            );
+          spawn = parsed.data;
+        }
+        const spawnJson = spawn ? JSON.stringify(spawn) : null;
         let credentials;
         if (body.password) {
           const salt = crypto.randomUUID();
@@ -549,7 +597,7 @@ function createRequestApi({
           const id = crypto.randomUUID();
           const result = await db
             .prepare(
-              "INSERT OR IGNORE INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision) VALUES(?,?,?,?,?,?,?,1,1,1)",
+              "INSERT OR IGNORE INTO students(id,username,hash,salt,hero,role,disabled,spawn,managed,provisioned,revision) SELECT ?,?,?,?,?,?,?,?,1,1,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?",
             )
             .bind(
               id,
@@ -559,6 +607,8 @@ function createRequestApi({
               body.hero,
               body.role,
               body.disabled ? 1 : 0,
+              spawnJson,
+              themeRevision,
             )
             .run();
           if (Number(result.meta?.changes ?? result.changes) !== 1)
@@ -572,7 +622,7 @@ function createRequestApi({
         } else {
           const update = db
             .prepare(
-              "UPDATE students SET hash=?,salt=?,hero=?,role=?,disabled=?,managed=1,provisioned=1,revision=revision+1 WHERE id=? AND revision=?",
+              "UPDATE students SET hash=?,salt=?,hero=?,role=?,disabled=?,spawn=?,managed=1,provisioned=1,revision=revision+1 WHERE id=? AND revision=? AND COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?",
             )
             .bind(
               credentials.hash,
@@ -580,8 +630,10 @@ function createRequestApi({
               body.hero,
               body.role,
               body.disabled ? 1 : 0,
+              spawnJson,
               row.id,
               body.revision,
+              themeRevision,
             );
           let result;
           if (body.password || body.disabled) {
@@ -605,6 +657,8 @@ function createRequestApi({
           users: await accountList(),
           characters: config.characters,
           viewer: u?.username || null,
+          theme,
+          themeRevision,
         });
       }
     }

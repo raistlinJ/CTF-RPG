@@ -1,4 +1,5 @@
 "use client";
+import { usePlayerPresence, type NearbyPlayer } from "./use-player-presence";
 import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -32,6 +33,11 @@ type Place = {
   travel?: { from: string; to: string }[];
 };
 type Hero = string;
+type User = {
+  username: string;
+  hero: Hero;
+  spawn: { map: string; location: { x: number; y: number } };
+};
 type Character = {
   id: string;
   name: string;
@@ -217,6 +223,10 @@ export function World({
   onMove,
   onSearch,
   onSelect,
+  selectionAllowed,
+  selectionLabel,
+  players = [],
+  characters = [],
 }: {
   hero: Character;
   map: string;
@@ -226,6 +236,10 @@ export function World({
   onMove: (x: number, y: number) => void;
   onSearch: () => void;
   onSelect?: (x: number, y: number) => void;
+  selectionAllowed?: (map: string, x: number, y: number) => boolean;
+  selectionLabel?: string;
+  players?: NearbyPlayer[];
+  characters?: Character[];
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const image = useSprite(hero.sprite);
@@ -271,7 +285,8 @@ export function World({
       ctx.fillStyle = "rgba(135, 140, 145, 0.42)";
       for (let y = 0; y < 28; y++)
         for (let x = 0; x < 40; x++)
-          if (!canPlaceChallenge(map, x, y)) ctx.fillRect(x * t, y * t, t, t);
+          if (!(selectionAllowed || canPlaceChallenge)(map, x, y))
+            ctx.fillRect(x * t, y * t, t, t);
     }
     const portals =
       map === activeWorld.startMap
@@ -331,57 +346,89 @@ export function World({
     } else drawCharacter(ctx, pos.x * t + 12, pos.y * t + 12, hero, image, 42);
     ctx.fillStyle = "#264954";
     ctx.fillRect(pos.x * t + 9, pos.y * t + 34, 6, 3);
-  }, [hero, image, background, map, pos, challenges, solved, onSelect]);
+  }, [
+    hero,
+    image,
+    background,
+    map,
+    pos,
+    challenges,
+    solved,
+    onSelect,
+    selectionAllowed,
+  ]);
   return (
     <div className="world">
-      <canvas
-        ref={ref}
-        width={960}
-        height={672}
-        tabIndex={onSelect ? 0 : undefined}
-        onClick={
-          onSelect
-            ? (e) => {
-                const r = e.currentTarget.getBoundingClientRect();
-                onSelect(
-                  Math.min(
-                    39,
-                    Math.floor(((e.clientX - r.left) / r.width) * 40),
-                  ),
-                  Math.min(
-                    27,
-                    Math.floor(((e.clientY - r.top) / r.height) * 28),
-                  ),
-                );
-              }
-            : undefined
-        }
-        onKeyDown={
-          onSelect
-            ? (e) => {
-                const dirs: Record<string, number[]> = {
-                  ArrowUp: [0, -1],
-                  ArrowDown: [0, 1],
-                  ArrowLeft: [-1, 0],
-                  ArrowRight: [1, 0],
-                };
-                const d = dirs[e.key];
-                if (d) {
-                  e.preventDefault();
+      <div className="world-surface">
+        <canvas
+          ref={ref}
+          width={960}
+          height={672}
+          tabIndex={onSelect ? 0 : undefined}
+          onClick={
+            onSelect
+              ? (e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
                   onSelect(
-                    Math.max(0, Math.min(39, pos.x + d[0])),
-                    Math.max(0, Math.min(27, pos.y + d[1])),
+                    Math.min(
+                      39,
+                      Math.floor(((e.clientX - r.left) / r.width) * 40),
+                    ),
+                    Math.min(
+                      27,
+                      Math.floor(((e.clientY - r.top) / r.height) * 28),
+                    ),
                   );
                 }
-              }
-            : undefined
-        }
-        aria-label={
-          onSelect
-            ? `Challenge location picker: ${mapName(map)}. Click a tile or use arrow keys to choose a location.`
-            : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
-        }
-      />
+              : undefined
+          }
+          onKeyDown={
+            onSelect
+              ? (e) => {
+                  const dirs: Record<string, number[]> = {
+                    ArrowUp: [0, -1],
+                    ArrowDown: [0, 1],
+                    ArrowLeft: [-1, 0],
+                    ArrowRight: [1, 0],
+                  };
+                  const d = dirs[e.key];
+                  if (d) {
+                    e.preventDefault();
+                    onSelect(
+                      Math.max(0, Math.min(39, pos.x + d[0])),
+                      Math.max(0, Math.min(27, pos.y + d[1])),
+                    );
+                  }
+                }
+              : undefined
+          }
+          aria-label={
+            onSelect
+              ? `${selectionLabel || "Challenge location picker"}: ${mapName(map)}. Click a tile or use arrow keys to choose a location.`
+              : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
+          }
+        />
+        {!onSelect && players.length > 0 && (
+          <div className="nearby-player-layer" aria-label="Players on this map">
+            {players.map((p) => {
+              const character = characters.find((c) => c.id === p.hero);
+              return (
+                <div
+                  key={p.username}
+                  className={"nearby-player " + (p.teammate ? "teammate" : "")}
+                  style={{
+                    left: `${((p.x + 0.5) / 40) * 100}%`,
+                    top: `${((p.y + 0.5) / 28) * 100}%`,
+                  }}
+                >
+                  {character && <Portrait hero={character} />}
+                  <span>{p.username}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <div className="map-label">
         <span className="live-dot" /> {mapName(map).toUpperCase()}{" "}
         <span>{map === activeWorld.startMap ? "WORLD MAP" : "INTERIOR"}</span>
@@ -437,9 +484,7 @@ function Portrait({ hero }: { hero: Character }) {
   );
 }
 export default function Game() {
-  const [user, setUser] = useState<{ username: string; hero: Hero } | null>(
-      null,
-    ),
+  const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
     [hero, setHero] = useState<Hero>("web"),
     [mode, setMode] = useState("register"),
@@ -450,8 +495,6 @@ export default function Game() {
     [challenges, setChallenges] = useState<Challenge[]>([]),
     [solved, setSolved] = useState<string[]>([]),
     [score, setScore] = useState(0),
-    [startingMap, setStartingMap] = useState(""),
-    [hasStarted, setHasStarted] = useState(false),
     [place, setPlace] = useState<Place>({ map: "town", pos: { x: 18, y: 20 } }),
     [active, setActive] = useState<Challenge | null>(null),
     [answer, setAnswer] = useState(""),
@@ -469,6 +512,13 @@ export default function Game() {
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
   const [team, setTeam] = useState<Team | null>(null);
+  const presence = usePlayerPresence(
+    user?.username,
+    !!user && (canAdmin || !!team),
+    map,
+    pos,
+    config?.themeRevision,
+  );
   function applyGame(d: GameState) {
     setChallenges(d.challenges);
     setSolved(d.solved);
@@ -494,7 +544,7 @@ export default function Game() {
           (await r.json()) as {
             error?: string;
             admin?: boolean;
-            user: { username: string; hero: Hero } | null;
+            user: User | null;
           },
       ),
     ])
@@ -505,14 +555,16 @@ export default function Game() {
           pos: { ...mapInfo(settings.theme.world.startMap)!.spawn },
         });
         setConfig(settings);
-        setStartingMap(settings.theme.world.startMap);
-        setHasStarted(false);
         setHero(settings.characters[0].id);
         setMode(settings.allowRegistration ? "register" : "login");
         setCanAdmin(!!d.admin);
         if (d.error) throw Error(d.error);
         if (d.user) {
           setUser(d.user);
+          setPlace({
+            map: d.user.spawn.map,
+            pos: { ...d.user.spawn.location },
+          });
           await loadGame();
         }
       })
@@ -629,7 +681,7 @@ export default function Game() {
       );
   }
   useEffect(() => {
-    if (!user || !hasStarted || (!canAdmin && !team)) return;
+    if (!user || (!canAdmin && !team)) return;
     const handler = (e: KeyboardEvent) => {
       if (
         (e.target as HTMLElement).closest(
@@ -660,7 +712,7 @@ export default function Game() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [user, active, map, pos, challenges, solved, canAdmin, team, hasStarted]);
+  }, [user, active, map, pos, challenges, solved, canAdmin, team]);
   async function login(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -673,7 +725,7 @@ export default function Game() {
       });
       const d = (await r.json()) as {
         error?: string;
-        user: { username: string; hero: Hero };
+        user: User;
         challenges: Challenge[];
         solved: string[];
         score: number;
@@ -683,9 +735,7 @@ export default function Game() {
       setUser(d.user);
       setCanAdmin((d as typeof d & { admin?: boolean }).admin || false);
       setPassword("");
-      const start = mapInfo(startingMap) || mapInfo(activeWorld.startMap)!;
-      setPlace({ map: start.id, pos: { ...start.spawn } });
-      setHasStarted(true);
+      setPlace({ map: d.user.spawn.map, pos: { ...d.user.spawn.location } });
       setActive(null);
       await loadGame();
     } catch (e) {
@@ -794,7 +844,6 @@ export default function Game() {
               throw Error("Expected an empty object");
             return {
               signedIn: !!user,
-              started: hasStarted,
               map,
               position: pos,
               score,
@@ -806,7 +855,7 @@ export default function Game() {
       ),
     ).catch(() => {});
     return () => controller.abort();
-  }, [user, map, pos, score, solved, hasStarted]);
+  }, [user, map, pos, score, solved]);
   const chosen = heroes.find((h) => h.id === (user?.hero || hero)) || heroes[0];
   return (
     <main>
@@ -852,7 +901,6 @@ export default function Game() {
                   const r = await fetch("/api/auth", { method: "DELETE" });
                   if (!r.ok) throw Error();
                   setUser(null);
-                  setHasStarted(false);
                   setActive(null);
                   setTeam(null);
                   setCanAdmin(false);
@@ -934,22 +982,6 @@ export default function Game() {
                 ))}
               </div>
             }
-            <label className="starting-map-field">
-              Starting map
-              <select
-                aria-label="Starting map"
-                value={startingMap}
-                onChange={(e) => setStartingMap(e.target.value)}
-                disabled={loading || busy || !config}
-              >
-                {config?.theme.world.maps.map((m) => (
-                  <option value={m.id} key={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-              <small>Your explorer starts at this map’s spawn.</small>
-            </label>
             <div className="account-fields">
               <label>
                 Explorer username
@@ -1006,53 +1038,6 @@ export default function Game() {
             <span>Built for curious minds</span>
           </footer>
         </section>
-      ) : !hasStarted && (canAdmin || team) && config ? (
-        <section className="expedition-entry">
-          <div className="expedition-entry-copy">
-            <span className="eyebrow">YOUR EXPEDITION</span>
-            <h1>Where would you like to start?</h1>
-            <p>Choose a map, then enter the world as {chosen.name}.</p>
-            <label>
-              Starting map
-              <select
-                aria-label="Starting map"
-                value={startingMap}
-                onChange={(e) => setStartingMap(e.target.value)}
-              >
-                {config.theme.world.maps.map((m) => (
-                  <option value={m.id} key={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              className="primary"
-              onClick={() => {
-                const start =
-                  mapInfo(startingMap) || mapInfo(activeWorld.startMap)!;
-                setPlace({ map: start.id, pos: { ...start.spawn } });
-                setActive(null);
-                setHasStarted(true);
-              }}
-            >
-              Begin expedition
-            </button>
-          </div>
-          <div className="expedition-entry-preview">
-            {mapInfo(startingMap)?.background ? (
-              <img
-                src={mapInfo(startingMap)!.background!}
-                alt={mapName(startingMap) + " map preview"}
-              />
-            ) : (
-              <div className="entry-empty-preview">
-                <Compass size={48} />
-              </div>
-            )}
-            <span>{mapName(startingMap)}</span>
-          </div>
-        </section>
       ) : canAdmin || team ? (
         <section className="game-layout">
           <div className="play-column">
@@ -1072,6 +1057,8 @@ export default function Game() {
             </div>
             <World
               hero={chosen}
+              players={presence.players}
+              characters={heroes}
               map={map}
               pos={pos}
               challenges={challenges}
@@ -1079,6 +1066,12 @@ export default function Game() {
               onMove={move}
               onSearch={search}
             />
+            <p className="presence-note" role="status">
+              {presence.status ||
+                (presence.visibility === "off"
+                  ? "Player visibility is turned off."
+                  : `${presence.players.length} ${presence.visibility === "team" ? "teammates" : "other players"} on this map · positions update every 3 seconds`)}
+            </p>
             <div className="controls">
               <span>
                 <kbd>W</kbd>

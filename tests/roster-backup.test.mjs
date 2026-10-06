@@ -300,7 +300,24 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
   try {
     const admin = makeClient();
     await teacher(admin);
-    await create(admin, "alice");
+    const created = await create(admin, "alice");
+    const spawn = { map: "castle", location: { x: 20, y: 23 } };
+    assert.equal(
+      (
+        await admin("/api/admin/users", {
+          ...created,
+          editing: true,
+          spawn,
+          themeRevision: 0,
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (await admin("/api/admin/presence", { visibility: "all", revision: 0 }))
+        .status,
+      200,
+    );
     const alice = makeClient();
     await alice("/api/auth", {
       username: "alice",
@@ -385,6 +402,15 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
           })
         ).status,
         200,
+      );
+      assert.deepEqual(
+        (await restoredAlice("/api/auth")).data.user.spawn,
+        spawn,
+      );
+      assert.equal(
+        restored.prepare("SELECT visibility FROM presence_settings").get()
+          .visibility,
+        "all",
       );
       assert.equal((await restoredAlice("/api/game")).data.score, 90);
       assert.equal(

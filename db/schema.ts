@@ -11,6 +11,7 @@ export const students = sqliteTable("students", {
   hash: text("hash").notNull(),
   salt: text("salt").notNull(),
   hero: text("hero").notNull(),
+  spawn: text("spawn"),
   role: text("role").notNull().default("student"),
   disabled: integer("disabled").notNull().default(0),
   managed: integer("managed").notNull().default(0),
@@ -106,3 +107,29 @@ export const writtenResponses = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.user, t.challenge] })],
 );
+
+export const playerPresence = sqliteTable(
+  "player_presence",
+  {
+    user: text("user")
+      .primaryKey()
+      .references(() => students.id, { onDelete: "cascade" }),
+    map: text("map").notNull(),
+    x: integer("x").notNull(),
+    y: integer("y").notNull(),
+    themeRevision: integer("theme_revision").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_player_presence_map_revision_updated").on(
+      t.map,
+      t.themeRevision,
+      t.updatedAt,
+    ),
+  ],
+);
+export const presenceSettings = sqliteTable("presence_settings", {
+  id: text("id").primaryKey(),
+  visibility: text("visibility").notNull(),
+  revision: integer("revision").notNull(),
+});

@@ -50,6 +50,20 @@
       "when": 1791321942796,
       "tag": "0006_mixed_blue_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791329715006,
+      "tag": "0007_whole_white_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791329822377,
+      "tag": "0008_broad_jazinda",
+      "breakpoints": true
     }
   ]
 }

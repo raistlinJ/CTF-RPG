@@ -44,6 +44,8 @@ try {
   sqlite.exec("BEGIN IMMEDIATE");
   try {
     for (const table of [
+      "player_presence",
+      "presence_settings",
       "sessions",
       "written_responses",
       "solved",
@@ -57,7 +59,7 @@ try {
     ])
       sqlite.prepare(`DELETE FROM ${table}`).run();
     const insert = sqlite.prepare(
-      "INSERT INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision) VALUES(?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision,spawn) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
     );
     for (const a of snapshot.accounts)
       insert.run(
@@ -71,6 +73,7 @@ try {
         a.managed,
         a.provisioned,
         a.revision,
+        a.spawn ? JSON.stringify(a.spawn) : null,
       );
     for (const t of snapshot.teams)
       sqlite
@@ -85,6 +88,11 @@ try {
     sqlite
       .prepare("INSERT INTO team_settings(id,max_members) VALUES('active',?)")
       .run(snapshot.teamMaxMembers ?? snapshot.config.teams.maxMembers);
+    sqlite
+      .prepare(
+        "INSERT INTO presence_settings(id,visibility,revision) VALUES('active',?,1)",
+      )
+      .run(snapshot.playerVisibility || snapshot.config.presence.visibility);
     const solved = sqlite.prepare(
       "INSERT INTO solved(user,challenge,points) VALUES(?,?,?)",
     );

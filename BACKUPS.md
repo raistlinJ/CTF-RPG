@@ -9,7 +9,7 @@ Open `/scoreboard` or **Scores** from the game. Signed-in students and authorize
 Open `/admin/users` or **Accounts** in the challenge studio. Authorized admins can:
 
 - Create student or administrator accounts with an assigned character and password.
-- Change an existing account's role and assigned character.
+- Change an existing account's role, assigned character, and starting map/tile.
 - Reset a password; the previous password stops working and existing sessions are revoked.
 - Disable an account, blocking access and removing it from the scoreboard, or reactivate it with its progress intact.
 
@@ -24,7 +24,7 @@ Use **Full backup** in either admin screen. `/api/admin/backup` is admin-only an
 - Application source, the ready-built standalone frontend, Node server, dependency lockfile, and hosting instructions.
 - All local public assets included in the hosted build; on your own server, current files in `public/` are also collected at export time. This covers sprites, MIDI audio, and local challenge downloads.
 - Effective `content/game.yaml` configuration and the current challenge set, including flags, hints, costs, and file links.
-- Every account, including YAML accounts that have not signed in, roles, assigned heroes, disabled state, salted password hashes, and account IDs.
+- Every account, including YAML accounts that have not signed in, roles, assigned heroes and starting positions, disabled state, salted password hashes, and account IDs.
 - Awarded scores/completions and purchased hints with their recorded costs.
 - `backup.json`, the restore program, and a short `RESTORE.md` guide.
 
@@ -83,3 +83,5 @@ Every challenge supports `grading: automatic` (the default) or `grading: manual`
 Admins use `/admin/review` (**Manage → Review answers**) to award a whole-number grade from 0 to the submission's saved maximum and provide feedback. Recorded hint costs are subtracted, with a minimum final award of 0. Regrading updates the existing award and scoreboard. Response revisions prevent stale edits or grades from overwriting newer work. Full backups retain responses/grades/feedback; theme and content packs exclude them. Use new IDs for new tests; grading mode cannot be changed after responses or awards exist.
 
 The built-in **Agentic Circuit** theme is available under **Themes & content**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
+
+Full backups also retain the classroom player-visibility setting. Temporary online positions are excluded; players appear again as they reconnect. Older backups without starting positions or visibility settings use the theme’s default spawn and teammate visibility.

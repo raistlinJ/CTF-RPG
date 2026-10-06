@@ -15,11 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { World } from "../../page";
+import { activeWorld, configureWorld, canSpawn } from "@/lib/world-data.mjs";
 import { Checkbox } from "@/components/ui/checkbox";
 type Account = {
   id: string | null;
   username: string;
   hero: string;
+  spawn: { map: string; location: { x: number; y: number } } | null;
   role: "student" | "admin";
   disabled: boolean;
   revision: number;
@@ -27,10 +30,17 @@ type Account = {
   score: number;
   completed: number;
 };
-type Character = { id: string; name: string };
+type Character = {
+  id: string;
+  name: string;
+  subtitle: string;
+  sprite: string | null;
+  fallback: "web" | "thunder" | "shield";
+};
+type Theme = { world: typeof activeWorld };
 type Draft = Pick<
   Account,
-  "username" | "hero" | "role" | "disabled" | "revision"
+  "username" | "hero" | "spawn" | "role" | "disabled" | "revision"
 > & { password: string };
 export default function UsersPage() {
   const [users, setUsers] = useState<Account[]>([]),
@@ -43,7 +53,9 @@ export default function UsersPage() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [query, setQuery] = useState("");
+    [query, setQuery] = useState(""),
+    [theme, setTheme] = useState<Theme | null>(null),
+    [themeRevision, setThemeRevision] = useState(0);
   async function load() {
     setLoading(true);
     try {
@@ -52,12 +64,17 @@ export default function UsersPage() {
         users: Account[];
         characters: Character[];
         viewer: string | null;
+        theme: Theme;
+        themeRevision: number;
         error?: string;
       };
       if (!r.ok) {
         setAllowed(false);
         throw Error(d.error || "User management is unavailable.");
       }
+      configureWorld(d.theme.world);
+      setTheme(d.theme);
+      setThemeRevision(d.themeRevision);
       setUsers(d.users);
       setCharacters(d.characters);
       setViewer(d.viewer);
@@ -78,6 +95,7 @@ export default function UsersPage() {
       hero: characters[0]?.id || "web",
       role: "student",
       disabled: false,
+      spawn: null,
       revision: 0,
       password: "",
     });
@@ -89,6 +107,7 @@ export default function UsersPage() {
     setDraft({
       username: a.username,
       hero: a.hero,
+      spawn: a.spawn,
       role: a.role,
       disabled: a.disabled,
       revision: a.revision,
@@ -116,6 +135,7 @@ export default function UsersPage() {
           ...draft,
           password: draft.password || undefined,
           editing,
+          themeRevision,
         }),
       });
       const d = (await r.json()) as {
@@ -128,7 +148,7 @@ export default function UsersPage() {
       setCharacters(d.characters);
       select(d.users.find((a) => a.username === draft.username.toLowerCase())!);
       setMessage(
-        "Account saved. Password resets and disabling revoke active sessions.",
+        "Account saved. Starting positions apply on next sign-in or reload.",
       );
     } catch (e) {
       setError((e as Error).message);
@@ -137,6 +157,12 @@ export default function UsersPage() {
     }
   }
   const own = viewer === draft?.username;
+  const spawnValid =
+    !draft?.spawn ||
+    canSpawn(draft.spawn.map, draft.spawn.location.x, draft.spawn.location.y);
+  const selectedMap = theme?.world.maps.find((m) => m.id === draft?.spawn?.map);
+  const selectedHero =
+    characters.find((c) => c.id === draft?.hero) || characters[0];
   return (
     <main className="admin-studio">
       <header>
@@ -161,8 +187,8 @@ export default function UsersPage() {
             <span className="eyebrow">ADMIN STUDIO</span>
             <h1>Explorer accounts</h1>
             <p>
-              Create accounts, assign heroes, and manage access to the
-              expedition.
+              Create accounts, assign heroes and starting positions, and manage
+              access to the expedition.
             </p>
           </div>
           {allowed && (
@@ -308,6 +334,98 @@ export default function UsersPage() {
                     </SelectContent>
                   </Select>
                 </label>
+                <fieldset className="account-spawn">
+                  <legend>Starting position</legend>
+                  <label>
+                    Starting map
+                    <Select
+                      value={draft.spawn?.map || "default"}
+                      onValueChange={(map) => {
+                        const info = theme?.world.maps.find(
+                          (m) => m.id === map,
+                        );
+                        patch({
+                          spawn: info
+                            ? { map, location: { ...info.spawn } }
+                            : null,
+                        });
+                      }}
+                    >
+                      <SelectTrigger aria-label="Account starting map">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Theme default</SelectItem>
+                        {draft.spawn && !selectedMap && (
+                          <SelectItem value={draft.spawn.map}>
+                            Unavailable: {draft.spawn.map}
+                          </SelectItem>
+                        )}
+                        {theme?.world.maps.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </label>
+                  {draft.spawn && selectedMap && selectedHero && (
+                    <>
+                      <p>
+                        Click a reachable tile to place this explorer. Current
+                        tile: {draft.spawn.location.x}, {draft.spawn.location.y}
+                        .
+                      </p>
+                      <World
+                        hero={selectedHero}
+                        map={selectedMap.id}
+                        pos={draft.spawn.location}
+                        challenges={[]}
+                        solved={[]}
+                        onMove={() => {}}
+                        onSearch={() => {}}
+                        selectionAllowed={canSpawn}
+                        selectionLabel="Account spawn picker"
+                        onSelect={(x, y) => {
+                          if (canSpawn(selectedMap.id, x, y))
+                            patch({
+                              spawn: {
+                                map: selectedMap.id,
+                                location: { x, y },
+                              },
+                            });
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() =>
+                          patch({
+                            spawn: {
+                              map: selectedMap.id,
+                              location: { ...selectedMap.spawn },
+                            },
+                          })
+                        }
+                      >
+                        Use this map’s spawn
+                      </button>
+                    </>
+                  )}
+                  {!draft.spawn && (
+                    <p>Uses the theme’s main map and default spawn.</p>
+                  )}
+                  {!spawnValid && (
+                    <p className="error" role="alert">
+                      This assigned tile is unavailable in the current theme.
+                      Choose a reachable tile or Theme default before saving.
+                    </p>
+                  )}
+                  <small>
+                    Applies on sign-in and reload. Scores, hero, and team stay
+                    with the account.
+                  </small>
+                </fieldset>
                 <label>
                   Access role
                   <Select
@@ -346,7 +464,7 @@ export default function UsersPage() {
                     {message}
                   </p>
                 )}
-                <button className="primary" disabled={busy}>
+                <button className="primary" disabled={busy || !spawnValid}>
                   <Save size={17} />
                   {busy ? "Saving…" : "Save account"}
                 </button>

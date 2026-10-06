@@ -1,5 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import type { Team } from "@/app/team-setup";
 import {
   AlertDialog,
@@ -22,6 +29,8 @@ export default function TeamsAdmin() {
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
+    [visibility, setVisibility] = useState("team"),
+    [presenceRevision, setPresenceRevision] = useState(0),
     [selected, setSelected] = useState<Team | null>(null);
   async function load() {
     const r = await fetch("/api/admin/teams"),
@@ -37,6 +46,16 @@ export default function TeamsAdmin() {
     setMembers(d.members || []);
     setMax(d.maxMembers);
     setAllowed(true);
+    const presenceResponse = await fetch("/api/admin/presence"),
+      presence = (await presenceResponse.json()) as {
+        error?: string;
+        visibility: string;
+        revision: number;
+      };
+    if (!presenceResponse.ok)
+      throw Error(presence.error || "Could not load player visibility.");
+    setVisibility(presence.visibility);
+    setPresenceRevision(presence.revision);
   }
   useEffect(() => {
     void load()
@@ -72,6 +91,27 @@ export default function TeamsAdmin() {
     } finally {
       setBusy(false);
       setSelected(null);
+    }
+  }
+  async function saveVisibility(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const r = await fetch("/api/admin/presence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visibility, revision: presenceRevision }),
+        }),
+        d = (await r.json()) as { error?: string; revision: number };
+      if (!r.ok) throw Error(d.error);
+      setPresenceRevision(d.revision);
+      setMessage("Player visibility saved. Active games update automatically.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
   return (
@@ -134,6 +174,28 @@ export default function TeamsAdmin() {
               </p>
               <button className="primary" disabled={busy}>
                 Save team limit
+              </button>
+            </form>
+            <form className="team-limit admin-editor" onSubmit={saveVisibility}>
+              <label>
+                Players visible on the map
+                <Select value={visibility} onValueChange={setVisibility}>
+                  <SelectTrigger aria-label="Player visibility">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="team">Teammates only</SelectItem>
+                    <SelectItem value="all">All players</SelectItem>
+                    <SelectItem value="off">Off</SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+              <p>
+                Shows active explorers on the same map. Positions update every 3
+                seconds; hidden tabs pause updates.
+              </p>
+              <button className="primary" disabled={busy}>
+                Save player visibility
               </button>
             </form>
             <div className="team-admin-list">
