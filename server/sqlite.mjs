@@ -58,6 +58,11 @@ CREATE TABLE IF NOT EXISTS team_settings(id TEXT PRIMARY KEY,max_members INTEGER
 CREATE TABLE IF NOT EXISTS presence_settings(id TEXT PRIMARY KEY,visibility TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS player_presence(user TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,map TEXT NOT NULL,x INTEGER NOT NULL,y INTEGER NOT NULL,theme_revision INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_player_presence_map_revision_updated ON player_presence(map,theme_revision,updated_at);
+CREATE TABLE IF NOT EXISTS team_social_settings(id TEXT PRIMARY KEY,names INTEGER NOT NULL,scores INTEGER NOT NULL,messaging INTEGER NOT NULL,revision INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS team_messages(id TEXT PRIMARY KEY,sender_user TEXT REFERENCES students(id),sender_team TEXT REFERENCES teams(id) ON DELETE CASCADE,recipient_team TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,sender TEXT NOT NULL,text TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_team_messages_recipient_created ON team_messages(recipient_team,created_at);
+CREATE INDEX IF NOT EXISTS idx_team_messages_sender_team_created ON team_messages(sender_team,created_at);
+CREATE INDEX IF NOT EXISTS idx_team_messages_sender_user_created ON team_messages(sender_user,created_at);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,hint TEXT NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(user,challenge,hint));

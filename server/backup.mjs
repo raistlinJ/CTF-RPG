@@ -1,3 +1,4 @@
+import { teamFeatures } from "./team-social.mjs";
 import { presenceSettings } from "./presence.mjs";
 import { spawnSchema } from "../lib/spawn.mjs";
 import { activeTheme, readAsset } from "./packs.mjs";
@@ -65,6 +66,30 @@ export function validateSnapshot(input) {
       teamMembers: z
         .array(z.object({ user: z.string(), team: z.string() }).strict())
         .max(10000)
+        .default([]),
+      teamFeatures: z
+        .object({
+          names: z.boolean(),
+          scores: z.boolean(),
+          messaging: z.boolean(),
+        })
+        .strict()
+        .optional(),
+      teamMessages: z
+        .array(
+          z
+            .object({
+              id: z.string().min(1).max(128),
+              sender_user: z.string().nullable(),
+              sender_team: z.string().nullable(),
+              recipient_team: z.string(),
+              sender: z.string().min(1).max(80),
+              text: z.string().min(1).max(1000),
+              created_at: z.number().int().min(0),
+            })
+            .strict(),
+        )
+        .max(100000)
         .default([]),
       playerVisibility: z.enum(["off", "team", "all"]).optional(),
       teamMaxMembers: z.number().int().min(1).max(100).optional(),
@@ -142,6 +167,17 @@ export function validateSnapshot(input) {
     snapshot.teamMembers.some((m) => !ids.has(m.user) || !teamIds.has(m.team))
   )
     throw Error("Unknown team or account in backup membership.");
+  if (
+    new Set(snapshot.teamMessages.map((m) => m.id)).size !==
+      snapshot.teamMessages.length ||
+    snapshot.teamMessages.some(
+      (m) =>
+        (m.sender_user !== null && !ids.has(m.sender_user)) ||
+        (m.sender_team !== null && !teamIds.has(m.sender_team)) ||
+        !teamIds.has(m.recipient_team),
+    )
+  )
+    throw Error("Invalid team messages in backup.");
   if (
     new Set(snapshot.writtenResponses.map((r) => `${r.user}\0${r.challenge}`))
       .size !== snapshot.writtenResponses.length
@@ -270,6 +306,17 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     writtenResponses: responses.results,
     teams: teams.results,
     teamMembers: members.results,
+    teamFeatures: (({ revision, ...flags }) => flags)(
+      await teamFeatures(db, config),
+    ),
+    teamMessages: (
+      await db
+        .prepare(
+          "SELECT id,sender_user,sender_team,recipient_team,sender,text,created_at FROM team_messages ORDER BY created_at,id",
+        )
+        .bind()
+        .all()
+    ).results,
     playerVisibility: (await presenceSettings(db, config)).visibility,
     teamMaxMembers:
       teamSettings.results[0]?.max_members ?? config.teams?.maxMembers ?? 4,

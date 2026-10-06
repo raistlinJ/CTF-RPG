@@ -7,6 +7,9 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import TeamPanel from "@/app/team-panel";
+import type { TeamFeatures } from "@/app/team-panel";
 import type { Team } from "@/app/team-setup";
 import {
   AlertDialog,
@@ -30,7 +33,15 @@ export default function TeamsAdmin() {
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [visibility, setVisibility] = useState("team"),
+    [features, setFeatures] = useState<TeamFeatures>({
+      names: true,
+      scores: true,
+      messaging: true,
+      revision: 0,
+    }),
     [presenceRevision, setPresenceRevision] = useState(0),
+    [viewedTeam, setViewedTeam] = useState<string | null>(null),
+    [panelOpen, setPanelOpen] = useState(false),
     [selected, setSelected] = useState<Team | null>(null);
   async function load() {
     const r = await fetch("/api/admin/teams"),
@@ -56,6 +67,13 @@ export default function TeamsAdmin() {
       throw Error(presence.error || "Could not load player visibility.");
     setVisibility(presence.visibility);
     setPresenceRevision(presence.revision);
+    const featuresResponse = await fetch("/api/admin/team-social"),
+      flags = (await featuresResponse.json()) as TeamFeatures & {
+        error?: string;
+      };
+    if (!featuresResponse.ok)
+      throw Error(flags.error || "Could not load team features.");
+    setFeatures(flags);
   }
   useEffect(() => {
     void load()
@@ -108,6 +126,27 @@ export default function TeamsAdmin() {
       if (!r.ok) throw Error(d.error);
       setPresenceRevision(d.revision);
       setMessage("Player visibility saved. Active games update automatically.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function saveFeatures(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const r = await fetch("/api/admin/team-social", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(features),
+        }),
+        d = (await r.json()) as TeamFeatures & { error?: string };
+      if (!r.ok) throw Error(d.error);
+      setFeatures(d);
+      setMessage("Team features saved. Active games update automatically.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -198,10 +237,57 @@ export default function TeamsAdmin() {
                 Save player visibility
               </button>
             </form>
+            <form className="team-limit admin-editor" onSubmit={saveFeatures}>
+              <h2>Team cards &amp; messages</h2>
+              <label className="admin-checkbox">
+                <Checkbox
+                  checked={features.names}
+                  onCheckedChange={(value) =>
+                    setFeatures({ ...features, names: value === true })
+                  }
+                />
+                Show team names
+              </label>
+              <label className="admin-checkbox">
+                <Checkbox
+                  checked={features.scores}
+                  onCheckedChange={(value) =>
+                    setFeatures({ ...features, scores: value === true })
+                  }
+                />
+                Show team scores
+              </label>
+              <label className="admin-checkbox">
+                <Checkbox
+                  checked={features.messaging}
+                  onCheckedChange={(value) =>
+                    setFeatures({ ...features, messaging: value === true })
+                  }
+                />
+                Enable team messages
+              </label>
+              <p>
+                Team scores total the earned points of active student members.
+                When names are hidden, students see a team reference. Turning
+                messaging off hides conversations and prevents sending; saved
+                messages are kept.
+              </p>
+              <button className="primary" disabled={busy}>
+                Save team features
+              </button>
+            </form>
             <div className="team-admin-list">
               {teams.map((t) => (
                 <article className="admin-editor" key={t.id}>
-                  <h2>{t.name}</h2>
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setViewedTeam(t.id);
+                      setPanelOpen(true);
+                    }}
+                  >
+                    <h2>{t.name}</h2>
+                  </button>
                   <p>
                     {t.members} / {max} explorers
                   </p>
@@ -231,6 +317,13 @@ export default function TeamsAdmin() {
           </>
         )}
       </section>
+      <TeamPanel
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        selected={viewedTeam}
+        onSelect={setViewedTeam}
+        onRead={() => {}}
+      />
       <AlertDialog
         open={!!selected}
         onOpenChange={(open) => {

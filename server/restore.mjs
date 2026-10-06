@@ -44,6 +44,8 @@ try {
   sqlite.exec("BEGIN IMMEDIATE");
   try {
     for (const table of [
+      "team_messages",
+      "team_social_settings",
       "player_presence",
       "presence_settings",
       "sessions",
@@ -93,6 +95,25 @@ try {
         "INSERT INTO presence_settings(id,visibility,revision) VALUES('active',?,1)",
       )
       .run(snapshot.playerVisibility || snapshot.config.presence.visibility);
+    const features = snapshot.teamFeatures || snapshot.config.teams.features;
+    sqlite
+      .prepare(
+        "INSERT INTO team_social_settings(id,names,scores,messaging,revision) VALUES('active',?,?,?,1)",
+      )
+      .run(+features.names, +features.scores, +features.messaging);
+    const insertMessage = sqlite.prepare(
+      "INSERT INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at) VALUES(?,?,?,?,?,?,?)",
+    );
+    for (const m of snapshot.teamMessages)
+      insertMessage.run(
+        m.id,
+        m.sender_user,
+        m.sender_team,
+        m.recipient_team,
+        m.sender,
+        m.text,
+        m.created_at,
+      );
     const solved = sqlite.prepare(
       "INSERT INTO solved(user,challenge,points) VALUES(?,?,?)",
     );

@@ -80,3 +80,24 @@ Use **Manage → Accounts**, select an explorer, choose **Starting map**, and cl
 **Manage → Teams → Players visible on the map** offers **Teammates only** (default), **All players**, or **Off**. Live explorers appear with their assigned sprites and usernames on the same map; teammate labels use green. Players do not block one another or reveal challenge answers. Visibility is enforced by the server. Each visible game tab exchanges positions every three seconds. Hidden tabs pause, stationary positions refresh less often, and disconnected players disappear within 20 seconds. The response is capped at 100 other players per map. This is a shared exploration view, not synchronized combat.
 
 Standalone YAML can set `presence: { visibility: team }` (`team`, `all`, or `off`). Once an admin saves visibility, the database setting takes priority. Full backups retain assigned starts and visibility; theme/content packs exclude these account/classroom settings, and temporary live positions are never exported.
+
+## Team cards and messages
+
+Click **Teams** in the game header, your team banner, or a nearby player to open a team card. Cards show member count and, when enabled, the name and aggregate score. Scores sum the earned net points of active student members; administrator and disabled accounts are excluded. **Manage → Teams** also opens cards by clicking team names.
+
+Use **Send message** to contact the selected team. Conversations are visible to all members of the sending and receiving teams; unrelated teams cannot read them. **Your team → Team inbox** collects messages, with **Reply to…** opening the sending team’s conversation. A dot next to **Teams** indicates incoming messages until the inbox is opened. Admins can send instructor messages from management and view conversations for the selected team. Messages are plain text (1–1000 characters), with at most five sends per explorer per minute and the latest 100 messages displayed. Retrying a send preserves its reference to avoid duplicate delivery.
+
+Under **Manage → Teams → Team cards & messages**, independently toggle **Show team names**, **Show team scores**, and **Enable team messages**. All are enabled initially. Hidden names use `Team #…` references, including team-selection lists; hidden scores are omitted from student team APIs. These controls concern team cards; individual scores and player usernames retain their existing behavior. Disabling messaging hides stored conversations and rejects new sends. Re-enabling restores access. Open cards refresh every five seconds while visible; message notifications use existing position updates, including when player visibility is off.
+
+For standalone configuration:
+
+```yaml
+teams:
+  maxMembers: 4
+  features:
+    names: true
+    scores: true
+    messaging: true
+```
+
+Saved admin settings take priority over YAML. Full backups include these switches and private messages; theme/content packs exclude them. Disbanding a team removes conversations involving it and preserves account progress.

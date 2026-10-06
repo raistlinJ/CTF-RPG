@@ -85,3 +85,5 @@ Admins use `/admin/review` (**Manage → Review answers**) to award a whole-numb
 The built-in **Agentic Circuit** theme is available under **Themes & content**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
 
 Full backups also retain the classroom player-visibility setting. Temporary online positions are excluded; players appear again as they reconnect. Older backups without starting positions or visibility settings use the theme’s default spawn and teammate visibility.
+
+Full backups retain team-card feature switches and private team messages, including sender and recipient references. Restores preserve conversations; older backups start with an empty inbox and enabled team-card features. Treat these messages as student records when storing or sharing a full backup. Theme and content exports contain no team messages.

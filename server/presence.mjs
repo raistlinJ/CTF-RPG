@@ -1,3 +1,4 @@
+import { teamFeatures, teamInbox } from "./team-social.mjs";
 import { createWorld } from "../lib/world-data.mjs";
 const modes = ["off", "team", "all"];
 const reply = (data, status = 200) =>
@@ -78,8 +79,18 @@ export async function handlePresence(
   const setting = await presenceSettings(db, config),
     now = Date.now(),
     fallback = config.presence?.visibility || "team";
+  const features = await teamFeatures(db, config),
+    social = {
+      teamFeatures: features,
+      latestMessageAt: await teamInbox(db, features, member?.team),
+    };
   if (setting.visibility === "off")
-    return reply({ visibility: "off", players: [], truncated: false });
+    return reply({
+      visibility: "off",
+      players: [],
+      truncated: false,
+      ...social,
+    });
   // Keep one recent position per account; stationary explorers refresh less often.
   await db
     .prepare(
@@ -135,11 +146,13 @@ export async function handlePresence(
         x: r.x,
         y: r.y,
         teammate: !!member && r.team === member.team,
+        team: r.team || null,
       };
     });
   return reply({
     visibility: setting.visibility,
     players,
     truncated: rows.length > 100,
+    ...social,
   });
 }

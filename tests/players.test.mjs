@@ -213,6 +213,7 @@ test("presence isolates teams, allows admin-controlled all/off, expires ghosts, 
     );
     assert.deepEqual(Object.keys(result.data.players[0]).sort(), [
       "hero",
+      "team",
       "teammate",
       "username",
       "x",

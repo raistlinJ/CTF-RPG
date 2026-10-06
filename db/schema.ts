@@ -133,3 +133,41 @@ export const presenceSettings = sqliteTable("presence_settings", {
   visibility: text("visibility").notNull(),
   revision: integer("revision").notNull(),
 });
+
+export const teamSocialSettings = sqliteTable("team_social_settings", {
+  id: text("id").primaryKey(),
+  names: integer("names").notNull(),
+  scores: integer("scores").notNull(),
+  messaging: integer("messaging").notNull(),
+  revision: integer("revision").notNull(),
+});
+export const teamMessages = sqliteTable(
+  "team_messages",
+  {
+    id: text("id").primaryKey(),
+    senderUser: text("sender_user").references(() => students.id),
+    senderTeam: text("sender_team").references(() => teams.id, {
+      onDelete: "cascade",
+    }),
+    recipientTeam: text("recipient_team")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    sender: text("sender").notNull(),
+    text: text("text").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_team_messages_recipient_created").on(
+      t.recipientTeam,
+      t.createdAt,
+    ),
+    index("idx_team_messages_sender_team_created").on(
+      t.senderTeam,
+      t.createdAt,
+    ),
+    index("idx_team_messages_sender_user_created").on(
+      t.senderUser,
+      t.createdAt,
+    ),
+  ],
+);

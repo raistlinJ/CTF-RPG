@@ -1,3 +1,4 @@
+import { handleTeamSocial } from "./team-social.mjs";
 import { handlePresence } from "./presence.mjs";
 import { spawnSchema, canSpawn, resolveSpawn } from "../lib/spawn.mjs";
 import { updateMap } from "./maps.mjs";
@@ -193,6 +194,8 @@ function createRequestApi({
         theme,
         themeRevision,
       });
+    if (["/api/team-social", "/api/admin/team-social"].includes(path))
+      return handleTeamSocial(req, { db, config, user, platformAdmin });
     if (["/api/teams", "/api/admin/teams"].includes(path))
       return handleTeams(req, { db, config, user, platformAdmin });
     if (path.startsWith("/api/assets/") && method === "GET") {

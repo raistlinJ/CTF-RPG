@@ -1,4 +1,5 @@
 "use client";
+import TeamPanel from "./team-panel";
 import { usePlayerPresence, type NearbyPlayer } from "./use-player-presence";
 import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useRef, useState } from "react";
@@ -227,6 +228,7 @@ export function World({
   selectionLabel,
   players = [],
   characters = [],
+  onTeamSelect,
 }: {
   hero: Character;
   map: string;
@@ -240,6 +242,7 @@ export function World({
   selectionLabel?: string;
   players?: NearbyPlayer[];
   characters?: Character[];
+  onTeamSelect?: (team: string) => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const image = useSprite(hero.sprite);
@@ -413,7 +416,11 @@ export function World({
             {players.map((p) => {
               const character = characters.find((c) => c.id === p.hero);
               return (
-                <div
+                <button
+                  type="button"
+                  disabled={!p.team || !onTeamSelect}
+                  aria-label={`View team for ${p.username}`}
+                  onClick={() => p.team && onTeamSelect?.(p.team)}
                   key={p.username}
                   className={"nearby-player " + (p.teammate ? "teammate" : "")}
                   style={{
@@ -423,7 +430,7 @@ export function World({
                 >
                   {character && <Portrait hero={character} />}
                   <span>{p.username}</span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -512,6 +519,13 @@ export default function Game() {
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
   const [team, setTeam] = useState<Team | null>(null);
+  const [teamPanelOpen, setTeamPanelOpen] = useState(false),
+    [selectedTeam, setSelectedTeam] = useState<string | null>(null),
+    [readMessagesAt, setReadMessagesAt] = useState(0);
+  function openTeam(id: string | null) {
+    setSelectedTeam(id);
+    setTeamPanelOpen(true);
+  }
   const presence = usePlayerPresence(
     user?.username,
     !!user && (canAdmin || !!team),
@@ -687,7 +701,8 @@ export default function Game() {
         (e.target as HTMLElement).closest(
           "input,textarea,select,[contenteditable=true]",
         ) ||
-        active
+        active ||
+        teamPanelOpen
       )
         return;
       const dirs: Record<string, number[]> = {
@@ -712,7 +727,17 @@ export default function Game() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [user, active, map, pos, challenges, solved, canAdmin, team]);
+  }, [
+    user,
+    active,
+    map,
+    pos,
+    challenges,
+    solved,
+    canAdmin,
+    team,
+    teamPanelOpen,
+  ]);
   async function login(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -874,6 +899,23 @@ export default function Game() {
         </a>
         <div className="header-right">
           <span className="edition">{config?.theme.description}</span>
+          {user && (canAdmin || team) && (
+            <button
+              className="text-button game-teams-button"
+              onClick={() => openTeam(null)}
+            >
+              Teams
+              {presence.features.messaging &&
+                presence.latestMessageAt > readMessagesAt && (
+                  <span
+                    className="message-badge"
+                    aria-label="New team messages"
+                  >
+                    ●
+                  </span>
+                )}
+            </button>
+          )}
           {user && (
             <a href="/scoreboard" className="admin-link">
               Scores
@@ -901,6 +943,8 @@ export default function Game() {
                   const r = await fetch("/api/auth", { method: "DELETE" });
                   if (!r.ok) throw Error();
                   setUser(null);
+                  setTeamPanelOpen(false);
+                  setReadMessagesAt(0);
                   setActive(null);
                   setTeam(null);
                   setCanAdmin(false);
@@ -919,6 +963,13 @@ export default function Game() {
           )}
         </div>
       </header>
+      <TeamPanel
+        open={teamPanelOpen}
+        onOpenChange={setTeamPanelOpen}
+        selected={selectedTeam}
+        onSelect={setSelectedTeam}
+        onRead={(at) => setReadMessagesAt((previous) => Math.max(previous, at))}
+      />
       {audioError && (
         <p role="status" className="audio-error">
           {audioError}
@@ -929,6 +980,8 @@ export default function Game() {
           key={user.username}
           username={user.username}
           onChange={setTeam}
+          onView={() => team && openTeam(team.id)}
+          featureRevision={presence.features.revision}
         />
       )}
       {!user || !chosen ? (
@@ -1058,6 +1111,7 @@ export default function Game() {
             <World
               hero={chosen}
               players={presence.players}
+              onTeamSelect={openTeam}
               characters={heroes}
               map={map}
               pos={pos}

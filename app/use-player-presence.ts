@@ -1,4 +1,5 @@
 "use client";
+import type { TeamFeatures } from "./team-panel";
 import { useEffect, useRef, useState } from "react";
 export type NearbyPlayer = {
   username: string;
@@ -6,6 +7,7 @@ export type NearbyPlayer = {
   x: number;
   y: number;
   teammate: boolean;
+  team: string | null;
 };
 export function usePlayerPresence(
   username: string | undefined,
@@ -19,6 +21,13 @@ export function usePlayerPresence(
       players: NearbyPlayer[];
     }>({ map, players: [] }),
     [visibility, setVisibility] = useState("team"),
+    [features, setFeatures] = useState<TeamFeatures>({
+      names: true,
+      scores: true,
+      messaging: true,
+      revision: 0,
+    }),
+    [latestMessageAt, setLatestMessageAt] = useState(0),
     [status, setStatus] = useState("");
   const current = useRef({ map, pos, themeRevision });
   current.current = { map, pos, themeRevision };
@@ -57,11 +66,15 @@ export function usePlayerPresence(
           players: NearbyPlayer[];
           visibility: string;
           truncated: boolean;
+          teamFeatures: TeamFeatures;
+          latestMessageAt: number;
         };
         if (!r.ok) throw Error();
         if (live && !document.hidden && current.current.map === sent.map) {
           setSnapshot({ map: sent.map, players: d.players });
           setVisibility(d.visibility);
+          setFeatures(d.teamFeatures);
+          setLatestMessageAt(d.latestMessageAt);
           setStatus(
             d.truncated ? "Showing the 100 most recently active players." : "",
           );
@@ -98,6 +111,8 @@ export function usePlayerPresence(
   return {
     players: snapshot.map === map ? snapshot.players : [],
     visibility,
+    features,
+    latestMessageAt,
     status,
   };
 }
