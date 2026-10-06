@@ -1,6 +1,6 @@
 # Author challenges in YAML
 
-Edit `content/challenges.yaml`. For your own Node server, restart the service after editing; no frontend rebuild is needed. In Docker, run `docker compose restart quest`. For the hosted Sites version, rebuild and republish. To use another server-side YAML file, set `CHALLENGES_CONFIG=/absolute/path/challenges.yaml` when starting your Node server.
+You can create and edit challenges through the [admin studio](ADMIN_GUIDE.md), with admin-only YAML export. `content/challenges.yaml` provides the initial set; after the first admin save, the persistent database set is authoritative. For your own Node server, restart the service after editing; no frontend rebuild is needed. In Docker, run `docker compose restart quest`. For the hosted Sites version, rebuild and republish. To use another server-side YAML file, set `CHALLENGES_CONFIG=/absolute/path/challenges.yaml` when starting your Node server.
 
 ## Complete example
 

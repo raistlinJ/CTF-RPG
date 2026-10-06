@@ -39,7 +39,8 @@ sqlite.exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;");
 sqlite.exec(`CREATE TABLE IF NOT EXISTS students(id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE,hash TEXT NOT NULL,salt TEXT NOT NULL,hero TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));
-CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,hint TEXT NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(user,challenge,hint));`);
+CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,hint TEXT NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(user,challenge,hint));
+CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);`);
 const db = {
   prepare(sql) {
     const statement = sqlite.prepare(sql);
@@ -122,7 +123,7 @@ const server = createServer(async (req, res) => {
       let body = "";
       for await (const chunk of req) {
         body += chunk;
-        if (Buffer.byteLength(body) > 16384) {
+        if (Buffer.byteLength(body) > 524288) {
           res.writeHead(413);
           return res.end();
         }
@@ -164,7 +165,8 @@ const server = createServer(async (req, res) => {
         }
       }
     }
-    if (!file && path === "/") file = resolve(output, "index.html");
+    if (!file && ["/", "/admin", "/admin/"].includes(path))
+      file = resolve(output, "index.html");
     if (!file) {
       res.writeHead(404);
       return res.end("Not found");

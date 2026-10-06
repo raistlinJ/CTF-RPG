@@ -7,6 +7,9 @@ export function handle(req: Request) {
     db: (env as unknown as { DB: D1Database }).DB,
     config: gameConfig,
     challenges,
+    platformAdmin: gameConfig.admin.platformEmails.includes(
+      (req.headers.get("oai-authenticated-user-email") || "").toLowerCase(),
+    ),
     secureCookies: new URL(req.url).protocol === "https:",
   })(req);
 }

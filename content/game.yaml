@@ -1,4 +1,7 @@
 # Server-only configuration. Never put this file in public/.
+admin:
+  # Trusted Sites sign-in email allowlist. Ignored by the standalone server.
+  platformEmails: ["jaime.acosta1@gmail.com"]
 characters:
   - id: web
     name: Web Ranger
@@ -22,6 +25,7 @@ accounts:
   #   - username: student01
   #     password: replace-with-a-unique-password
   #     hero: thunder # Optional. Omit to let the student choose on first sign-in.
+  #     role: admin # Only YAML-managed accounts can be administrators.
 audio:
   midi: /audio/north-pole.mid # Replace with your own MIDI in public/audio/.
   loop: true

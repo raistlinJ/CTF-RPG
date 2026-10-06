@@ -15,14 +15,19 @@ npm ci
 npm run build
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_long_matthew_murdock.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_white_maria_hill.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0002_melodic_stephen_strange.sql
 npm run dev
 ```
 
 Apply each migration only once, in order, to a new local database. Existing preview databases need only the new migration. Open the URL printed by the development server. Production schema migrations are included in Sites publication. `npm run build` builds a Cloudflare Worker; the D1 binding is `DB`.
 
+## Admin challenge editor
+
+Open `/admin` to view the full town and interiors, select locations, and create or edit challenges. Configure self-hosted administrators with `role: admin` in your private game YAML. The hosted owner can use trusted Sites sign-in. Saved edits persist in the database and can be exported as YAML. See [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
+
 ## Add or edit challenges
 
-Edit `content/challenges.yaml`. It supports challenge text, points, accepted flags, case sensitivity, multiple hints with costs, and downloadable files. See [CHALLENGES.md](CHALLENGES.md) for a complete YAML example, field definitions, scoring, and compatibility with the original format. Flags and locked hint text stay on the server.
+The starting set comes from `content/challenges.yaml`; after the first admin save, the database-backed set is authoritative. The YAML supports challenge text, points, accepted flags, case sensitivity, multiple hints with costs, and downloadable files. See [CHALLENGES.md](CHALLENGES.md) for a complete YAML example, field definitions, scoring, and compatibility with the original format. Flags and locked hint text stay on the server.
 
 Restart your standalone Node server after YAML changes. For Sites, rebuild and republish. Hint purchases persist once per student; costs reduce that challenge's reward. Existing completed challenges keep their saved scores.
 
@@ -34,6 +39,6 @@ See [MAP_GUIDE.md](MAP_GUIDE.md) for the expanded town, Santa's castle, all hous
 
 Usernames are case-insensitive, 3–24 letters/digits/underscores/hyphens. Passwords have 8–128 characters and are stored as salted PBKDF2-SHA256 hashes (100,000 iterations). Random server sessions use HttpOnly, SameSite=Lax cookies with a seven-day expiry; HTTPS cookies are Secure. Hero selection and scoring are enforced on the server, and duplicate rewards are prevented with a database primary key. Writes check same-origin requests.
 
-This basic version has no password recovery, teacher administration, account deletion UI. The standalone server includes basic login rate limiting; the hosted version has no application-level limiter. Add those before a large public classroom rollout. Current hosted publication is private to the site owner; sharing access must be configured before students can visit. Hero designs and game artwork are original pixel-style interpretations rather than copied game assets. Movement is client-side; this is a learning game, not a competitive anti-cheat system.
+This version includes a teacher challenge editor; password recovery and account deletion UI are not included. The standalone server includes basic login rate limiting; the hosted version has no application-level limiter. Add those before a large public classroom rollout. Current hosted publication is private to the site owner; sharing access must be configured before students can visit. Hero designs and game artwork are original pixel-style interpretations rather than copied game assets. Movement is client-side; this is a learning game, not a competitive anti-cheat system.
 
 An optional browser WebMCP `read_expedition` tool exposes the same visible position and score when the browser supports it. It never exposes passwords or answers.

@@ -74,7 +74,7 @@ The header's speaker button enables music after a user gesture; the game begins 
 
 ## Challenges
 
-Continue editing `content/challenges.yaml`. The [challenge guide](CHALLENGES.md) documents text, accepted flags, case sensitivity, hints with point costs, and downloadable files; the [README](README.md) documents map locations. Restart the standalone server after edits. Hint costs reduce their own challenge’s reward and are recorded once per student. Locked hint text and accepted flags stay private. Existing completed IDs cannot earn a second reward; changing a reward does not retroactively change stored scores. The hint-purchase table is added automatically when an existing self-hosted installation starts.
+Use the `/admin` challenge studio or edit the initial `content/challenges.yaml`. After the first admin save, the database-backed set becomes authoritative; export YAML from the studio for a portable copy. The [challenge guide](CHALLENGES.md) documents text, accepted flags, case sensitivity, hints with point costs, and downloadable files; the [README](README.md) documents map locations. Restart the standalone server after edits. Hint costs reduce their own challenge’s reward and are recorded once per student. Locked hint text and accepted flags stay private. Existing completed IDs cannot earn a second reward; changing a reward does not retroactively change stored scores. The hint-purchase table is added automatically when an existing self-hosted installation starts.
 
 ## Server settings
 
@@ -116,6 +116,6 @@ npm run test:selfhost
 npx tsc --noEmit
 ```
 
-Tests verify YAML-managed and assigned heroes, credential changes, persistence after restart, scoring, origin checks, and private-file protection. There is no password reset or teacher dashboard; teacher changes are made in YAML. Browser movement remains client-side, suitable for a classroom activity rather than competitive anti-cheat.
+Tests verify YAML-managed and assigned heroes, credential changes, persistence after restart, scoring, origin checks, and private-file protection. The `/admin` challenge studio is documented in [ADMIN_GUIDE.md](ADMIN_GUIDE.md). Configure accounts with `role: admin` in your private game YAML. There is no password reset or account-management dashboard. Browser movement remains client-side, suitable for a classroom activity rather than competitive anti-cheat.
 
 The existing Sites deployment is also supported with `npm run build`. In that mode, `content/game.yaml` and challenge YAML are bundled at build time, so edits require a new publication; the standalone runtime environment variables above apply only to your own Node server.

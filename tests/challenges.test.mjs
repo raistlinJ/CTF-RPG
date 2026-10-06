@@ -45,6 +45,7 @@ function database() {
   for (const file of [
     "drizzle/0000_long_matthew_murdock.sql",
     "drizzle/0001_white_maria_hill.sql",
+    "drizzle/0002_melodic_stephen_strange.sql",
   ])
     sqlite.exec(readFileSync(file, "utf8"));
   return {

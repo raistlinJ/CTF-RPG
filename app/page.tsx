@@ -130,7 +130,7 @@ function sprite(
   rect("#253e65", 2, 8, 5, 6);
   ctx.restore();
 }
-function World({
+export function World({
   hero,
   map,
   pos,
@@ -138,6 +138,7 @@ function World({
   solved,
   onMove,
   onSearch,
+  onSelect,
 }: {
   hero: Character;
   map: string;
@@ -146,6 +147,7 @@ function World({
   solved: string[];
   onMove: (x: number, y: number) => void;
   onSearch: () => void;
+  onSelect?: (x: number, y: number) => void;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const image = useSprite(hero.sprite);
@@ -302,17 +304,79 @@ function World({
         ctx.fillStyle = "#ffe6a1";
         ctx.fillRect(x * t - 3, 16 * t - 18, 9, 9);
       }
-    drawCharacter(ctx, pos.x * t + 12, pos.y * t + 12, hero, image, 42);
+    if (onSelect) {
+      ctx.strokeStyle = "#456d7b66";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= 40; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * t, 0);
+        ctx.lineTo(x * t, 672);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= 28; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * t);
+        ctx.lineTo(960, y * t);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#f5cf7544";
+      ctx.fillRect(pos.x * t, pos.y * t, t, t);
+      ctx.strokeStyle = "#eab950";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(pos.x * t + 1, pos.y * t + 1, t - 2, t - 2);
+    } else drawCharacter(ctx, pos.x * t + 12, pos.y * t + 12, hero, image, 42);
     ctx.fillStyle = "#264954";
     ctx.fillRect(pos.x * t + 9, pos.y * t + 34, 6, 3);
-  }, [hero, image, map, pos, challenges, solved]);
+  }, [hero, image, map, pos, challenges, solved, onSelect]);
   return (
     <div className="world">
       <canvas
         ref={ref}
         width={960}
         height={672}
-        aria-label={`North Pole exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`}
+        tabIndex={onSelect ? 0 : undefined}
+        onClick={
+          onSelect
+            ? (e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                onSelect(
+                  Math.min(
+                    39,
+                    Math.floor(((e.clientX - r.left) / r.width) * 40),
+                  ),
+                  Math.min(
+                    27,
+                    Math.floor(((e.clientY - r.top) / r.height) * 28),
+                  ),
+                );
+              }
+            : undefined
+        }
+        onKeyDown={
+          onSelect
+            ? (e) => {
+                const dirs: Record<string, number[]> = {
+                  ArrowUp: [0, -1],
+                  ArrowDown: [0, 1],
+                  ArrowLeft: [-1, 0],
+                  ArrowRight: [1, 0],
+                };
+                const d = dirs[e.key];
+                if (d) {
+                  e.preventDefault();
+                  onSelect(
+                    Math.max(0, Math.min(39, pos.x + d[0])),
+                    Math.max(0, Math.min(27, pos.y + d[1])),
+                  );
+                }
+              }
+            : undefined
+        }
+        aria-label={
+          onSelect
+            ? `Challenge location picker: ${mapName(map)}. Click a tile or use arrow keys to choose a location.`
+            : `North Pole exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
+        }
       />
       <div className="map-label">
         <span className="live-dot" />{" "}
@@ -325,26 +389,30 @@ function World({
         <span>
           <MapPin size={15} /> {pos.x}, {pos.y}
         </span>
-        <button onClick={onSearch}>
-          <Sparkles size={16} /> Search nearby <kbd>E</kbd>
-        </button>
+        {!onSelect && (
+          <button onClick={onSearch}>
+            <Sparkles size={16} /> Search nearby <kbd>E</kbd>
+          </button>
+        )}
       </div>
-      <div className="dpad">
-        <button aria-label="Move north" onClick={() => onMove(0, -1)}>
-          ▲
-        </button>
-        <div>
-          <button aria-label="Move west" onClick={() => onMove(-1, 0)}>
-            ◀
+      {!onSelect && (
+        <div className="dpad">
+          <button aria-label="Move north" onClick={() => onMove(0, -1)}>
+            ▲
           </button>
-          <button aria-label="Move south" onClick={() => onMove(0, 1)}>
-            ▼
-          </button>
-          <button aria-label="Move east" onClick={() => onMove(1, 0)}>
-            ▶
-          </button>
+          <div>
+            <button aria-label="Move west" onClick={() => onMove(-1, 0)}>
+              ◀
+            </button>
+            <button aria-label="Move south" onClick={() => onMove(0, 1)}>
+              ▼
+            </button>
+            <button aria-label="Move east" onClick={() => onMove(1, 0)}>
+              ▶
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -397,6 +465,7 @@ export default function Game() {
   const [audioError, setAudioError] = useState("");
   const [audioBusy, setAudioBusy] = useState(false);
   const heroes = config?.characters || [];
+  const [canAdmin, setCanAdmin] = useState(false);
   function applyGame(d: GameState) {
     setChallenges(d.challenges);
     setSolved(d.solved);
@@ -421,6 +490,7 @@ export default function Game() {
         async (r) =>
           (await r.json()) as {
             error?: string;
+            admin?: boolean;
             user: { username: string; hero: Hero } | null;
           },
       ),
@@ -429,6 +499,7 @@ export default function Game() {
         setConfig(settings);
         setHero(settings.characters[0].id);
         setMode(settings.allowRegistration ? "register" : "login");
+        setCanAdmin(!!d.admin);
         if (d.error) throw Error(d.error);
         if (d.user) {
           setUser(d.user);
@@ -442,6 +513,14 @@ export default function Game() {
       if (audio.current) void audio.current.close();
     };
   }, []);
+  useEffect(() => {
+    if (!user) return;
+    const refresh = () => {
+      void loadGame().catch((e) => setError(e.message));
+    };
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [!!user]);
   async function toggleMusic() {
     if (audioBusy) return;
     setAudioError("");
@@ -574,6 +653,7 @@ export default function Game() {
       };
       if (!r.ok) throw Error(d.error);
       setUser(d.user);
+      setCanAdmin((d as typeof d & { admin?: boolean }).admin || false);
       setPassword("");
       await loadGame();
     } catch (e) {
@@ -695,6 +775,11 @@ export default function Game() {
         </a>
         <div className="header-right">
           <span className="edition">THE WINTER EXPEDITION</span>
+          {canAdmin && (
+            <a href="/admin" className="admin-link">
+              Manage challenges
+            </a>
+          )}
           <button
             className="icon-button"
             aria-label={muted ? "Enable sound" : "Mute sound"}

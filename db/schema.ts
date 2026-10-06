@@ -42,3 +42,9 @@ export const purchasedHints = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.user, t.challenge, t.hint] })],
 );
+
+export const challengeCatalog = sqliteTable("challenge_catalog", {
+  id: text("id").primaryKey(),
+  payload: text("payload").notNull(),
+  revision: integer("revision").notNull(),
+});
