@@ -14,28 +14,17 @@ Requires Node 22.13+.
 npm ci
 npm run build
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_long_matthew_murdock.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_white_maria_hill.sql
 npm run dev
 ```
 
-Apply that migration only once to a new local database. Open the URL printed by the development server. Production schema migrations are included in Sites publication. `npm run build` builds a Cloudflare Worker; the D1 binding is `DB`.
+Apply each migration only once, in order, to a new local database. Existing preview databases need only the new migration. Open the URL printed by the development server. Production schema migrations are included in Sites publication. `npm run build` builds a Cloudflare Worker; the D1 binding is `DB`.
 
 ## Add or edit challenges
 
-Edit `content/challenges.yaml`, then rebuild and republish. This file is imported only by the server. Accepted answers are never included in the browser's challenge response. This first version uses file-based authoring rather than an admin upload interface.
+Edit `content/challenges.yaml`. It supports challenge text, points, accepted flags, case sensitivity, multiple hints with costs, and downloadable files. See [CHALLENGES.md](CHALLENGES.md) for a complete YAML example, field definitions, scoring, and compatibility with the original format. Flags and locked hint text stay on the server.
 
-```yaml
-challenges:
-  - id: lantern
-    object: Lost lantern
-    location: { x: 11, y: 19 }
-    region: Lantern Lane
-    prompt: "What is 6 times 4?"
-    answers: ["24", "twenty-four"]
-    points: 100
-    hint: "Think of six groups of four."
-```
-
-Fields: `id` is a unique, stable lowercase identifier with digits or hyphens; `object` names the hidden object; `location` positions it; `region` is the journal clue; `prompt` is the question; `answers` contains accepted strings; `points` is a positive integer up to 10,000; `hint` is optional to view in the game but required in the file. Maximum 100 challenges. Answers ignore case, leading/trailing whitespace, and repeated spaces. List alternate spellings explicitly. Validation rejects invalid coordinates and duplicate IDs/coordinates. Keep IDs unchanged when changing wording to preserve student completion records. Scores store the reward at completion; changing rewards does not retroactively alter earned scores.
+Restart your standalone Node server after YAML changes. For Sites, rebuild and republish. Hint purchases persist once per student; costs reduce that challenge's reward. Existing completed challenges keep their saved scores.
 
 ## Map coordinates and locations
 

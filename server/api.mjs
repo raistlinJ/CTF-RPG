@@ -61,6 +61,48 @@ export function createApi({ db, config, challenges, secureCookies = false }) {
     if (!config.characters.some((c) => c.id === u.hero)) return null;
     return u;
   }
+  async function gameState(userId) {
+    const completions = await db
+      .prepare("SELECT challenge,points FROM solved WHERE user=?")
+      .bind(userId)
+      .all();
+    const purchases = await db
+      .prepare("SELECT challenge,hint,cost FROM purchased_hints WHERE user=?")
+      .bind(userId)
+      .all();
+    return {
+      challenges: challenges.map((c) => {
+        const bought = purchases.results.filter((p) => p.challenge === c.id);
+        const hintCost = bought.reduce((sum, p) => sum + p.cost, 0);
+        const award = completions.results.find((r) => r.challenge === c.id);
+        return {
+          id: c.id,
+          object: c.object,
+          location: c.location,
+          region: c.region,
+          text: c.text,
+          caseSensitive: c.caseSensitive,
+          points: c.points,
+          remainingPoints: Math.max(0, c.points - hintCost),
+          awardedPoints: award?.points ?? null,
+          hintCost,
+          hints: c.hints.map((h) => {
+            const purchased = bought.find((p) => p.hint === h.id);
+            return {
+              id: h.id,
+              label: h.label,
+              cost: purchased?.cost ?? h.cost,
+              unlocked: !!purchased,
+              ...(purchased ? { text: h.text } : {}),
+            };
+          }),
+          downloads: c.downloads,
+        };
+      }),
+      solved: completions.results.map((r) => r.challenge),
+      score: completions.results.reduce((sum, r) => sum + r.points, 0),
+    };
+  }
   async function dispatch(req) {
     const path = new URL(req.url).pathname,
       method = req.method;
@@ -191,31 +233,67 @@ export function createApi({ db, config, challenges, secureCookies = false }) {
     if (path === "/api/game") {
       const u = await user(req);
       if (!u) return json({ error: "Sign in to play." }, 401);
-      if (method === "GET") {
-        const rows = await db
-          .prepare("SELECT challenge,points FROM solved WHERE user=?")
-          .bind(u.id)
-          .all();
-        return json({
-          challenges: challenges.map(({ answers, ...c }) => c),
-          solved: rows.results.map((r) => r.challenge),
-          score: rows.results.reduce((s, r) => s + r.points, 0),
-        });
-      }
+      if (method === "GET") return json(await gameState(u.id));
       if (method === "POST") {
-        const { id, answer } = await req.json();
+        const { id, answer, action, hintId } = await req.json();
         const c = challenges.find((c) => c.id === id);
-        if (!c || typeof answer !== "string" || answer.length > 500)
+        if (!c) return json({ error: "Unknown challenge." }, 400);
+        if (action === "hint") {
+          const hint = c.hints.find((h) => h.id === hintId);
+          if (!hint) return json({ error: "Unknown hint." }, 400);
+          // One atomic statement prevents duplicate charges and purchase/solve races.
+          await db
+            .prepare(
+              `INSERT OR IGNORE INTO purchased_hints(user,challenge,hint,cost)
+            SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?)`,
+            )
+            .bind(u.id, c.id, hint.id, hint.cost, u.id, c.id)
+            .run();
+          const purchase = await db
+            .prepare(
+              "SELECT cost FROM purchased_hints WHERE user=? AND challenge=? AND hint=?",
+            )
+            .bind(u.id, c.id, hint.id)
+            .first();
+          if (!purchase)
+            return json(
+              {
+                error:
+                  "This challenge is already complete; new hints cannot be purchased.",
+              },
+              409,
+            );
+          return json({ ...(await gameState(u.id)), unlockedHint: hint.id });
+        }
+        if (action !== undefined && action !== "answer")
+          return json({ error: "Unknown action." }, 400);
+        if (typeof answer !== "string" || answer.length > 500)
           return json({ error: "Invalid answer." }, 400);
-        if (!c.answers.some((a) => normalize(a) === normalize(answer)))
+        if (
+          !c.flags.some(
+            (flag) =>
+              normalize(flag, c.caseSensitive) ===
+              normalize(answer, c.caseSensitive),
+          )
+        )
           return json({ correct: false });
+        // Read hint costs within the insert, so the awarded amount is consistent even under concurrent requests.
         await db
           .prepare(
-            "INSERT OR IGNORE INTO solved(user,challenge,points) VALUES(?,?,?)",
+            `INSERT OR IGNORE INTO solved(user,challenge,points)
+          SELECT ?,?,MAX(0,?-COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0))`,
           )
-          .bind(u.id, c.id, c.points)
+          .bind(u.id, c.id, c.points, u.id, c.id)
           .run();
-        return json({ correct: true });
+        const award = await db
+          .prepare("SELECT points FROM solved WHERE user=? AND challenge=?")
+          .bind(u.id, c.id)
+          .first();
+        return json({
+          correct: true,
+          awardedPoints: award.points,
+          ...(await gameState(u.id)),
+        });
       }
     }
     return json({ error: "Not found." }, 404);

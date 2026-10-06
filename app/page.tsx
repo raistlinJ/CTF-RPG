@@ -31,9 +31,26 @@ type Challenge = {
   object: string;
   location: { x: number; y: number };
   region: string;
-  prompt: string;
+  text: string;
   points: number;
-  hint: string;
+  caseSensitive: boolean;
+  remainingPoints: number;
+  awardedPoints: number | null;
+  hintCost: number;
+  hints: {
+    id: string;
+    label: string;
+    cost: number;
+    unlocked: boolean;
+    text?: string;
+  }[];
+  downloads: { name: string; url: string; filename?: string }[];
+};
+type GameState = { challenges: Challenge[]; solved: string[]; score: number };
+type GameResponse = GameState & {
+  error?: string;
+  correct?: boolean;
+  awardedPoints?: number;
 };
 function useSprite(path: string | null) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -343,7 +360,7 @@ export default function Game() {
     [active, setActive] = useState<Challenge | null>(null),
     [answer, setAnswer] = useState(""),
     [feedback, setFeedback] = useState(""),
-    [hint, setHint] = useState(false),
+    [hintMessage, setHintMessage] = useState(""),
     [notice, setNotice] = useState(
       "Follow the paths. Look for a glimmer in the snow.",
     ),
@@ -354,20 +371,19 @@ export default function Game() {
   const [audioError, setAudioError] = useState("");
   const [audioBusy, setAudioBusy] = useState(false);
   const heroes = config?.characters || [];
-  async function loadGame() {
-    const r = await fetch("/api/game");
-    const d = (await r.json()) as {
-      error?: string;
-      user: { username: string; hero: Hero };
-      challenges: Challenge[];
-      solved: string[];
-      score: number;
-      correct: boolean;
-    };
-    if (!r.ok) throw Error(d.error || "Could not load expedition.");
+  function applyGame(d: GameState) {
     setChallenges(d.challenges);
     setSolved(d.solved);
     setScore(d.score);
+    setActive((previous) =>
+      previous ? d.challenges.find((c) => c.id === previous.id) || null : null,
+    );
+  }
+  async function loadGame() {
+    const r = await fetch("/api/game");
+    const d = (await r.json()) as GameResponse;
+    if (!r.ok) throw Error(d.error || "Could not load expedition.");
+    applyGame(d);
   }
   useEffect(() => {
     Promise.all([
@@ -460,7 +476,7 @@ export default function Game() {
       setActive(q);
       setAnswer("");
       setFeedback("");
-      setHint(false);
+      setHintMessage("");
       sound();
     } else
       setNotice(
@@ -534,21 +550,45 @@ export default function Game() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: active.id, answer }),
       });
-      const d = (await r.json()) as {
-        error?: string;
-        user: { username: string; hero: Hero };
-        challenges: Challenge[];
-        solved: string[];
-        score: number;
-        correct: boolean;
-      };
+      const d = (await r.json()) as GameResponse;
       if (!r.ok) throw Error(d.error || "Please sign in again.");
       if (d.correct) {
-        await loadGame();
+        applyGame(d);
         sound();
-        setFeedback(`Treasure collected! +${active.points} points`);
+        setFeedback(`Treasure collected! +${d.awardedPoints} points`);
         setNotice(`${active.object} collected. Keep exploring!`);
       } else setFeedback("Not quite. Take another look and try again.");
+    } catch (e) {
+      setFeedback((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function unlockHint(hintId: string) {
+    if (!active || busy) return;
+    setBusy(true);
+    setFeedback("");
+    setHintMessage("");
+    try {
+      const r = await fetch("/api/game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "hint", id: active.id, hintId }),
+      });
+      const d = (await r.json()) as GameResponse;
+      if (!r.ok)
+        throw Error(
+          d.error || "Your hint could not be unlocked. Please retry.",
+        );
+      applyGame(d);
+      const h = d.challenges
+        .find((c) => c.id === active.id)
+        ?.hints.find((h) => h.id === hintId);
+      setHintMessage(
+        h?.cost
+          ? `Hint unlocked. ${h.cost} points deducted from this challenge’s reward.`
+          : "Free hint unlocked.",
+      );
     } catch (e) {
       setFeedback((e as Error).message);
     } finally {
@@ -870,7 +910,9 @@ export default function Game() {
                     </b>
                     <small>{q.region}</small>
                   </div>
-                  <span>{solved.includes(q.id) ? "✓" : `+${q.points}`}</span>
+                  <span>
+                    {solved.includes(q.id) ? "✓" : `+${q.remainingPoints}`}
+                  </span>
                 </div>
               ))}
             </div>
@@ -898,9 +940,38 @@ export default function Game() {
           <DialogTitle>{active?.object}</DialogTitle>
           <div className="challenge-meta">
             <span>{active?.region}</span>
-            <span>+{active?.points} points</span>
+            <span>
+              +{active?.awardedPoints ?? active?.remainingPoints} points
+            </span>
           </div>
-          <p className="question">{active?.prompt}</p>
+          <p className="question">{active?.text}</p>
+          <p className="reward-details">
+            {active?.caseSensitive
+              ? "Case-sensitive flag"
+              : "Case-insensitive flag"}
+            {active && active.hintCost > 0
+              ? ` · ${active.hintCost} points spent on hints`
+              : ""}
+          </p>
+          {!!active?.downloads.length && (
+            <section
+              className="challenge-downloads"
+              aria-label="Challenge files"
+            >
+              <h3>Challenge files</h3>
+              {active.downloads.map((file) => (
+                <a
+                  key={file.url}
+                  href={file.url}
+                  download={file.filename || file.name}
+                  target={file.url.startsWith("https:") ? "_blank" : undefined}
+                  rel="noopener noreferrer"
+                >
+                  <span>↓</span> {file.name}
+                </a>
+              ))}
+            </section>
+          )}
           <form onSubmit={submit}>
             <label>
               Your answer
@@ -928,11 +999,43 @@ export default function Game() {
               </button>
             )}
           </form>
-          <button className="text-button" onClick={() => setHint(!hint)}>
-            {" "}
-            {hint ? "Hide hint" : "Need a hint?"}
-          </button>
-          {hint && <p className="hint">{active?.hint}</p>}
+          {!!active?.hints.length && (
+            <section className="challenge-hints" aria-label="Challenge hints">
+              <h3>
+                Hints <small>Costs reduce this challenge’s reward.</small>
+              </h3>
+              {active.hints.map((h) => (
+                <div className="challenge-hint" key={h.id}>
+                  <div className="hint-title">
+                    <b>{h.label}</b>
+                    {h.unlocked ? (
+                      <span>
+                        {h.cost
+                          ? `${h.cost} points · unlocked`
+                          : "Free · unlocked"}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy || solved.includes(active.id)}
+                        onClick={() => unlockHint(h.id)}
+                      >
+                        {h.cost
+                          ? `Unlock · ${h.cost} points`
+                          : "Reveal free hint"}
+                      </button>
+                    )}
+                  </div>
+                  {h.unlocked && <p>{h.text}</p>}
+                </div>
+              ))}
+            </section>
+          )}
+          {hintMessage && (
+            <p className="hint-status" role="status">
+              {hintMessage}
+            </p>
+          )}
           {feedback && (
             <p
               role="status"

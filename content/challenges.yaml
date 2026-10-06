@@ -1,42 +1,74 @@
-# Coordinates are tile positions: x=0..39, y=0..27. See README.md.
+# Server-only definitions. Flags and locked hint text are never sent to the browser.
+# Coordinates: x=0..39, y=0..27. See CHALLENGES.md for fields and scoring.
 challenges:
   - id: lantern
     object: Lost lantern
     location: { x: 11, y: 19 }
     region: Lantern Lane
-    prompt: "An elf packs 6 boxes with 4 gifts in each. How many gifts are there?"
-    answers: ["24", "twenty four", "twenty-four"]
+    text: |
+      An elf packs 6 boxes with 4 gifts in each. How many gifts are there?
+      You can download the packing list for a closer look.
+    flags: ["24", "twenty four", "twenty-four"]
+    caseSensitive: false
     points: 100
-    hint: "Multiply the number of boxes by the gifts in each box."
+    hints:
+      - id: multiply
+        label: A nudge
+        text: "Multiply the number of boxes by the gifts in each box."
+        cost: 10
+      - id: groups
+        label: Another way to count
+        text: "Add 4 six times: 4 + 4 + 4 + 4 + 4 + 4."
+        cost: 20
+    downloads:
+      - name: Elf's packing list
+        url: /downloads/packing-list.txt
+        filename: packing-list.txt
   - id: compass
     object: Silver compass
     location: { x: 32, y: 20 }
     region: Frostbite Lake
-    prompt: "Which direction is opposite to north?"
-    answers: ["south", "s"]
+    text: "Which direction is opposite to north?"
+    flags: ["south", "s"]
+    caseSensitive: false
     points: 100
-    hint: "Think of the four compass directions."
+    hints:
+      - id: directions
+        text: "Think of the four compass directions."
+        cost: 0
   - id: bell
     object: Sleigh bell
     location: { x: 8, y: 8 }
     region: Evergreen Grove
-    prompt: "What is the next number: 3, 6, 9, 12, ...?"
-    answers: ["15", "fifteen"]
+    text: "What is the next number: 3, 6, 9, 12, ...?"
+    flags: ["15", "fifteen"]
+    caseSensitive: false
     points: 150
-    hint: "The sequence increases by the same amount each time."
+    hints:
+      - id: sequence
+        text: "The sequence increases by the same amount each time."
+        cost: 15
   - id: star
     object: Northern star
     location: { x: 29, y: 8 }
     region: Aurora Ridge
-    prompt: "Water freezes at what temperature in degrees Celsius?"
-    answers: ["0", "zero", "0 c", "0°c"]
+    text: "Water freezes at what temperature in degrees Celsius?"
+    flags: ["0", "zero", "0 c", "0°C"]
+    caseSensitive: true
     points: 150
-    hint: "It is the temperature between positive and negative numbers."
+    hints:
+      - id: temperature
+        text: "It is the temperature between positive and negative numbers."
+        cost: 15
   - id: present
     object: Secret present
     location: { x: 20, y: 7 }
     region: Santa's Workshop
-    prompt: "Which planet is known as the Red Planet?"
-    answers: ["mars"]
+    text: "Which planet is known as the Red Planet?"
+    flags: ["mars"]
+    caseSensitive: false
     points: 200
-    hint: "It is the fourth planet from the Sun."
+    hints:
+      - id: planet
+        text: "It is the fourth planet from the Sun."
+        cost: 20

@@ -74,7 +74,7 @@ The header's speaker button enables music after a user gesture; the game begins 
 
 ## Challenges
 
-Continue editing `content/challenges.yaml`. The [README](README.md) documents every challenge field and map location. Restart the standalone server after edits. Existing completed IDs cannot earn a second reward; changing a reward does not retroactively change stored scores.
+Continue editing `content/challenges.yaml`. The [challenge guide](CHALLENGES.md) documents text, accepted flags, case sensitivity, hints with point costs, and downloadable files; the [README](README.md) documents map locations. Restart the standalone server after edits. Hint costs reduce their own challenge’s reward and are recorded once per student. Locked hint text and accepted flags stay private. Existing completed IDs cannot earn a second reward; changing a reward does not retroactively change stored scores. The hint-purchase table is added automatically when an existing self-hosted installation starts.
 
 ## Server settings
 

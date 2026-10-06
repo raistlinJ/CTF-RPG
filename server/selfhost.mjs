@@ -38,7 +38,8 @@ const sqlite = new DatabaseSync(databasePath);
 sqlite.exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;");
 sqlite.exec(`CREATE TABLE IF NOT EXISTS students(id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE,hash TEXT NOT NULL,salt TEXT NOT NULL,hero TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));`);
+CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));
+CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,hint TEXT NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(user,challenge,hint));`);
 const db = {
   prepare(sql) {
     const statement = sqlite.prepare(sql);
@@ -75,6 +76,10 @@ const types = {
   ".webp": "image/webp",
   ".gif": "image/gif",
   ".jpg": "image/jpeg",
+  ".pdf": "application/pdf",
+  ".txt": "text/plain; charset=utf-8",
+  ".csv": "text/csv; charset=utf-8",
+  ".zip": "application/zip",
   ".mid": "audio/midi",
   ".midi": "audio/midi",
   ".ico": "image/x-icon",

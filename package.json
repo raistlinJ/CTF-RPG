@@ -14,7 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "build:selfhost": "vite build --config vite.selfhost.config.ts",
     "start:selfhost": "node server/selfhost.mjs",
-    "test:selfhost": "node --test tests/selfhost.test.mjs"
+    "test:selfhost": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

@@ -1,0 +1,7 @@
+NORTH POLE PACKING LIST
+
+Shipment: Lantern Lane
+Number of boxes: 6
+Gifts in each box: 4
+
+Task: Work out the total number of gifts in the shipment.
