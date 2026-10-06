@@ -148,6 +148,7 @@ export default function UsersPage() {
         </a>
         <div className="admin-header-links">
           <a href="/admin/packs">Themes &amp; content</a>
+          <a href="/admin/review">Review answers</a>
           <a href="/admin">Challenges</a>
           <a href="/admin/teams">Teams</a>
           <a href="/scoreboard">Scoreboard</a>

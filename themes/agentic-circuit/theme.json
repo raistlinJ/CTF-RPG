@@ -1,0 +1,273 @@
+{
+  "format": "quest-theme",
+  "version": 1,
+  "title": "Agentic Circuit",
+  "description": "Agentic AI \u00b7 digital assessment campus",
+  "world": {
+    "startMap": "town",
+    "renderer": "tiles",
+    "maps": [
+      {
+        "id": "town",
+        "name": "Circuit Campus",
+        "bounds": {
+          "left": 1,
+          "right": 38,
+          "top": 1,
+          "bottom": 26
+        },
+        "spawn": {
+          "x": 18,
+          "y": 20
+        },
+        "exit": null,
+        "background": "/themes/agentic-circuit/maps/campus.png",
+        "floor": "#102b40",
+        "wall": "#051425",
+        "obstacles": []
+      },
+      {
+        "id": "castle",
+        "name": "Reasoning Core",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 4,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/agentic-circuit/maps/core.png",
+        "floor": "#102b40",
+        "wall": "#051425",
+        "obstacles": []
+      },
+      {
+        "id": "toy-workshop",
+        "name": "Tool Workshop",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/agentic-circuit/maps/lab.png",
+        "floor": "#102b40",
+        "wall": "#051425",
+        "obstacles": []
+      },
+      {
+        "id": "cocoa-cottage",
+        "name": "Memory Lab",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/agentic-circuit/maps/lab.png",
+        "floor": "#102b40",
+        "wall": "#051425",
+        "obstacles": []
+      },
+      {
+        "id": "post-office",
+        "name": "API Gateway",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/agentic-circuit/maps/lab.png",
+        "floor": "#102b40",
+        "wall": "#051425",
+        "obstacles": []
+      },
+      {
+        "id": "elf-house",
+        "name": "Safety Lab",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/agentic-circuit/maps/lab.png",
+        "floor": "#102b40",
+        "wall": "#051425",
+        "obstacles": []
+      },
+      {
+        "id": "bakery",
+        "name": "Evaluation Lab",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/agentic-circuit/maps/lab.png",
+        "floor": "#102b40",
+        "wall": "#051425",
+        "obstacles": []
+      }
+    ],
+    "buildings": [
+      {
+        "x": 15,
+        "y": 1,
+        "w": 10,
+        "h": 6,
+        "id": "castle",
+        "name": "Reasoning Core",
+        "door": {
+          "x": 20,
+          "y": 6
+        },
+        "color": "#1ca4b6"
+      },
+      {
+        "x": 8,
+        "y": 12,
+        "w": 5,
+        "h": 4,
+        "id": "toy-workshop",
+        "name": "Tool Workshop",
+        "door": {
+          "x": 10,
+          "y": 15
+        },
+        "color": "#146983"
+      },
+      {
+        "x": 25,
+        "y": 11,
+        "w": 5,
+        "h": 4,
+        "id": "cocoa-cottage",
+        "name": "Memory Lab",
+        "door": {
+          "x": 27,
+          "y": 14
+        },
+        "color": "#146983"
+      },
+      {
+        "x": 2,
+        "y": 17,
+        "w": 4,
+        "h": 4,
+        "id": "post-office",
+        "name": "API Gateway",
+        "door": {
+          "x": 4,
+          "y": 20
+        },
+        "color": "#146983"
+      },
+      {
+        "x": 9,
+        "y": 1,
+        "w": 4,
+        "h": 4,
+        "id": "elf-house",
+        "name": "Safety Lab",
+        "door": {
+          "x": 11,
+          "y": 4
+        },
+        "color": "#146983"
+      },
+      {
+        "x": 31,
+        "y": 10,
+        "w": 5,
+        "h": 4,
+        "id": "bakery",
+        "name": "Evaluation Lab",
+        "door": {
+          "x": 33,
+          "y": 13
+        },
+        "color": "#146983"
+      }
+    ],
+    "trees": []
+  },
+  "characters": [
+    {
+      "id": "web",
+      "name": "Circuit Scout",
+      "subtitle": "Trace the path. Find the signal.",
+      "sprite": "/themes/agentic-circuit/sprites/scout.png",
+      "fallback": "web"
+    },
+    {
+      "id": "thunder",
+      "name": "Prompt Pilot",
+      "subtitle": "Plan carefully. Navigate with purpose.",
+      "sprite": "/themes/agentic-circuit/sprites/pilot.png",
+      "fallback": "thunder"
+    },
+    {
+      "id": "shield",
+      "name": "Guardrail Sentinel",
+      "subtitle": "Keep the mission on course.",
+      "sprite": "/themes/agentic-circuit/sprites/sentinel.png",
+      "fallback": "shield"
+    }
+  ],
+  "audio": {
+    "midi": "/themes/agentic-circuit/audio/circuit.mid",
+    "loop": true,
+    "volume": 0.08
+  },
+  "badge": "cpu"
+}

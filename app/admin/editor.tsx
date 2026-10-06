@@ -35,6 +35,7 @@ type Definition = {
   region: string;
   text: string;
   flags: string[];
+  grading: "automatic" | "manual";
   caseSensitive: boolean;
   points: number;
   hints: Hint[];
@@ -61,6 +62,7 @@ const fresh = (map = "town", x = 18, y = 20): Draft => ({
   region: mapName(map),
   text: "",
   flagsText: "",
+  grading: "automatic",
   caseSensitive: false,
   points: 100,
   hints: [],
@@ -68,9 +70,10 @@ const fresh = (map = "town", x = 18, y = 20): Draft => ({
 });
 const toDraft = (c: Definition): Draft => ({
   ...c,
+  grading: c.grading || "automatic",
   hints: c.hints.map((h) => ({ ...h })),
   downloads: c.downloads.map((f) => ({ ...f })),
-  flagsText: c.flags.join("\n"),
+  flagsText: (c.flags || []).join("\n"),
 });
 export default function Admin() {
   const [access, setAccess] = useState<"loading" | "login" | "ready">(
@@ -220,10 +223,13 @@ export default function Admin() {
       const { flagsText, ...definition } = draft;
       const challenge = {
         ...definition,
-        flags: flagsText
-          .split(/\r?\n/)
-          .map((s) => s.trim())
-          .filter(Boolean),
+        flags:
+          draft.grading === "manual"
+            ? []
+            : flagsText
+                .split(/\r?\n/)
+                .map((s) => s.trim())
+                .filter(Boolean),
       };
       const r = await fetch("/api/admin/challenges", {
         method: "POST",
@@ -262,6 +268,9 @@ export default function Admin() {
         </a>
         <div className="header-right">
           <span className="edition">ADMIN STUDIO</span>
+          <a className="admin-link" href="/admin/review">
+            Review answers
+          </a>
           <a className="admin-link" href="/admin/packs">
             Themes &amp; content
           </a>
@@ -400,6 +409,7 @@ export default function Admin() {
                       ...c,
                       remainingPoints: c.points,
                       awardedPoints: null,
+                      submission: null,
                       hintCost: 0,
                       hints: c.hints.map((h) => ({ ...h, unlocked: false })),
                     }))}
@@ -541,27 +551,55 @@ export default function Admin() {
                   />
                 </label>
                 <label>
-                  Accepted flags{" "}
-                  <small>One answer per line; students won’t see these.</small>
-                  <textarea
-                    aria-label="Accepted flags"
-                    required
-                    maxLength={50000}
-                    rows={3}
-                    value={draft.flagsText}
-                    onChange={(e) => patch({ flagsText: e.target.value })}
-                    placeholder={"FLAG{north_pole}\nnorth pole"}
-                  />
-                </label>
-                <label className="admin-checkbox">
-                  <Checkbox
-                    checked={draft.caseSensitive}
-                    onCheckedChange={(v) =>
-                      patch({ caseSensitive: v === true })
+                  Answer checking
+                  <Select
+                    value={draft.grading}
+                    onValueChange={(grading) =>
+                      patch({ grading: grading as "automatic" | "manual" })
                     }
-                  />
-                  Case-sensitive flags
+                  >
+                    <SelectTrigger aria-label="Answer checking">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="automatic">Automatic</SelectItem>
+                      <SelectItem value="manual">Manual grading</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </label>
+                {draft.grading === "automatic" ? (
+                  <>
+                    <label>
+                      Accepted flags{" "}
+                      <small>
+                        One answer per line; students won’t see these.
+                      </small>
+                      <textarea
+                        aria-label="Accepted flags"
+                        required
+                        maxLength={50000}
+                        rows={3}
+                        value={draft.flagsText}
+                        onChange={(e) => patch({ flagsText: e.target.value })}
+                        placeholder={"FLAG{north_pole}\nnorth pole"}
+                      />
+                    </label>
+                    <label className="admin-checkbox">
+                      <Checkbox
+                        checked={draft.caseSensitive}
+                        onCheckedChange={(v) =>
+                          patch({ caseSensitive: v === true })
+                        }
+                      />
+                      Case-sensitive flags
+                    </label>
+                  </>
+                ) : (
+                  <p>
+                    Students submit written responses. Admins review them, award
+                    points, and provide feedback from Review answers.
+                  </p>
+                )}
                 <section className="admin-repeaters">
                   <div>
                     <h3>Hints</h3>

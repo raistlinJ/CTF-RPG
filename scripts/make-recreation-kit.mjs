@@ -39,6 +39,7 @@ for (const dir of [
   "db",
   "selfhost",
   "tests",
+  "themes",
 ])
   if (existsSync(resolve(root, dir))) add(resolve(root, dir));
 for (const name of [

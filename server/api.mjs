@@ -1,3 +1,5 @@
+import { handleReview, gradingCompatible } from "./review.mjs";
+import { themePresets, presetCatalog } from "../lib/theme-presets.mjs";
 import {
   activeTheme,
   exportPack,
@@ -113,23 +115,46 @@ function createRequestApi({
       .prepare("SELECT challenge,hint,cost FROM purchased_hints WHERE user=?")
       .bind(userId)
       .all();
+    const responses = (
+      await db
+        .prepare("SELECT * FROM written_responses WHERE user=?")
+        .bind(userId)
+        .all()
+    ).results;
     return {
       challenges: challenges.map((c) => {
         const bought = purchases.results.filter((p) => p.challenge === c.id);
         const hintCost = bought.reduce((sum, p) => sum + p.cost, 0);
         const award = completions.results.find((r) => r.challenge === c.id);
+        const response = responses.find((r) => r.challenge === c.id);
         return {
           id: c.id,
+          grading: response ? "manual" : c.grading || "automatic",
+          submission: response
+            ? {
+                answer: response.answer,
+                revision: response.revision,
+                status: response.grade === null ? "pending" : "graded",
+                feedback: response.feedback,
+                grade: response.grade,
+                submittedAt: response.submitted_at,
+                gradedAt: response.graded_at,
+              }
+            : null,
           map: c.map,
           object: c.object,
           location: c.location,
           region: c.region,
-          text: c.text,
+          text: response?.question || c.text,
           caseSensitive: c.caseSensitive,
-          points: c.points,
-          remainingPoints: Math.max(0, c.points - hintCost),
+          points: response?.max_points ?? c.points,
+          remainingPoints: Math.max(
+            0,
+            (response?.max_points ?? c.points) -
+              (response?.hint_cost ?? hintCost),
+          ),
           awardedPoints: award?.points ?? null,
-          hintCost,
+          hintCost: response?.hint_cost ?? hintCost,
           hints: c.hints.map((h) => {
             const purchased = bought.find((p) => p.hint === h.id);
             return {
@@ -171,6 +196,8 @@ function createRequestApi({
         },
       });
     }
+    if (path === "/api/admin/review")
+      return handleReview(req, { db, user, platformAdmin });
     if (path === "/api/admin/packs") {
       const u = await user(req);
       if (!platformAdmin && u?.role !== "admin")
@@ -183,14 +210,21 @@ function createRequestApi({
           themeRevision,
           contentRevision: current.revision,
           challengeCount: current.challenges.length,
+          presets: presetCatalog(),
         });
       if (!["theme", "content"].includes(kind))
         return json({ error: "Choose theme or content." }, 400);
       try {
+        const presetId = new URL(req.url).searchParams.get("preset"),
+          preset = presetId
+            ? themePresets.find((p) => p.id === presetId)
+            : null;
+        if (presetId && (!preset || kind !== "theme" || method !== "GET"))
+          return json({ error: "Unknown theme preset." }, 400);
         if (method === "GET")
           return await exportPack(
             kind,
-            { theme, challenges: current.challenges },
+            { theme: preset?.theme || theme, challenges: current.challenges },
             assetStore,
             readBaseAsset,
           );
@@ -648,7 +682,11 @@ function createRequestApi({
             )
           : [...current.challenges, validated];
         try {
-          parseChallenges(stringify({ challenges: updated }));
+          parseChallenges(
+            stringify({ challenges: updated }),
+            theme.world.maps.map((m) => m.id),
+          );
+          await gradingCompatible(db, current.challenges, updated);
         } catch (e) {
           return json({ error: e.message }, 400);
         }
@@ -691,7 +729,7 @@ function createRequestApi({
       if (!u) return json({ error: "Sign in to play." }, 401);
       if (method === "GET") return json(await gameState(u.id));
       if (method === "POST") {
-        const { id, answer, action, hintId } = await req.json();
+        const { id, answer, action, hintId, revision } = await req.json();
         const { challenges } = await catalog();
         const c = challenges.find((c) => c.id === id);
         if (!c) return json({ error: "Unknown challenge." }, 400);
@@ -702,9 +740,9 @@ function createRequestApi({
           await db
             .prepare(
               `INSERT OR IGNORE INTO purchased_hints(user,challenge,hint,cost)
-            SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?)`,
+            SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND NOT EXISTS(SELECT 1 FROM written_responses WHERE user=? AND challenge=?)`,
             )
-            .bind(u.id, c.id, hint.id, hint.cost, u.id, c.id)
+            .bind(u.id, c.id, hint.id, hint.cost, u.id, c.id, u.id, c.id)
             .run();
           const purchase = await db
             .prepare(
@@ -716,7 +754,7 @@ function createRequestApi({
             return json(
               {
                 error:
-                  "This challenge is already complete; new hints cannot be purchased.",
+                  "An answer is already submitted or complete; new hints cannot be purchased.",
               },
               409,
             );
@@ -724,6 +762,52 @@ function createRequestApi({
         }
         if (action !== undefined && action !== "answer")
           return json({ error: "Unknown action." }, 400);
+        if (c.grading === "manual") {
+          if (
+            typeof answer !== "string" ||
+            !answer.trim() ||
+            answer.length > 20000 ||
+            !Number.isInteger(revision) ||
+            revision < 0
+          )
+            return json(
+              { error: "Write an answer of 1–20,000 characters." },
+              400,
+            );
+          const r = await db
+            .prepare(
+              `INSERT INTO written_responses(user,challenge,answer,question,object,max_points,hint_cost,submitted_at,revision)
+            SELECT ?,?,?,?,?,?,COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0),?,1 WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND COALESCE((SELECT revision FROM written_responses WHERE user=? AND challenge=?),0)=?
+            ON CONFLICT(user,challenge) DO UPDATE SET answer=excluded.answer,submitted_at=excluded.submitted_at,revision=written_responses.revision+1 WHERE written_responses.grade IS NULL AND written_responses.revision=?`,
+            )
+            .bind(
+              u.id,
+              c.id,
+              answer.trim(),
+              c.text,
+              c.object,
+              c.points,
+              u.id,
+              c.id,
+              Date.now(),
+              u.id,
+              c.id,
+              u.id,
+              c.id,
+              revision,
+              revision,
+            )
+            .run();
+          if (!(r.meta?.changes ?? r.changes))
+            return json(
+              {
+                error:
+                  "Your answer changed or has already been graded. Refresh before submitting again.",
+              },
+              409,
+            );
+          return json({ submitted: true, ...(await gameState(u.id)) });
+        }
         if (typeof answer !== "string" || answer.length > 500)
           return json({ error: "Invalid answer." }, 400);
         if (

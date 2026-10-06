@@ -84,3 +84,25 @@ export const themeCatalog = sqliteTable("theme_catalog", {
   payload: text("payload").notNull(),
   revision: integer("revision").notNull(),
 });
+
+export const writtenResponses = sqliteTable(
+  "written_responses",
+  {
+    user: text("user")
+      .notNull()
+      .references(() => students.id),
+    challenge: text("challenge").notNull(),
+    answer: text("answer").notNull(),
+    question: text("question").notNull(),
+    object: text("object").notNull(),
+    maxPoints: integer("max_points").notNull(),
+    hintCost: integer("hint_cost").notNull(),
+    submittedAt: integer("submitted_at").notNull(),
+    revision: integer("revision").notNull().default(1),
+    grade: integer("grade"),
+    feedback: text("feedback").notNull().default(""),
+    reviewer: text("reviewer"),
+    gradedAt: integer("graded_at"),
+  },
+  (t) => [primaryKey({ columns: [t.user, t.challenge] })],
+);

@@ -31,6 +31,7 @@ function setup(platformAdmin = false) {
     "0003_chief_xorn.sql",
     "0004_high_sentinels.sql",
     "0005_conscious_magneto.sql",
+    "0006_mixed_blue_blade.sql",
   ])
     sqlite.exec(readFileSync("drizzle/" + file, "utf8"));
   const db = {

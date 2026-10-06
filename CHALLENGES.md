@@ -98,3 +98,11 @@ The original `prompt`, `answers`, and single `hint` fields still work. They are 
 Startup/build validation rejects invalid coordinates, duplicate challenge IDs or positions within the same map, duplicate hint IDs, negative costs, total costs above the reward, whitespace-only flags, and invalid download URLs. Unknown challenge/hint/download fields are rejected to catch spelling errors. Maximum 100 challenges. Place treasures on accessible ground or within two walkable tiles; the [map guide](README.md#map-coordinates-and-locations) lists suggested locations.
 
 Node/SQLite self-hosting automatically adds the hint-purchase table on startup without changing old scores. For a local Cloudflare preview, apply the new `drizzle/0001_white_maria_hill.sql` migration once; production Sites applies it during publication.
+
+## Automatic and manual grading
+
+Every challenge supports `grading: automatic` (the default) or `grading: manual`, selected with **Answer checking** in the challenge editor. Automatic challenges require accepted flags. Manual challenges accept a written response of up to 20,000 characters and do not require flags. Responses are private to the student and admins, can be updated until graded, and freeze new hint purchases once submitted.
+
+Admins use `/admin/review` (**Manage → Review answers**) to award a whole-number grade from 0 to the submission's saved maximum and provide feedback. Recorded hint costs are subtracted, with a minimum final award of 0. Regrading updates the existing award and scoreboard. Response revisions prevent stale edits or grades from overwriting newer work. Full backups retain responses/grades/feedback; theme and content packs exclude them. Use new IDs for new tests; grading mode cannot be changed after responses or awards exist.
+
+The built-in **Agentic Circuit** theme is available under **Themes & content**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.

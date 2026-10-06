@@ -49,6 +49,7 @@ function database() {
     "drizzle/0003_chief_xorn.sql",
     "drizzle/0004_high_sentinels.sql",
     "drizzle/0005_conscious_magneto.sql",
+    "drizzle/0006_mixed_blue_blade.sql",
   ])
     sqlite.exec(readFileSync(file, "utf8"));
   return {

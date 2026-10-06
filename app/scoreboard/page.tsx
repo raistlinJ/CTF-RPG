@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Snowflake, Trophy, RefreshCw } from "lucide-react";
+import { Snowflake, Cpu, Compass, Trophy, RefreshCw } from "lucide-react";
 type Player = {
   rank: number;
   username: string;
@@ -11,6 +11,7 @@ type Player = {
 };
 export default function Scoreboard() {
   const [title, setTitle] = useState("Quest");
+  const [badge, setBadge] = useState("compass");
   const [players, setPlayers] = useState<Player[]>([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -36,9 +37,10 @@ export default function Scoreboard() {
         if (r.ok) {
           const d = (await r.json()) as {
             characters: { id: string; name: string }[];
-            theme: { title: string };
+            theme: { title: string; badge: string };
           };
           setTitle(d.theme.title);
+          setBadge(d.theme.badge);
           setHeroes(
             Object.fromEntries(d.characters.map((c) => [c.id, c.name])),
           );
@@ -54,7 +56,13 @@ export default function Scoreboard() {
       <header>
         <a className="brand" href="/">
           <span className="brand-icon">
-            <Snowflake size={24} />
+            {badge === "cpu" ? (
+              <Cpu size={24} />
+            ) : badge === "snowflake" ? (
+              <Snowflake size={24} />
+            ) : (
+              <Compass size={24} />
+            )}
           </span>
           {title}
         </a>

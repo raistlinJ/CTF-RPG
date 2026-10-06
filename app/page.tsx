@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
 import {
   Compass,
+  Cpu,
   Snowflake,
   Trophy,
   Volume2,
@@ -35,7 +36,12 @@ type GameConfig = {
   characters: Character[];
   audio: MusicConfig;
   allowRegistration: boolean;
-  theme: { title: string; description: string; world: typeof activeWorld };
+  theme: {
+    title: string;
+    badge: "snowflake" | "cpu" | "compass";
+    description: string;
+    world: typeof activeWorld;
+  };
   themeRevision: number;
 };
 type Challenge = {
@@ -46,6 +52,16 @@ type Challenge = {
   region: string;
   text: string;
   points: number;
+  grading: "automatic" | "manual";
+  submission: {
+    answer: string;
+    revision: number;
+    status: "pending" | "graded";
+    feedback: string;
+    grade: number | null;
+    submittedAt: number;
+    gradedAt: number | null;
+  } | null;
   caseSensitive: boolean;
   remainingPoints: number;
   awardedPoints: number | null;
@@ -63,6 +79,7 @@ type GameState = { challenges: Challenge[]; solved: string[]; score: number };
 type GameResponse = GameState & {
   error?: string;
   correct?: boolean;
+  submitted?: boolean;
   awardedPoints?: number;
 };
 function useSprite(path: string | null) {
@@ -85,6 +102,39 @@ function useSprite(path: string | null) {
   }, [path]);
   return image;
 }
+const spriteBounds = new WeakMap<
+  HTMLImageElement,
+  { x: number; y: number; w: number; h: number }
+>();
+function visibleSprite(image: HTMLImageElement) {
+  const saved = spriteBounds.get(image);
+  if (saved) return saved;
+  let bounds = { x: 0, y: 0, w: image.width, h: image.height };
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(image, 0, 0);
+    const data = ctx.getImageData(0, 0, image.width, image.height).data;
+    let left = image.width,
+      top = image.height,
+      right = -1,
+      bottom = -1;
+    for (let y = 0; y < image.height; y++)
+      for (let x = 0; x < image.width; x++)
+        if (data[(y * image.width + x) * 4 + 3] > 20) {
+          left = Math.min(left, x);
+          top = Math.min(top, y);
+          right = Math.max(right, x);
+          bottom = Math.max(bottom, y);
+        }
+    if (right >= left)
+      bounds = { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
+  } catch {}
+  spriteBounds.set(image, bounds);
+  return bounds;
+}
 function drawCharacter(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -94,10 +144,21 @@ function drawCharacter(
   size: number,
 ) {
   if (image) {
-    const ratio = image.width / image.height;
+    const bounds = visibleSprite(image);
+    const ratio = bounds.w / bounds.h;
     const h = size,
       w = size * ratio;
-    ctx.drawImage(image, x - w / 2, y - h / 2, w, h);
+    ctx.drawImage(
+      image,
+      bounds.x,
+      bounds.y,
+      bounds.w,
+      bounds.h,
+      x - w / 2,
+      y - h / 2,
+      w,
+      h,
+    );
   } else sprite(ctx, x, y, character.fallback, size / 32);
 }
 function sprite(
@@ -198,6 +259,17 @@ export function World({
         ctx.fillStyle = "#d5b86d";
         ctx.fillRect(exit.x * t, exit.y * t, t, t);
       }
+    }
+    const portals =
+      map === activeWorld.startMap
+        ? buildings.map((b) => b.door)
+        : info?.exit
+          ? [info.exit]
+          : [];
+    ctx.strokeStyle = "#85f4ea";
+    ctx.lineWidth = 2;
+    for (const p of portals) {
+      ctx.strokeRect(p.x * t + 2, p.y * t + 2, t - 4, t - 4);
     }
     for (const q of challenges) {
       if (q.map !== map || solved.includes(q.id)) continue;
@@ -358,6 +430,7 @@ export default function Game() {
     [active, setActive] = useState<Challenge | null>(null),
     [answer, setAnswer] = useState(""),
     [feedback, setFeedback] = useState(""),
+    [feedbackSuccess, setFeedbackSuccess] = useState(false),
     [hintMessage, setHintMessage] = useState(""),
     [notice, setNotice] = useState("Follow the paths. Look for a glimmer."),
     [muted, setMuted] = useState(true);
@@ -488,7 +561,7 @@ export default function Game() {
   useEffect(() => {
     setNotice(
       map === activeWorld.startMap
-        ? "Follow the paths and walk into doorways to explore buildings."
+        ? "Follow the paths. Step into a cyan doorway outline to enter a building."
         : `Welcome to ${mapName(map)}. Search for clues, then use the exit to return.`,
     );
   }, [map]);
@@ -505,11 +578,12 @@ export default function Game() {
     );
     if (q) {
       setActive(q);
-      setAnswer("");
+      setAnswer(q.submission?.answer || "");
       setFeedback("");
       setHintMessage("");
       sound();
     } else if (
+      config?.theme.title === "North Pole Quest" &&
       map === "castle" &&
       Math.abs(pos.x - 20) + Math.abs(pos.y - 8) <= 3
     ) {
@@ -521,7 +595,7 @@ export default function Game() {
       setNotice(
         solved.length === challenges.length
           ? "All treasures found! Your expedition is complete."
-          : "Nothing here yet. Search near a sparkle in the snow.",
+          : "Nothing here yet. Search near a sparkle.",
       );
   }
   useEffect(() => {
@@ -592,17 +666,28 @@ export default function Game() {
       const r = await fetch("/api/game", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: active.id, answer }),
+        body: JSON.stringify({
+          id: active.id,
+          answer,
+          revision: active.submission?.revision || 0,
+        }),
       });
       const d = (await r.json()) as GameResponse;
       if (!r.ok) throw Error(d.error || "Please sign in again.");
-      if (d.correct) {
+      setFeedbackSuccess(!!(d.correct || d.submitted));
+      if (d.submitted) {
+        applyGame(d);
+        setFeedback(
+          "Response saved for admin review. You can update it until graded.",
+        );
+      } else if (d.correct) {
         applyGame(d);
         sound();
         setFeedback(`Treasure collected! +${d.awardedPoints} points`);
         setNotice(`${active.object} collected. Keep exploring!`);
       } else setFeedback("Not quite. Take another look and try again.");
     } catch (e) {
+      setFeedbackSuccess(false);
       setFeedback((e as Error).message);
     } finally {
       setBusy(false);
@@ -691,7 +776,13 @@ export default function Game() {
       <header>
         <a className="brand" href="/">
           <span className="brand-icon">
-            <Snowflake size={24} />
+            {config?.theme.badge === "cpu" ? (
+              <Cpu size={24} />
+            ) : config?.theme.badge === "snowflake" ? (
+              <Snowflake size={24} />
+            ) : (
+              <Compass size={24} />
+            )}
           </span>{" "}
           {config?.theme.title || "North Pole Quest"}
         </a>
@@ -869,7 +960,11 @@ export default function Game() {
                 <h1>{mapName(map)}</h1>
               </div>
               <span className="region-pill">
-                <Snowflake size={16} />{" "}
+                {config?.theme.badge === "cpu" ? (
+                  <Cpu size={16} />
+                ) : (
+                  <Compass size={16} />
+                )}{" "}
                 {map === activeWorld.startMap ? "World map" : "Indoors"}
               </span>
             </div>
@@ -971,11 +1066,29 @@ export default function Game() {
                   </span>
                   <div>
                     <b>
-                      {solved.includes(q.id)
+                      {solved.includes(q.id) || q.submission
                         ? q.object
                         : "Undiscovered treasure"}
                     </b>
-                    <small>{q.region}</small>
+                    <small>
+                      {q.region}
+                      {q.submission?.status === "pending"
+                        ? " · Awaiting review"
+                        : ""}
+                    </small>
+                    {q.submission && (
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setActive(q);
+                          setAnswer(q.submission!.answer);
+                          setFeedback("");
+                          setHintMessage("");
+                        }}
+                      >
+                        View response
+                      </button>
+                    )}
                   </div>
                   <span>
                     {solved.includes(q.id) ? "✓" : `+${q.remainingPoints}`}
@@ -1003,7 +1116,7 @@ export default function Game() {
         }}
       >
         <DialogContent className="challenge-modal">
-          <span className="eyebrow">A TREASURE IN THE SNOW</span>
+          <span className="eyebrow">CHALLENGE</span>
           <DialogTitle>{active?.object}</DialogTitle>
           <div className="challenge-meta">
             <span>{active?.region}</span>
@@ -1013,9 +1126,11 @@ export default function Game() {
           </div>
           <p className="question">{active?.text}</p>
           <p className="reward-details">
-            {active?.caseSensitive
-              ? "Case-sensitive flag"
-              : "Case-insensitive flag"}
+            {active?.grading === "manual"
+              ? "Written response · admin review"
+              : active?.caseSensitive
+                ? "Case-sensitive flag"
+                : "Case-insensitive flag"}
             {active && active.hintCost > 0
               ? ` · ${active.hintCost} points spent on hints`
               : ""}
@@ -1042,15 +1157,29 @@ export default function Game() {
           <form onSubmit={submit}>
             <label>
               Your answer
-              <input
-                autoFocus
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                required
-                maxLength={500}
-                disabled={!!active && solved.includes(active.id)}
-                placeholder="What do you think?"
-              />
+              {active?.grading === "manual" ? (
+                <textarea
+                  aria-label="Your answer"
+                  autoFocus
+                  required
+                  rows={7}
+                  maxLength={20000}
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  disabled={active.submission?.status === "graded"}
+                  placeholder="Write your response here…"
+                />
+              ) : (
+                <input
+                  autoFocus
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  required
+                  maxLength={500}
+                  disabled={!!active && solved.includes(active.id)}
+                  placeholder="What do you think?"
+                />
+              )}
             </label>
             {active && solved.includes(active.id) ? (
               <button
@@ -1062,10 +1191,31 @@ export default function Game() {
               </button>
             ) : (
               <button className="primary" disabled={busy}>
-                {busy ? "Checking…" : "Check answer"}
+                {busy
+                  ? "Saving…"
+                  : active?.grading === "manual"
+                    ? active.submission
+                      ? "Update response"
+                      : "Submit for review"
+                    : "Check answer"}
               </button>
             )}
           </form>
+          {active?.submission && (
+            <section className="submission-status" aria-label="Response status">
+              <b>
+                {active.submission.status === "pending"
+                  ? "Awaiting admin review"
+                  : `Graded: ${active.awardedPoints} points`}
+              </b>
+              <p>
+                {active.submission.feedback ||
+                  (active.submission.status === "pending"
+                    ? "Your written answer is saved. Points will appear after grading."
+                    : "Your grade is saved.")}
+              </p>
+            </section>
+          )}
           {!!active?.hints.length && (
             <section className="challenge-hints" aria-label="Challenge hints">
               <h3>
@@ -1084,7 +1234,11 @@ export default function Game() {
                     ) : (
                       <button
                         type="button"
-                        disabled={busy || solved.includes(active.id)}
+                        disabled={
+                          busy ||
+                          solved.includes(active.id) ||
+                          !!active.submission
+                        }
                         onClick={() => unlockHint(h.id)}
                       >
                         {h.cost
@@ -1104,12 +1258,7 @@ export default function Game() {
             </p>
           )}
           {feedback && (
-            <p
-              role="status"
-              className={
-                active && solved.includes(active.id) ? "success" : "error"
-              }
-            >
+            <p role="status" className={feedbackSuccess ? "success" : "error"}>
               {feedback}
             </p>
           )}

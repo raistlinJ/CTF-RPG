@@ -66,6 +66,28 @@ export function validateSnapshot(input) {
       teamMaxMembers: z.number().int().min(1).max(100).optional(),
       solved: z.array(completion).max(1000000),
       purchasedHints: z.array(purchase).max(1000000),
+      writtenResponses: z
+        .array(
+          z
+            .object({
+              user: z.string(),
+              challenge: z.string(),
+              answer: z.string().min(1).max(20000),
+              question: z.string().min(1).max(20000),
+              object: z.string(),
+              maxPoints: z.number().int().min(1).max(10000),
+              hintCost: z.number().int().min(0).max(10000),
+              submittedAt: z.number().int().min(0),
+              revision: z.number().int().min(1),
+              grade: z.number().int().min(0).max(10000).nullable(),
+              feedback: z.string().max(5000),
+              reviewer: z.string().nullable(),
+              gradedAt: z.number().int().min(0).nullable(),
+            })
+            .strict(),
+        )
+        .max(1000000)
+        .default([]),
     })
     .strict()
     .parse(input);
@@ -85,7 +107,11 @@ export function validateSnapshot(input) {
   for (const a of snapshot.accounts)
     if (!snapshot.config.characters.some((c) => c.id === a.hero))
       throw Error("Backup contains an unknown hero.");
-  for (const records of [snapshot.solved, snapshot.purchasedHints])
+  for (const records of [
+    snapshot.solved,
+    snapshot.purchasedHints,
+    snapshot.writtenResponses,
+  ])
     for (const r of records)
       if (!ids.has(r.user))
         throw Error("Backup progress refers to an unknown account.");
@@ -112,36 +138,68 @@ export function validateSnapshot(input) {
     snapshot.teamMembers.some((m) => !ids.has(m.user) || !teamIds.has(m.team))
   )
     throw Error("Unknown team or account in backup membership.");
+  if (
+    new Set(snapshot.writtenResponses.map((r) => `${r.user}\0${r.challenge}`))
+      .size !== snapshot.writtenResponses.length
+  )
+    throw Error("Duplicate written responses in backup.");
+  for (const r of snapshot.writtenResponses) {
+    const award = snapshot.solved.find(
+      (a) => a.user === r.user && a.challenge === r.challenge,
+    );
+    if (
+      (r.grade !== null &&
+        (r.grade > r.maxPoints ||
+          r.gradedAt === null ||
+          !award ||
+          award.points !== Math.max(0, r.grade - r.hintCost))) ||
+      (r.grade === null && (r.gradedAt !== null || award))
+    )
+      throw Error("Invalid response grade in backup.");
+  }
   return snapshot;
 }
 export async function createSnapshot({ db, config, challenges, theme }) {
   theme ??= (await activeTheme(db, config)).theme;
-  const [users, catalog, solved, hints, teams, members, teamSettings] =
-    await db.batch([
-      db.prepare("SELECT * FROM students ORDER BY username").bind(),
-      db
-        .prepare(
-          "SELECT payload,revision FROM challenge_catalog WHERE id='active'",
-        )
-        .bind(),
-      db
-        .prepare(
-          "SELECT user,challenge,points FROM solved ORDER BY user,challenge",
-        )
-        .bind(),
-      db
-        .prepare(
-          "SELECT user,challenge,hint,cost FROM purchased_hints ORDER BY user,challenge,hint",
-        )
-        .bind(),
-      db
-        .prepare("SELECT id,name,name_key,hash,salt FROM teams ORDER BY name")
-        .bind(),
-      db.prepare("SELECT user,team FROM team_members ORDER BY user").bind(),
-      db
-        .prepare("SELECT max_members FROM team_settings WHERE id='active'")
-        .bind(),
-    ]);
+  const [
+    users,
+    catalog,
+    solved,
+    hints,
+    teams,
+    members,
+    teamSettings,
+    responses,
+  ] = await db.batch([
+    db.prepare("SELECT * FROM students ORDER BY username").bind(),
+    db
+      .prepare(
+        "SELECT payload,revision FROM challenge_catalog WHERE id='active'",
+      )
+      .bind(),
+    db
+      .prepare(
+        "SELECT user,challenge,points FROM solved ORDER BY user,challenge",
+      )
+      .bind(),
+    db
+      .prepare(
+        "SELECT user,challenge,hint,cost FROM purchased_hints ORDER BY user,challenge,hint",
+      )
+      .bind(),
+    db
+      .prepare("SELECT id,name,name_key,hash,salt FROM teams ORDER BY name")
+      .bind(),
+    db.prepare("SELECT user,team FROM team_members ORDER BY user").bind(),
+    db
+      .prepare("SELECT max_members FROM team_settings WHERE id='active'")
+      .bind(),
+    db
+      .prepare(
+        "SELECT user,challenge,answer,question,object,max_points AS maxPoints,hint_cost AS hintCost,submitted_at AS submittedAt,revision,grade,feedback,reviewer,graded_at AS gradedAt FROM written_responses ORDER BY user,challenge",
+      )
+      .bind(),
+  ]);
   const records = [];
   for (const row of users.results) {
     const cfg = config.accounts.users.find((a) => a.username === row.username),
@@ -202,6 +260,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     accounts: records,
     solved: solved.results,
     purchasedHints: hints.results,
+    writtenResponses: responses.results,
     teams: teams.results,
     teamMembers: members.results,
     teamMaxMembers:

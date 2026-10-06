@@ -1,3 +1,4 @@
+import { gradingCompatible } from "./review.mjs";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { parse, stringify } from "yaml";
 import {
@@ -265,6 +266,7 @@ export async function importPacks(
     nextContent =
       kind === "content" ? primary.value : secondary?.value || challenges;
   themeContentValid(nextTheme, nextContent);
+  await gradingCompatible(db, challenges, nextContent);
   const ids = new Set(nextTheme.characters.map((c) => c.id)),
     accounts = (
       await db.prepare("SELECT username,hero FROM students").bind().all()

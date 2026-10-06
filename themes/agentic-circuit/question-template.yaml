@@ -1,0 +1,25 @@
+# Authoring examples only. Replace text/flags and IDs before using an actual test.
+# Wrap/import these entries in a quest-content manifest or copy into your challenge YAML.
+challenges:
+  - id: agentic-test-2026-q1
+    map: town
+    object: Question 1
+    region: Circuit Campus
+    location: {x: 18, y: 19}
+    text: Paste your written-response question here.
+    grading: manual
+    points: 20
+    hints: []
+    downloads: []
+  - id: agentic-test-2026-q2
+    map: castle
+    object: Question 2
+    region: Reasoning Core
+    location: {x: 20, y: 10}
+    text: Paste your automatically checked question here.
+    grading: automatic
+    flags: ['REPLACE-WITH-YOUR-ACCEPTED-ANSWER']
+    caseSensitive: false
+    points: 10
+    hints: []
+    downloads: []

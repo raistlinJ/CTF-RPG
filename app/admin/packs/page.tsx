@@ -19,6 +19,12 @@ type State = {
   themeRevision: number;
   contentRevision: number;
   challengeCount: number;
+  presets: {
+    id: string;
+    title: string;
+    description: string;
+    preview: string;
+  }[];
 };
 export default function PacksAdmin() {
   const [state, setState] = useState<State | null>(null),
@@ -69,6 +75,28 @@ export default function PacksAdmin() {
       setPending(null);
     }
   }
+  async function usePreset(id: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch(
+        "/api/admin/packs?kind=theme&preset=" + encodeURIComponent(id),
+      );
+      if (!r.ok) {
+        const d = (await r.json()) as { error?: string };
+        throw Error(d.error || "Could not load theme.");
+      }
+      setTheme(
+        new File([await r.blob()], id + ".zip", { type: "application/zip" }),
+      );
+      setPaired(null);
+      setPending("theme");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   function choose(file: File | undefined, set: (f: File | null) => void) {
     setError("");
     if (file && file.size > 8 * 1024 * 1024) {
@@ -84,6 +112,7 @@ export default function PacksAdmin() {
         </a>
         <nav className="admin-header-links">
           <a href="/admin/teams">Manage</a>
+          <a href="/admin/review">Review answers</a>
           <a href="/admin">Challenges</a>
           <a href="/admin/users">Accounts</a>
           <a href="/">Game</a>
@@ -114,6 +143,39 @@ export default function PacksAdmin() {
           <a href="/admin">Sign in as an admin</a>
         ) : (
           <>
+            {state.presets?.map((p) => (
+              <section className="preset-card" key={p.id}>
+                <img src={p.preview} alt={p.title + " world preview"} />
+                <div>
+                  <span className="eyebrow">COURSE THEME</span>
+                  <h2>{p.title}</h2>
+                  <p>{p.description}</p>
+                  <p>
+                    Reasoning Core · Tool Workshop · Memory Lab · API Gateway ·
+                    Evaluation Lab · Safety Lab
+                  </p>
+                  <div className="admin-actions">
+                    <button
+                      className="primary"
+                      disabled={busy}
+                      onClick={() => void usePreset(p.id)}
+                    >
+                      Use this theme
+                    </button>
+                    <a
+                      className="secondary-button"
+                      href={"/api/admin/packs?kind=theme&preset=" + p.id}
+                    >
+                      Download theme ZIP
+                    </a>
+                  </div>
+                  <small>
+                    Changes the world and explorers. Your current questions,
+                    accounts, and scores stay saved.
+                  </small>
+                </div>
+              </section>
+            ))}
             <div className="pack-grid">
               <section className="admin-editor">
                 <span className="eyebrow">THEME PACK</span>

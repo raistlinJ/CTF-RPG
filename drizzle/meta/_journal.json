@@ -43,6 +43,13 @@
       "when": 1791319212122,
       "tag": "0005_conscious_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791321942796,
+      "tag": "0006_mixed_blue_blade",
+      "breakpoints": true
     }
   ]
 }

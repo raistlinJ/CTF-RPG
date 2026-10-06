@@ -45,6 +45,7 @@ try {
   try {
     for (const table of [
       "sessions",
+      "written_responses",
       "solved",
       "purchased_hints",
       "team_members",
@@ -88,6 +89,26 @@ try {
       "INSERT INTO solved(user,challenge,points) VALUES(?,?,?)",
     );
     for (const r of snapshot.solved) solved.run(r.user, r.challenge, r.points);
+    for (const r of snapshot.writtenResponses)
+      sqlite
+        .prepare(
+          "INSERT INTO written_responses(user,challenge,answer,question,object,max_points,hint_cost,submitted_at,revision,grade,feedback,reviewer,graded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        )
+        .run(
+          r.user,
+          r.challenge,
+          r.answer,
+          r.question,
+          r.object,
+          r.maxPoints,
+          r.hintCost,
+          r.submittedAt,
+          r.revision,
+          r.grade,
+          r.feedback,
+          r.reviewer,
+          r.gradedAt,
+        );
     const hints = sqlite.prepare(
       "INSERT INTO purchased_hints(user,challenge,hint,cost) VALUES(?,?,?,?)",
     );
