@@ -155,3 +155,24 @@ The YAML/JSON map field `ground` is an optional list of `[x, y]` walkable tiles 
 Painting fills skipped pointer positions with a continuous, connected stroke. Walkable floor needs a path to spawn to be reachable; paint that connection when an isolated tile turns amber. Tiles outside the boundary cannot be painted until the boundary is expanded.
 
 The map editor marks challenge positions with gold stars (red when invalid). **Reset** also discards pending challenge moves. Invalid map saves are rejected before storing uploaded artwork, including requests attempting to bypass the disabled Save button.
+
+### Transport tiles
+
+Open **Map artwork & reachable ground → Transport**, choose a different destination map, and click a free reachable tile. **Save map** activates the link; **Remove** deletes it, while **Reset** discards pending edits. Transport tiles appear purple with a double arrow in the editor and game.
+
+Touching a transport takes the player to the destination map's current spawn. That spawn becomes the return tile: step off it and back onto it to return to the source map's spawn. Arrival itself never triggers a return, so there is no immediate bounce. Several transports can share a destination; the player returns to the source they used. Nested trips remember up to 30 recent transport journeys during the current expedition. Travel history clears on login/reload or a normal building doorway transition.
+
+Source tiles must be reachable and cannot replace spawns, entrances, exits, challenges, or other transports. Destination spawns need a free reachable neighboring tile so the player can step off before returning. Transport source tiles and destination spawns cannot hold challenges. The editor and server reject invalid placements; move affected challenges before saving. A return tile without an active incoming journey does not teleport the player.
+
+Links belong to the theme and are included in theme ZIPs and full backups, with backward-compatible empty defaults for older themes:
+
+```yaml
+world:
+  transports:
+    - id: campus-to-core
+      map: town
+      location: {x: 19, y: 20}
+      to: castle
+```
+
+The destination and return positions follow map spawn settings automatically. **Undo last save** restores the map and the transport links edited in that save.

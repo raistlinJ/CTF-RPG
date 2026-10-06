@@ -72,6 +72,28 @@ export async function updateMap(req, state) {
     ...patch,
     obstacles: restoring ? patch.obstacles : [],
   };
+  if (form.has("transports")) {
+    const requested = z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            map: z.string(),
+            location: z.object({ x: z.number(), y: z.number() }).strict(),
+            to: z.string(),
+          })
+          .strict(),
+      )
+      .max(200)
+      .parse(JSON.parse(String(form.get("transports"))));
+    const before = state.theme.world.transports || [];
+    if (
+      JSON.stringify(requested.filter((t) => t.map !== patch.id)) !==
+      JSON.stringify(before.filter((t) => t.map !== patch.id))
+    )
+      throw Error("Edit transport tiles from their source map.");
+    next.world.transports = requested;
+  }
   const image = form.get("image");
   let imageBytes, imagePath;
   if (image && typeof image.arrayBuffer === "function" && image.size) {

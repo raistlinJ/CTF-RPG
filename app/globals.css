@@ -1807,3 +1807,10 @@ input::placeholder {
  .map-canvas-meta { align-items: start; }.map-edit-footer > div { gap: 8px; flex-wrap: wrap; }
  .map-edit-footer .primary { padding: 10px 13px; }
 }
+
+.legend-transport { background: #bba3f2; }
+.transport-list { display: grid; gap: 8px; }
+.transport-list > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px; border: 1px solid #42526e; border-radius: 6px; background: #172735; font-size: 13px; }
+.transport-list span { display: flex; align-items: center; gap: 7px; color: #d1c3f3; }
+.transport-list .text-button { font-size: 12px; }
+@media (max-width: 600px) { .map-settings-tabs svg { display: none; } }

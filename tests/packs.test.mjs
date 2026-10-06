@@ -845,3 +845,100 @@ test("map saves cannot bypass blocked/duplicate challenge checks and rejected mo
   assert.equal(after.challengeCount, 2);
   sqlite.close();
 });
+
+test("admin transports persist, reserve challenge tiles, export/import and restore with the map", async () => {
+  const { sqlite, config, client, files } = setup(),
+    admin = client();
+  await admin("/api/auth", {
+    mode: "login",
+    username: "teacher",
+    password: "teacher-password",
+    hero: "web",
+  });
+  let state = (await admin("/api/admin/packs")).data;
+  await admin(
+    "/api/admin/packs?kind=theme",
+    form(themeZip(custom(config)), state, contentZip(content)),
+  );
+  state = (await admin("/api/admin/packs")).data;
+  const original = structuredClone(state.theme.world.maps[0]),
+    engine = createWorld(state.theme.world),
+    ground = [];
+  for (let y = 0; y < 28; y++)
+    for (let x = 0; x < 40; x++)
+      if (!engine.blocked(original.id, x, y)) ground.push([x, y]);
+  const make = (transports, restoring = false) => {
+    const f = new FormData();
+    f.set(
+      "map",
+      JSON.stringify(
+        restoring
+          ? original
+          : {
+              id: original.id,
+              name: original.name,
+              bounds: original.bounds,
+              spawn: original.spawn,
+              ground,
+            },
+      ),
+    );
+    f.set("themeRevision", String(state.themeRevision));
+    f.set("contentRevision", String(state.contentRevision));
+    f.set("transports", JSON.stringify(transports));
+    if (restoring) f.set("action", "restore");
+    return f;
+  };
+  const transport = {
+    id: "island-lodge",
+    map: "island",
+    location: { x: 18, y: 21 },
+    to: "lodge",
+  };
+  const before = files.size;
+  const bad = await admin(
+    "/api/admin/maps",
+    make([{ ...transport, location: { x: 19, y: 20 } }]),
+  );
+  assert.equal(bad.status, 400);
+  assert.equal(files.size, before);
+  assert.equal((await admin("/api/admin/maps", make([transport]))).status, 200);
+  state = (await admin("/api/admin/packs")).data;
+  assert.deepEqual(state.theme.world.transports, [transport]);
+  assert.equal(
+    (
+      await admin("/api/admin/challenges", {
+        revision: state.contentRevision,
+        challenge: {
+          ...content[0],
+          id: "on-portal",
+          location: transport.location,
+        },
+      })
+    ).status,
+    400,
+  );
+  const exported = await admin("/api/admin/packs?kind=theme");
+  assert.deepEqual(
+    parse(strFromU8(unzipSync(exported.bytes)["theme.yaml"])).world.transports,
+    [transport],
+  );
+  const reimport = await admin(
+    "/api/admin/packs?kind=theme",
+    form(exported.bytes, state),
+  );
+  assert.equal(reimport.status, 200, JSON.stringify(reimport.data));
+  state = (await admin("/api/admin/packs")).data;
+  const backup = await admin("/api/admin/backup");
+  assert.deepEqual(
+    JSON.parse(strFromU8(unzipSync(backup.bytes)["backup.json"])).theme.world
+      .transports,
+    [transport],
+  );
+  assert.equal((await admin("/api/admin/maps", make([], true))).status, 200);
+  assert.deepEqual(
+    (await admin("/api/admin/packs")).data.theme.world.transports,
+    [],
+  );
+  sqlite.close();
+});

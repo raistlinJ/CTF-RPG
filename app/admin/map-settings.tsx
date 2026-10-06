@@ -9,13 +9,23 @@ import {
   SlidersHorizontal,
   Paintbrush,
   RotateCcw,
+  ArrowLeftRight,
 } from "lucide-react";
 import { paintStroke } from "@/lib/paint-stroke.mjs";
 import { createWorld, activeWorld } from "@/lib/world-data.mjs";
 type MapData = (typeof activeWorld.maps)[number] & {
   ground?: [number, number][] | null;
 };
-type WorldData = Omit<typeof activeWorld, "maps"> & { maps: MapData[] };
+type Transport = {
+  id: string;
+  map: string;
+  location: { x: number; y: number };
+  to: string;
+};
+type WorldData = Omit<typeof activeWorld, "maps"> & {
+  maps: MapData[];
+  transports?: Transport[];
+};
 type Placement = {
   id: string;
   object: string;
@@ -46,12 +56,21 @@ export default function MapSettings({
     [imageUrl, setImageUrl] = useState<string | null>(null),
     [cursor, setCursor] = useState({ x: 0, y: 0 }),
     [editorOpen, setEditorOpen] = useState(false),
-    [panel, setPanel] = useState<"ground" | "artwork" | "advanced">("ground"),
+    [panel, setPanel] = useState<
+      "ground" | "transport" | "artwork" | "advanced"
+    >("ground"),
     [mode, setMode] = useState<"allow" | "block" | "spawn" | "move">("allow"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
-    [previousSave, setPreviousSave] = useState<MapData | null>(null),
+    [previousSave, setPreviousSave] = useState<{
+      map: MapData;
+      transports: Transport[];
+    } | null>(null),
+    [transports, setTransports] = useState<Transport[]>(world.transports || []),
+    [destination, setDestination] = useState(
+      world.maps.find((m) => m.id !== mapId)?.id || "",
+    ),
     [moves, setMoves] = useState<Record<string, { x: number; y: number }>>({}),
     [selectedChallenge, setSelectedChallenge] = useState("");
   const canvas = useRef<HTMLCanvasElement>(null),
@@ -71,6 +90,8 @@ export default function MapSettings({
     if (imageInput.current) imageInput.current.value = "";
     setCursor({ ...original.spawn });
     setMode("allow");
+    setTransports(structuredClone(world.transports || []));
+    setDestination(world.maps.find((m) => m.id !== mapId)?.id || "");
     setError("");
     setMoves({});
     setSelectedChallenge("");
@@ -100,11 +121,12 @@ export default function MapSettings({
   const preview = useMemo(
     () => ({
       ...world,
+      transports,
       maps: world.maps.map((m) =>
         m.id === mapId ? { ...map, obstacles: [], ground } : m,
       ),
     }),
-    [world, mapId, map, ground],
+    [world, mapId, map, ground, transports],
   );
   const engine = useMemo(() => createWorld(preview), [preview]);
   const placements = useMemo(
@@ -124,6 +146,37 @@ export default function MapSettings({
         d.location.y === c.location.y,
     ),
   );
+  const transportProblems = transports.flatMap((t) => {
+    const source = preview.maps.find((m) => m.id === t.map),
+      target = preview.maps.find((m) => m.id === t.to);
+    if (
+      !source ||
+      !target ||
+      !engine.reachable(t.map, t.location.x, t.location.y) ||
+      (source.spawn.x === t.location.x && source.spawn.y === t.location.y)
+    )
+      return [
+        `Transport at ${t.location.x}, ${t.location.y} needs reachable ground away from spawn.`,
+      ];
+    if (
+      ![
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ].some(([dx, dy]) =>
+        engine.canPlaceChallenge(
+          t.to,
+          target.spawn.x + dx,
+          target.spawn.y + dy,
+        ),
+      )
+    )
+      return [
+        `${target.name} needs an open tile beside its spawn for the return trip.`,
+      ];
+    return [];
+  });
   useEffect(() => {
     let cancelled = false;
     const draw = (img?: HTMLImageElement) => {
@@ -159,6 +212,17 @@ export default function MapSettings({
           ctx.lineWidth = 3;
           ctx.strokeRect(c.location.x * 24 + 1, c.location.y * 24 + 1, 22, 22);
         }
+      }
+      for (const p of engine.transportTiles(mapId)) {
+        ctx.fillStyle = "#9b8bff66";
+        ctx.fillRect(p.x * 24 + 2, p.y * 24 + 2, 20, 20);
+        ctx.strokeStyle = "#c4adff";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(p.x * 24 + 2, p.y * 24 + 2, 20, 20);
+        ctx.fillStyle = "#eee1ff";
+        ctx.font = "bold 17px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("⇄", p.x * 24 + 12, p.y * 24 + 18);
       }
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2;
@@ -207,6 +271,67 @@ export default function MapSettings({
     )
       return;
     setCursor({ x, y });
+    if (panel === "transport") {
+      if (!destination) {
+        setError("Choose a destination map first.");
+        return;
+      }
+      const existing = transports.find(
+        (t) => t.map === mapId && t.location.x === x && t.location.y === y,
+      );
+      if (existing) {
+        setDestination(existing.to);
+        setMessage(
+          "This transport is already placed. Remove it from the list to choose a new tile.",
+        );
+        return;
+      }
+      if (
+        !engine.canPlaceChallenge(mapId, x, y) ||
+        (x === map.spawn.x && y === map.spawn.y)
+      ) {
+        setError(
+          "Choose reachable ground away from a spawn, doorway, or transport tile.",
+        );
+        return;
+      }
+      if (
+        placements.some(
+          (c) => c.map === mapId && c.location.x === x && c.location.y === y,
+        )
+      ) {
+        setError(
+          "Move the challenge off this tile before placing a transport.",
+        );
+        return;
+      }
+      const target = world.maps.find((m) => m.id === destination)!;
+      if (
+        placements.some(
+          (c) =>
+            c.map === destination &&
+            c.location.x === target.spawn.x &&
+            c.location.y === target.spawn.y,
+        )
+      ) {
+        setError(
+          "Move the challenge at the destination spawn before linking this map.",
+        );
+        return;
+      }
+      setTransports((ts) => [
+        ...ts,
+        {
+          id: "transport-" + crypto.randomUUID(),
+          map: mapId,
+          location: { x, y },
+          to: destination,
+        },
+      ]);
+      setError("");
+      setMessage("");
+      return;
+    }
     if (mode === "move") {
       const clicked = placements.find(
         (c) => c.map === mapId && c.location.x === x && c.location.y === y,
@@ -274,7 +399,7 @@ export default function MapSettings({
       true,
     );
   }
-  async function save(restore?: MapData) {
+  async function save(restore?: { map: MapData; transports: Transport[] }) {
     setBusy(true);
     setError("");
     setMessage("");
@@ -284,7 +409,7 @@ export default function MapSettings({
         "map",
         JSON.stringify(
           restore
-            ? { ...restore, ground: restore.ground ?? null }
+            ? { ...restore.map, ground: restore.map.ground ?? null }
             : {
                 id: map.id,
                 name: map.name,
@@ -297,6 +422,7 @@ export default function MapSettings({
       form.set("themeRevision", String(themeRevision));
       form.set("contentRevision", String(contentRevision));
       if (restore) form.set("action", "restore");
+      form.set("transports", JSON.stringify(restore?.transports || transports));
       if (image && !restore) form.set("image", image);
       form.set(
         "moves",
@@ -308,7 +434,14 @@ export default function MapSettings({
           placement: { moved: unknown[]; excluded: unknown[] };
         };
       if (!r.ok) throw Error(d.error || "Could not save the map.");
-      setPreviousSave(restore ? null : structuredClone(original));
+      setPreviousSave(
+        restore
+          ? null
+          : {
+              map: structuredClone(original),
+              transports: structuredClone(world.transports || []),
+            },
+      );
       await onSaved();
       setMessage(
         `${restore ? "Previous saved map restored" : "Map saved"}. ${d.placement.moved.length} challenges moved. Reload the game to use it.`,
@@ -369,7 +502,8 @@ export default function MapSettings({
         <div className="map-settings-tabs" aria-label="Map settings sections">
           {(
             [
-              { id: "ground", label: "Ground & challenges", icon: Paintbrush },
+              { id: "ground", label: "Ground", icon: Paintbrush },
+              { id: "transport", label: "Transport", icon: ArrowLeftRight },
               { id: "artwork", label: "Artwork", icon: ImageIcon },
               { id: "advanced", label: "Advanced", icon: SlidersHorizontal },
             ] as const
@@ -427,6 +561,64 @@ export default function MapSettings({
                     ))}
                 </select>
               </label>
+            )}
+          </div>
+        )}
+        {panel === "transport" && (
+          <div className="map-settings-section">
+            <label>
+              Destination map
+              <select
+                aria-label="Destination map"
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+              >
+                <option value="">Choose a map</option>
+                {world.maps
+                  .filter((m) => m.id !== mapId)
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <p id="transport-tool-help" className="map-tool-help">
+              Choose a destination and click a free tile. Students arrive at
+              that map’s spawn; step off and back onto its purple return tile to
+              come back.
+            </p>
+            <div className="transport-list">
+              {transports
+                .filter((t) => t.map === mapId)
+                .map((t) => (
+                  <div key={t.id}>
+                    <span>
+                      <ArrowLeftRight size={15} />
+                      {t.location.x}, {t.location.y} →{" "}
+                      {world.maps.find((m) => m.id === t.to)?.name}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-button"
+                      aria-label={`Remove transport at ${t.location.x}, ${t.location.y}`}
+                      onClick={() =>
+                        setTransports((ts) => ts.filter((v) => v.id !== t.id))
+                      }
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              {!transports.some((t) => t.map === mapId) && (
+                <small>No outgoing transports on this map yet.</small>
+              )}
+            </div>
+            {transports.some((t) => t.to === mapId) && (
+              <small>
+                The purple spawn tile returns students to the map they arrived
+                from. Incoming links are managed on their source map.
+              </small>
             )}
           </div>
         )}
@@ -537,9 +729,15 @@ export default function MapSettings({
           className="ground-canvas"
           tabIndex={0}
           aria-label="Reachable ground painter"
-          aria-describedby={panel === "ground" ? "map-tool-help" : undefined}
+          aria-describedby={
+            panel === "ground"
+              ? "map-tool-help"
+              : panel === "transport"
+                ? "transport-tool-help"
+                : undefined
+          }
           onPointerDown={(e) => {
-            if (panel !== "ground" || busy) return;
+            if ((panel !== "ground" && panel !== "transport") || busy) return;
             e.preventDefault();
             e.currentTarget.focus();
             lastPaint.current = null;
@@ -548,7 +746,8 @@ export default function MapSettings({
             at(e);
           }}
           onPointerMove={(e) => {
-            if (dragging.current && mode !== "move") at(e);
+            if (dragging.current && panel === "ground" && mode !== "move")
+              at(e);
           }}
           onPointerUp={() => {
             dragging.current = false;
@@ -563,7 +762,7 @@ export default function MapSettings({
             lastPaint.current = null;
           }}
           onKeyDown={(e) => {
-            if (panel !== "ground" || busy) return;
+            if ((panel !== "ground" && panel !== "transport") || busy) return;
             const dirs: Record<string, [number, number]> = {
               ArrowLeft: [-1, 0],
               ArrowRight: [1, 0],
@@ -598,6 +797,10 @@ export default function MapSettings({
               Blocked
             </span>
             <span className="legend-star">✦ Challenge</span>
+            <span>
+              <i className="legend-transport" />
+              Transport
+            </span>
           </div>
           <span className="map-tile-readout">
             Tile {cursor.x}, {cursor.y}
@@ -632,6 +835,11 @@ export default function MapSettings({
               ))}
             </ul>
           </div>
+        )}
+        {transportProblems.length > 0 && (
+          <p role="alert" className="error">
+            {transportProblems.join(" ")}
+          </p>
         )}
         {error && (
           <p role="alert" className="error">
@@ -669,7 +877,9 @@ export default function MapSettings({
           <button
             type="button"
             className="primary"
-            disabled={busy || attention.length > 0}
+            disabled={
+              busy || attention.length > 0 || transportProblems.length > 0
+            }
             onClick={() => void save()}
           >
             {busy ? "Saving…" : "Save map"}

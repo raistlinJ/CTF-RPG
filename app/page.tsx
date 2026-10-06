@@ -23,8 +23,14 @@ import {
   activeWorld,
   configureWorld,
   canPlaceChallenge,
+  transportTiles,
 } from "@/lib/world-data.mjs";
 
+type Place = {
+  map: string;
+  pos: { x: number; y: number };
+  travel?: { from: string; to: string }[];
+};
 type Hero = string;
 type Character = {
   id: string;
@@ -278,6 +284,17 @@ export function World({
     for (const p of portals) {
       ctx.strokeRect(p.x * t + 2, p.y * t + 2, t - 4, t - 4);
     }
+    for (const p of transportTiles(map)) {
+      ctx.fillStyle = "#9b8bff55";
+      ctx.fillRect(p.x * t + 2, p.y * t + 2, t - 4, t - 4);
+      ctx.strokeStyle = "#c4adff";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(p.x * t + 2, p.y * t + 2, t - 4, t - 4);
+      ctx.fillStyle = "#eee1ff";
+      ctx.font = "bold 17px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("⇄", p.x * t + 12, p.y * t + 18);
+    }
     for (const q of challenges) {
       if (q.map !== map || solved.includes(q.id)) continue;
       const a = q.location.x * t + 12,
@@ -433,7 +450,7 @@ export default function Game() {
     [challenges, setChallenges] = useState<Challenge[]>([]),
     [solved, setSolved] = useState<string[]>([]),
     [score, setScore] = useState(0),
-    [place, setPlace] = useState({ map: "town", pos: { x: 18, y: 20 } }),
+    [place, setPlace] = useState<Place>({ map: "town", pos: { x: 18, y: 20 } }),
     [active, setActive] = useState<Challenge | null>(null),
     [answer, setAnswer] = useState(""),
     [feedback, setFeedback] = useState(""),
@@ -567,11 +584,13 @@ export default function Game() {
   }
   useEffect(() => {
     setNotice(
-      map === activeWorld.startMap
-        ? "Follow the paths. Step into a cyan doorway outline to enter a building."
-        : `Welcome to ${mapName(map)}. Search for clues, then use the exit to return.`,
+      place.travel?.at(-1)?.to === map
+        ? `Arrived in ${mapName(map)}. Step off the purple spawn tile, then back onto it to return to ${mapName(place.travel.at(-1)!.from)}.`
+        : map === activeWorld.startMap
+          ? "Follow the paths. Cyan doorways enter buildings; purple transport tiles change maps."
+          : `Welcome to ${mapName(map)}. Search for clues, then use the exit to return.`,
     );
-  }, [map]);
+  }, [map, place.travel]);
   function move(dx: number, dy: number) {
     if (active) return;
     setPlace((p) => step(p, dx, dy));
