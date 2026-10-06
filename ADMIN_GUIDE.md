@@ -21,7 +21,7 @@ accounts:
       role: student
 ```
 
-Keep your existing character, audio, and other configuration. Student is the default role. Only accounts explicitly designated in server-side YAML become admins; registering an account cannot grant admin privileges. Admin sign-in uses the same salted password hashes and server sessions as the game. Removing `role: admin` revokes management access on subsequent API requests, even for an existing session.
+Keep your existing character, audio, and other configuration. Student is the default role. Admin accounts are explicitly designated in server-side YAML or created/promoted through authenticated user management; registering a student account cannot grant admin privileges. Admin sign-in uses the same salted password hashes and server sessions as the game. For unmanaged YAML accounts, removing `role: admin` revokes management access on subsequent API requests. Studio-managed roles take precedence; use the Accounts screen to change them.
 
 The standalone server never uses incoming platform identity headers to grant admin access. Keep the account YAML private, as described in [SELF_HOSTING.md](SELF_HOSTING.md).
 
@@ -51,4 +51,4 @@ Use **Export YAML** to download the current complete definitions, including acce
 
 Challenge edits, student progress, and hint purchases live in the same persistent SQLite/D1 database. Include the database in your backups. Self-hosting adds `challenge_catalog` automatically on startup. The Cloudflare preview needs `drizzle/0002_melodic_stephen_strange.sql` applied once; hosted publication applies that migration automatically. See [SELF_HOSTING.md](SELF_HOSTING.md) for restart and backup instructions.
 
-Concurrent admin saves use a revision check. If another admin saves first, your draft is preserved and the request is rejected with a clear message. **Reload saved version** loads the current definition before you reapply changes; it asks before discarding your unsaved draft. This first management interface creates and edits challenges; it does not delete student progress, upload files, or manage accounts.
+Concurrent admin saves use a revision check. If another admin saves first, your draft is preserved and the request is rejected with a clear message. **Reload saved version** loads the current definition before you reapply changes; it asks before discarding your unsaved draft. The studio creates and edits challenges without deleting student progress or uploading file contents. **Accounts** opens user management; **Full backup** exports the complete recreation package. See [BACKUPS.md](BACKUPS.md).

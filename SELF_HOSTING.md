@@ -116,6 +116,6 @@ npm run test:selfhost
 npx tsc --noEmit
 ```
 
-Tests verify YAML-managed and assigned heroes, credential changes, persistence after restart, scoring, origin checks, and private-file protection. The `/admin` challenge studio is documented in [ADMIN_GUIDE.md](ADMIN_GUIDE.md). Configure accounts with `role: admin` in your private game YAML. There is no password reset or account-management dashboard. Browser movement remains client-side, suitable for a classroom activity rather than competitive anti-cheat.
+Tests verify YAML-managed and assigned heroes, credential changes, persistence after restart, scoring, origin checks, and private-file protection. The `/admin` challenge studio is documented in [ADMIN_GUIDE.md](ADMIN_GUIDE.md). Configure accounts with `role: admin` in your private game YAML. The Accounts screen manages users and resets passwords. Complete recreation exports and restore instructions are in [BACKUPS.md](BACKUPS.md). Browser movement remains client-side, suitable for a classroom activity rather than competitive anti-cheat.
 
 The existing Sites deployment is also supported with `npm run build`. In that mode, `content/game.yaml` and challenge YAML are bundled at build time, so edits require a new publication; the standalone runtime environment variables above apply only to your own Node server.

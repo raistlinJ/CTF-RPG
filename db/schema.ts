@@ -10,6 +10,11 @@ export const students = sqliteTable("students", {
   hash: text("hash").notNull(),
   salt: text("salt").notNull(),
   hero: text("hero").notNull(),
+  role: text("role").notNull().default("student"),
+  disabled: integer("disabled").notNull().default(0),
+  managed: integer("managed").notNull().default(0),
+  provisioned: integer("provisioned").notNull().default(0),
+  revision: integer("revision").notNull().default(0),
 });
 export const sessions = sqliteTable("sessions", {
   token: text("token").primaryKey(),

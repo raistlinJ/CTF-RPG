@@ -48,3 +48,5 @@ next-env.d.ts
 /data/
 /selfhost/dist/
 /content/game.local.yaml
+
+/server/recreation-kit.mjs

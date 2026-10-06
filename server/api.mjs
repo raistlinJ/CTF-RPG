@@ -1,3 +1,10 @@
+import {
+  passwordHash,
+  equal,
+  configuredCredentials,
+  effectiveAccount,
+} from "./passwords.mjs";
+export { passwordHash } from "./passwords.mjs";
 import { stringify } from "yaml";
 import { canPlaceChallenge } from "../lib/world-data.mjs";
 import {
@@ -6,35 +13,6 @@ import {
   parseChallenges,
 } from "../lib/config-schema.mjs";
 const usernamePattern = /^[a-zA-Z0-9_-]{3,24}$/;
-export async function passwordHash(password, salt) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"],
-  );
-  const bits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      salt: new TextEncoder().encode(salt),
-      iterations: 100000,
-      hash: "SHA-256",
-    },
-    key,
-    256,
-  );
-  return Array.from(new Uint8Array(bits), (x) =>
-    x.toString(16).padStart(2, "0"),
-  ).join("");
-}
-function equal(a, b) {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++)
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return result === 0;
-}
 const json = (data, status = 200, headers = {}) =>
   Response.json(data, {
     status,
@@ -46,6 +24,7 @@ export function createApi({
   challenges,
   secureCookies = false,
   platformAdmin = false,
+  exportBackup,
 }) {
   const tokenOf = (req) =>
     /quest_session=([^;]+)/.exec(req.headers.get("cookie") || "")?.[1];
@@ -54,24 +33,51 @@ export function createApi({
   async function user(req) {
     const token = tokenOf(req);
     if (!token) return null;
-    const u = await db
+    const row = await db
       .prepare(
-        "SELECT students.id,username,hero FROM sessions JOIN students ON students.id=sessions.user WHERE token=? AND expires>?",
+        "SELECT students.* FROM sessions JOIN students ON students.id=sessions.user WHERE token=? AND expires>?",
       )
       .bind(token, Date.now())
       .first();
-    if (!u) return null;
-    if (
-      !config.accounts.allowRegistration &&
-      !config.accounts.users.some((a) => a.username === u.username)
-    )
+    if (!row || row.disabled) return null;
+    const cfg = config.accounts.users.find((a) => a.username === row.username);
+    if (!config.accounts.allowRegistration && !cfg && !row.provisioned)
       return null;
-    const configured = config.accounts.users.find(
-      (a) => a.username === u.username,
-    );
-    if (configured?.hero) u.hero = configured.hero;
-    if (!config.characters.some((c) => c.id === u.hero)) return null;
-    return { ...u, role: configured?.role || "student" };
+    const account = effectiveAccount(row, cfg, config);
+    if (!config.characters.some((c) => c.id === account.hero)) return null;
+    return {
+      id: account.id,
+      username: account.username,
+      hero: account.hero,
+      role: account.role,
+    };
+  }
+  async function accountList() {
+    const rows = (
+      await db
+        .prepare(
+          `SELECT students.*,COALESCE(stats.score,0) AS score,COALESCE(stats.completed,0) AS completed FROM students LEFT JOIN (SELECT user,SUM(points) AS score,COUNT(*) AS completed FROM solved GROUP BY user) stats ON students.id=stats.user ORDER BY username`,
+        )
+        .bind()
+        .all()
+    ).results;
+    const all = rows.map((row) => ({
+      ...effectiveAccount(
+        row,
+        config.accounts.users.find((c) => c.username === row.username),
+        config,
+      ),
+      score: row.score,
+      completed: row.completed,
+    }));
+    for (const cfg of config.accounts.users)
+      if (!rows.some((r) => r.username === cfg.username))
+        all.push({
+          ...effectiveAccount(null, cfg, config),
+          score: 0,
+          completed: 0,
+        });
+    return all.sort((a, b) => a.username.localeCompare(b.username));
   }
   async function catalog() {
     const saved = await db
@@ -196,52 +202,70 @@ export function createApi({
           .bind(id, name, await passwordHash(password, salt), salt, hero)
           .run();
         account = { id, username: name, hero };
-      } else if (configured) {
-        // YAML is authoritative for these credentials; hash verification avoids returning or persisting plaintext in SQLite.
-        const salt = account?.salt || crypto.randomUUID();
-        const expected = await passwordHash(configured.password, salt);
-        if (!equal(expected, await passwordHash(password, salt)))
-          return json({ error: "Username or password is incorrect." }, 401);
-        const selected = configured.hero || account?.hero || hero;
-        if (!config.characters.some((c) => c.id === selected))
-          return json(
-            { error: "Choose an available hero for your first sign-in." },
-            400,
-          );
-        if (!account) {
-          const id = crypto.randomUUID();
-          await db
-            .prepare(
-              "INSERT INTO students(id,username,hash,salt,hero) VALUES(?,?,?,?,?)",
-            )
-            .bind(id, name, expected, salt, selected)
-            .run();
-          account = { id, username: name, hero: selected };
-        } else {
-          if (account.hash !== expected)
-            await db
-              .prepare("DELETE FROM sessions WHERE user=?")
-              .bind(account.id)
-              .run();
-          await db
-            .prepare("UPDATE students SET hash=?,salt=?,hero=? WHERE id=?")
-            .bind(expected, salt, selected, account.id)
-            .run();
-          account.hero = selected;
-        }
       } else {
+        if (account?.disabled)
+          return json(
+            { error: "This account is disabled. Contact your teacher." },
+            403,
+          );
         if (
-          !config.accounts.allowRegistration ||
-          !account ||
-          !equal(await passwordHash(password, account.salt), account.hash)
+          !config.accounts.allowRegistration &&
+          !configured &&
+          !account?.provisioned
         )
           return json({ error: "Username or password is incorrect." }, 401);
+        if (account?.managed || !configured) {
+          if (
+            !account ||
+            !equal(await passwordHash(password, account.salt), account.hash)
+          )
+            return json({ error: "Username or password is incorrect." }, 401);
+        } else {
+          const credentials = await configuredCredentials(configured, account);
+          if (
+            !equal(
+              credentials.hash,
+              await passwordHash(password, credentials.salt),
+            )
+          )
+            return json({ error: "Username or password is incorrect." }, 401);
+          const selected = configured.hero || account?.hero || hero;
+          if (!config.characters.some((c) => c.id === selected))
+            return json(
+              { error: "Choose an available hero for your first sign-in." },
+              400,
+            );
+          if (!account) {
+            const id = crypto.randomUUID();
+            await db
+              .prepare(
+                "INSERT INTO students(id,username,hash,salt,hero) VALUES(?,?,?,?,?)",
+              )
+              .bind(id, name, credentials.hash, credentials.salt, selected)
+              .run();
+            account = { id, username: name, hero: selected };
+          } else {
+            const update = db
+              .prepare("UPDATE students SET hash=?,salt=?,hero=? WHERE id=?")
+              .bind(credentials.hash, credentials.salt, selected, account.id);
+            if (account.hash !== credentials.hash)
+              await db.batch([
+                update,
+                db
+                  .prepare("DELETE FROM sessions WHERE user=?")
+                  .bind(account.id),
+              ]);
+            else await update.run();
+            account.hero = selected;
+          }
+        }
         if (!config.characters.some((c) => c.id === account.hero))
           return json(
-            { error: "Your hero is unavailable. Please contact your teacher." },
+            { error: "Your hero is unavailable. Contact your teacher." },
             409,
           );
       }
+      const accountRole = effectiveAccount(account, configured, config).role;
       const token = crypto.randomUUID() + crypto.randomUUID();
       await db
         .prepare("DELETE FROM sessions WHERE expires<?")
@@ -257,13 +281,207 @@ export function createApi({
             id: account.id,
             username: name,
             hero: account.hero,
-            role: configured?.role || "student",
+            role: accountRole,
           },
-          admin: platformAdmin || configured?.role === "admin",
+          admin: platformAdmin || accountRole === "admin",
         },
         200,
         { "Set-Cookie": sessionCookie(token) },
       );
+    }
+    if (path === "/api/scoreboard" && method === "GET") {
+      const u = await user(req);
+      if (!u && !platformAdmin)
+        return json({ error: "Sign in to see the scoreboard." }, 401);
+      const players = (await accountList())
+        .filter((a) => a.role === "student" && !a.disabled)
+        .sort(
+          (a, b) => b.score - a.score || a.username.localeCompare(b.username),
+        );
+      let rank = 0,
+        lastScore;
+      return json({
+        players: players.map((a, i) => {
+          if (a.score !== lastScore) {
+            rank = i + 1;
+            lastScore = a.score;
+          }
+          return {
+            rank,
+            username: a.username,
+            hero: a.hero,
+            score: a.score,
+            completed: a.completed,
+            isYou: u?.username === a.username,
+          };
+        }),
+      });
+    }
+    if (path === "/api/admin/users") {
+      const u = await user(req);
+      if (!platformAdmin && u?.role !== "admin")
+        return json(
+          {
+            error: u
+              ? "Administrator access is required."
+              : "Sign in as an administrator.",
+          },
+          u ? 403 : 401,
+        );
+      if (method === "GET")
+        return json({
+          users: await accountList(),
+          characters: config.characters,
+          viewer: u?.username || null,
+        });
+      if (method === "POST") {
+        const body = await req.json(),
+          name =
+            typeof body.username === "string"
+              ? body.username.toLowerCase()
+              : "";
+        if (
+          !usernamePattern.test(name) ||
+          !["student", "admin"].includes(body.role) ||
+          typeof body.disabled !== "boolean" ||
+          !config.characters.some((c) => c.id === body.hero) ||
+          !Number.isInteger(body.revision)
+        )
+          return json(
+            {
+              error:
+                "Provide a valid username, role, hero, status, and revision.",
+            },
+            400,
+          );
+        const row = await db
+            .prepare("SELECT * FROM students WHERE username=?")
+            .bind(name)
+            .first(),
+          cfg = config.accounts.users.find((c) => c.username === name),
+          exists = !!(row || cfg);
+        if (exists !== !!body.editing)
+          return json(
+            {
+              error: exists
+                ? "That username already exists. Select it to edit."
+                : "This account no longer exists. Reload users.",
+            },
+            409,
+          );
+        if ((row?.revision || 0) !== body.revision)
+          return json(
+            {
+              error:
+                "Another administrator changed this account. Reload users before saving.",
+            },
+            409,
+          );
+        if (
+          !platformAdmin &&
+          u?.username === name &&
+          (body.disabled || body.role !== "admin")
+        )
+          return json(
+            { error: "You cannot disable or demote your own admin account." },
+            400,
+          );
+        if (
+          body.password !== undefined &&
+          (typeof body.password !== "string" ||
+            body.password.length < 8 ||
+            body.password.length > 128)
+        )
+          return json(
+            { error: "Passwords must contain 8–128 characters." },
+            400,
+          );
+        if (!exists && !body.password)
+          return json({ error: "A new account needs a password." }, 400);
+        let credentials;
+        if (body.password) {
+          const salt = crypto.randomUUID();
+          credentials = { salt, hash: await passwordHash(body.password, salt) };
+        } else if (row?.managed || !cfg)
+          credentials = { salt: row.salt, hash: row.hash };
+        else credentials = await configuredCredentials(cfg, row);
+        if (!row) {
+          const id = crypto.randomUUID();
+          const result = await db
+            .prepare(
+              "INSERT OR IGNORE INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision) VALUES(?,?,?,?,?,?,?,1,1,1)",
+            )
+            .bind(
+              id,
+              name,
+              credentials.hash,
+              credentials.salt,
+              body.hero,
+              body.role,
+              body.disabled ? 1 : 0,
+            )
+            .run();
+          if (Number(result.meta?.changes ?? result.changes) !== 1)
+            return json(
+              {
+                error:
+                  "Another administrator created this username. Reload users.",
+              },
+              409,
+            );
+        } else {
+          const update = db
+            .prepare(
+              "UPDATE students SET hash=?,salt=?,hero=?,role=?,disabled=?,managed=1,provisioned=1,revision=revision+1 WHERE id=? AND revision=?",
+            )
+            .bind(
+              credentials.hash,
+              credentials.salt,
+              body.hero,
+              body.role,
+              body.disabled ? 1 : 0,
+              row.id,
+              body.revision,
+            );
+          let result;
+          if (body.password || body.disabled) {
+            const results = await db.batch([
+              update,
+              db
+                .prepare(
+                  "DELETE FROM sessions WHERE user=? AND EXISTS(SELECT 1 FROM students WHERE id=? AND hash=? AND revision=?)",
+                )
+                .bind(row.id, row.id, credentials.hash, body.revision + 1),
+            ]);
+            result = results[0];
+          } else result = await update.run();
+          if (Number(result.meta?.changes ?? result.changes) !== 1)
+            return json(
+              { error: "Another administrator saved first. Reload users." },
+              409,
+            );
+        }
+        return json({
+          users: await accountList(),
+          characters: config.characters,
+          viewer: u?.username || null,
+        });
+      }
+    }
+    if (path === "/api/admin/backup" && method === "GET") {
+      const u = await user(req);
+      if (!platformAdmin && u?.role !== "admin")
+        return json(
+          {
+            error: u
+              ? "Administrator access is required."
+              : "Sign in as an administrator.",
+          },
+          u ? 403 : 401,
+        );
+      if (!exportBackup)
+        return json({ error: "Backup packaging is not available." }, 503);
+      return exportBackup({ db, config, challenges });
     }
     if (path === "/api/admin/challenges") {
       const u = await user(req);

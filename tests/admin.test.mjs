@@ -28,6 +28,7 @@ function setup(platformAdmin = false) {
     "0000_long_matthew_murdock.sql",
     "0001_white_maria_hill.sql",
     "0002_melodic_stephen_strange.sql",
+    "0003_chief_xorn.sql",
   ])
     sqlite.exec(readFileSync("drizzle/" + file, "utf8"));
   const db = {

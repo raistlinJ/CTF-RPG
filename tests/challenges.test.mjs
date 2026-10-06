@@ -46,6 +46,7 @@ function database() {
     "drizzle/0000_long_matthew_murdock.sql",
     "drizzle/0001_white_maria_hill.sql",
     "drizzle/0002_melodic_stephen_strange.sql",
+    "drizzle/0003_chief_xorn.sql",
   ])
     sqlite.exec(readFileSync(file, "utf8"));
   return {

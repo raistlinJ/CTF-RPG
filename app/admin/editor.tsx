@@ -244,6 +244,12 @@ export default function Admin() {
         </a>
         <div className="header-right">
           <span className="edition">ADMIN STUDIO</span>
+          <a className="admin-link" href="/admin/users">
+            Accounts
+          </a>
+          <a className="admin-link" href="/scoreboard">
+            Scores
+          </a>
           <a className="admin-link" href="/">
             Back to game
           </a>
@@ -301,6 +307,10 @@ export default function Admin() {
                 </p>
               </div>
               <div className="admin-actions">
+                <a href="/api/admin/backup" className="secondary-button">
+                  <Download size={17} />
+                  Full backup
+                </a>
                 <a
                   href="/api/admin/challenges?format=yaml"
                   className="secondary-button"

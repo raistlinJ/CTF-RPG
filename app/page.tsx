@@ -775,6 +775,11 @@ export default function Game() {
         </a>
         <div className="header-right">
           <span className="edition">THE WINTER EXPEDITION</span>
+          {user && (
+            <a href="/scoreboard" className="admin-link">
+              Scores
+            </a>
+          )}
           {canAdmin && (
             <a href="/admin" className="admin-link">
               Manage challenges

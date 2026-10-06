@@ -11,6 +11,9 @@ import {
 import { resolve, dirname, extname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseGame, parseChallenges } from "../lib/config-schema.mjs";
+import { createSQLiteAdapter, initializeSchema } from "./sqlite.mjs";
+import { exportFullBackup } from "./backup.mjs";
+import { readdirSync, lstatSync } from "node:fs";
 import { createApi } from "./api.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const config = parseGame(
@@ -35,34 +38,37 @@ const databasePath = resolve(
 );
 mkdirSync(dirname(databasePath), { recursive: true });
 const sqlite = new DatabaseSync(databasePath);
-sqlite.exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;");
-sqlite.exec(`CREATE TABLE IF NOT EXISTS students(id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE,hash TEXT NOT NULL,salt TEXT NOT NULL,hero TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));
-CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,hint TEXT NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(user,challenge,hint));
-CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);`);
-const db = {
-  prepare(sql) {
-    const statement = sqlite.prepare(sql);
-    return {
-      bind(...args) {
-        return {
-          async first() {
-            return statement.get(...args) || null;
-          },
-          async all() {
-            return { results: statement.all(...args) };
-          },
-          async run() {
-            return statement.run(...args);
-          },
-        };
-      },
-    };
-  },
-};
+initializeSchema(sqlite);
+const db = createSQLiteAdapter(sqlite);
 const secure = process.env.SECURE_COOKIES === "true";
-const api = createApi({ db, config, challenges, secureCookies: secure });
+function publicAssets() {
+  const files = {};
+  const directory = resolve(root, "public");
+  let size = 0;
+  function walk(path, prefix) {
+    for (const name of readdirSync(path)) {
+      const full = resolve(path, name),
+        info = lstatSync(full);
+      if (info.isSymbolicLink()) continue;
+      if (info.isDirectory()) walk(full, prefix + name + "/");
+      else {
+        size += info.size;
+        if (size > 24 * 1024 * 1024)
+          throw Error("Local assets exceed the backup limit.");
+        files[prefix + name] = new Uint8Array(readFileSync(full));
+      }
+    }
+  }
+  walk(directory, "public/");
+  return files;
+}
+const api = createApi({
+  db,
+  config,
+  challenges,
+  secureCookies: secure,
+  exportBackup: (state) => exportFullBackup(state, publicAssets()),
+});
 const origin = process.env.PUBLIC_ORIGIN;
 if (origin && new URL(origin).origin !== origin)
   throw Error(
@@ -165,7 +171,18 @@ const server = createServer(async (req, res) => {
         }
       }
     }
-    if (!file && ["/", "/admin", "/admin/"].includes(path))
+    if (
+      !file &&
+      [
+        "/",
+        "/admin",
+        "/admin/",
+        "/admin/users",
+        "/admin/users/",
+        "/scoreboard",
+        "/scoreboard/",
+      ].includes(path)
+    )
       file = resolve(output, "index.html");
     if (!file) {
       res.writeHead(404);
