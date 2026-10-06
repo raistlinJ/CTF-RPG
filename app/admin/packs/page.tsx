@@ -44,6 +44,7 @@ export default function PacksAdmin() {
     [pending, setPending] = useState<"theme" | "content" | null>(null),
     [overflow, setOverflow] = useState<Placement | null>(null),
     [result, setResult] = useState<Placement | null>(null),
+    [preparingPreset, setPreparingPreset] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
@@ -104,6 +105,7 @@ export default function PacksAdmin() {
     }
   }
   async function usePreset(id: string) {
+    setPreparingPreset(id);
     setBusy(true);
     setError("");
     try {
@@ -118,10 +120,12 @@ export default function PacksAdmin() {
         new File([await r.blob()], id + ".zip", { type: "application/zip" }),
       );
       setPaired(null);
+      setOverflow(null);
       setPending("theme");
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      setPreparingPreset(null);
       setBusy(false);
     }
   }
@@ -214,7 +218,9 @@ export default function PacksAdmin() {
                       disabled={busy}
                       onClick={() => void usePreset(p.id)}
                     >
-                      Use this theme
+                      {preparingPreset === p.id
+                        ? "Preparing theme…"
+                        : "Use this theme"}
                     </button>
                     <a
                       className="secondary-button"
@@ -223,6 +229,12 @@ export default function PacksAdmin() {
                       Download theme ZIP
                     </a>
                   </div>
+                  {preparingPreset === p.id && (
+                    <p role="status">
+                      Loading the theme. A confirmation will appear when it is
+                      ready.
+                    </p>
+                  )}
                   <small>
                     Changes the world and explorers. Your current questions,
                     accounts, and scores stay saved.

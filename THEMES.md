@@ -128,7 +128,7 @@ Rezip **the manifest and assets directory at the ZIP root**, not an enclosing fo
 
 ## Storage and self-hosting
 
-Hosted assets live in the `ASSETS` object-storage binding; active theme metadata and challenge collections live in the database. Self-hosted assets live in `data/pack-assets` (override with `ASSET_PATH`), alongside the persistent SQLite database. Keep this directory with the database when moving a server. Docker's existing `quest-data` volume persists both.
+Hosted assets live in the `QUEST_FILES` object-storage binding; active theme metadata and challenge collections live in the database. Self-hosted assets live in `data/pack-assets` (override with `ASSET_PATH`), alongside the persistent SQLite database. Keep this directory with the database when moving a server. Docker's existing `quest-data` volume persists both.
 
 Full backups include imported asset bytes under `data/pack-assets` and the active theme in `backup.json`. Follow `BACKUPS.md` to recreate the application, restore accounts, and preserve both active packs. Older backups without a theme continue to use the bundled default theme.
 
