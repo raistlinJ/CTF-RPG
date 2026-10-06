@@ -9,6 +9,7 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import { World } from "../page";
+import MapSettings from "./map-settings";
 import {
   MAP_IDS,
   mapName,
@@ -81,6 +82,7 @@ export default function Admin() {
     ),
     [catalog, setCatalog] = useState<Definition[]>([]),
     [revision, setRevision] = useState(0),
+    [themeRevision, setThemeRevision] = useState(0),
     [draft, setDraft] = useState<Draft | null>(null),
     [editingId, setEditingId] = useState<string | undefined>(),
     [initial, setInitial] = useState(""),
@@ -94,11 +96,11 @@ export default function Admin() {
     !!draft &&
     Boolean(
       editingId ||
-        draft.object.trim() ||
-        draft.text.trim() ||
-        draft.flagsText.trim() ||
-        draft.hints.length ||
-        draft.downloads.length,
+      draft.object.trim() ||
+      draft.text.trim() ||
+      draft.flagsText.trim() ||
+      draft.hints.length ||
+      draft.downloads.length,
     ) &&
     JSON.stringify(draft) !== initial;
   function choose(c: Draft, id?: string) {
@@ -108,11 +110,12 @@ export default function Admin() {
     setError("");
     setMessage("");
   }
-  async function load(keepSelection = false) {
+  async function load(keepSelection = false, preserveDraft = false) {
     const r = await fetch("/api/admin/challenges");
     const d = (await r.json()) as {
       challenges: Definition[];
       revision: number;
+      themeRevision: number;
       theme: { world: typeof activeWorld };
       error?: string;
     };
@@ -126,7 +129,9 @@ export default function Admin() {
     configureWorld(d.theme.world);
     setCatalog(d.challenges);
     setRevision(d.revision);
+    setThemeRevision(d.themeRevision);
     setAccess("ready");
+    if (preserveDraft) return;
     const selected = keepSelection
       ? d.challenges.find((c) => c.id === editingId)
       : undefined;
@@ -399,6 +404,15 @@ export default function Admin() {
                     {validLocation ? "Available ground" : "Choose clear ground"}
                   </span>
                 </div>
+                <MapSettings
+                  world={activeWorld}
+                  mapId={draft.map}
+                  themeRevision={themeRevision}
+                  contentRevision={revision}
+                  onSaved={async () => {
+                    await load(true, dirty);
+                  }}
+                />
                 <World
                   hero={explorer}
                   map={draft.map}
@@ -419,9 +433,10 @@ export default function Admin() {
                   onSelect={selectTile}
                 />
                 <p className="admin-map-help">
-                  Gold sparkles mark saved challenges. Click a sparkle to edit
-                  it; click clear ground to place or move your selected
-                  challenge. Arrow keys also select tiles.
+                  Gray tiles cannot hold challenges. Gold sparkles mark saved
+                  challenges. Click a sparkle to edit it; click clear ground to
+                  place or move your selected challenge. Arrow keys also select
+                  tiles.
                 </p>
                 <div className="admin-list-heading">
                   <h2>Saved discoveries</h2>
@@ -472,7 +487,7 @@ export default function Admin() {
                   />
                 </label>
                 <label>
-                  Location name
+                  Location label
                   <input
                     required
                     maxLength={120}
@@ -480,6 +495,11 @@ export default function Admin() {
                     onChange={(e) => patch({ region: e.target.value })}
                     placeholder="e.g. By the castle throne"
                   />
+                  <small>
+                    A description shown to students. Map and coordinates
+                    determine the actual location; changing this label does not
+                    move the challenge.
+                  </small>
                 </label>
                 <div className="admin-coordinate-fields">
                   <label>

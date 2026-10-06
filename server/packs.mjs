@@ -165,7 +165,7 @@ function unpack(bytes, kind) {
   }
   return { entries, value };
 }
-function assertAsset(bytes, ext) {
+export function assertAsset(bytes, ext) {
   const text = (a, b) => String.fromCharCode(...bytes.slice(a, b));
   if (
     (ext === "png" &&

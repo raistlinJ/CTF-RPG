@@ -1,3 +1,4 @@
+import { updateMap } from "./maps.mjs";
 import { handleReview, gradingCompatible } from "./review.mjs";
 import { themePresets, presetCatalog } from "../lib/theme-presets.mjs";
 import {
@@ -198,6 +199,37 @@ function createRequestApi({
     }
     if (path === "/api/admin/review")
       return handleReview(req, { db, user, platformAdmin });
+    if (path === "/api/admin/maps") {
+      const u = await user(req);
+      if (!platformAdmin && u?.role !== "admin")
+        return json({ error: "Administrator access required." }, u ? 403 : 401);
+      if (method !== "POST") return json({ error: "Method not allowed." }, 405);
+      const current = await catalog();
+      try {
+        return json(
+          await updateMap(req, {
+            db,
+            config,
+            theme,
+            themeRevision,
+            challenges: current.challenges,
+            contentRevision: current.revision,
+            store: assetStore,
+            readBaseAsset,
+          }),
+        );
+      } catch (e) {
+        return json(
+          {
+            error:
+              e.issues?.map((i) => i.message).join("; ") ||
+              e.message ||
+              "Map could not be saved.",
+          },
+          400,
+        );
+      }
+    }
     if (path === "/api/admin/packs") {
       const u = await user(req);
       if (!platformAdmin && u?.role !== "admin")
@@ -619,7 +651,7 @@ function createRequestApi({
               "Cache-Control": "no-store",
             },
           });
-        return json({ ...current, theme });
+        return json({ ...current, theme, themeRevision });
       }
       if (method === "POST") {
         const { challenge, revision, editingId } = await req.json();
@@ -703,15 +735,15 @@ function createRequestApi({
           current.revision === 0
             ? await db
                 .prepare(
-                  "INSERT OR IGNORE INTO challenge_catalog(id,payload,revision) VALUES('active',?,1)",
+                  "INSERT OR IGNORE INTO challenge_catalog(id,payload,revision) SELECT 'active',?,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?",
                 )
-                .bind(payload)
+                .bind(payload, themeRevision)
                 .run()
             : await db
                 .prepare(
-                  "UPDATE challenge_catalog SET payload=?,revision=revision+1 WHERE id='active' AND revision=?",
+                  "UPDATE challenge_catalog SET payload=?,revision=revision+1 WHERE id='active' AND revision=? AND COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?",
                 )
-                .bind(payload, revision)
+                .bind(payload, revision, themeRevision)
                 .run();
         if (Number(result.meta?.changes ?? result.changes) !== 1)
           return json(

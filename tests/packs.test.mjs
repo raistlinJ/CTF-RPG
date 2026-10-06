@@ -594,3 +594,91 @@ test("content imports repair duplicate, outside-grid, unknown-map and blocked pl
   assert.deepEqual(saved[1].flags, content[0].flags);
   sqlite.close();
 });
+
+test("map editing protects access, stores custom artwork/ground, relocates questions, and rejects stale or disconnected edits", async () => {
+  const { sqlite, config, client, files } = setup(),
+    admin = client(),
+    anonymous = client();
+  await admin("/api/auth", {
+    mode: "login",
+    username: "teacher",
+    password: "teacher-password",
+    hero: "web",
+  });
+  let state = (await admin("/api/admin/packs")).data;
+  await admin(
+    "/api/admin/packs?kind=theme",
+    form(themeZip(custom(config)), state, contentZip(content)),
+  );
+  state = (await admin("/api/admin/packs")).data;
+  const original = state.theme.world.maps[1];
+  const ground = [];
+  for (let y = original.bounds.top; y <= original.bounds.bottom; y++)
+    for (let x = original.bounds.left; x <= original.bounds.right; x++)
+      ground.push([x, y]);
+  const patch = {
+    id: original.id,
+    name: "Custom lab",
+    bounds: original.bounds,
+    spawn: original.spawn,
+    ground,
+  };
+  const make = (p = patch) => {
+    const f = new FormData();
+    f.set("map", JSON.stringify(p));
+    f.set("themeRevision", String(state.themeRevision));
+    f.set("contentRevision", String(state.contentRevision));
+    f.set(
+      "image",
+      new Blob([readFileSync("public/maps/town.png")]),
+      "custom.png",
+    );
+    return f;
+  };
+  assert.equal((await anonymous("/api/admin/maps", make())).status, 401);
+  const before = files.size;
+  assert.equal(
+    (await admin("/api/admin/maps", make({ ...patch, ground: [[20, 22]] })))
+      .status,
+    400,
+  );
+  assert.equal(files.size, before);
+  const saved = await admin("/api/admin/maps", make());
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.equal((await admin("/api/admin/maps", make())).status, 400);
+  state = (await admin("/api/admin/packs")).data;
+  const map = state.theme.world.maps.find((m) => m.id === original.id);
+  assert.deepEqual(map.ground, ground);
+  assert.equal(map.name, "Custom lab");
+  assert.deepEqual(
+    (await admin(map.background)).bytes,
+    new Uint8Array(readFileSync("public/maps/town.png")),
+  );
+  const exported = await admin("/api/admin/packs?kind=theme");
+  assert.deepEqual(
+    parse(strFromU8(unzipSync(exported.bytes)["theme.yaml"])).world.maps.find(
+      (m) => m.id === map.id,
+    ).ground,
+    ground,
+  );
+  const island = state.theme.world.maps[0],
+    engine = createWorld(state.theme.world),
+    painted = [];
+  for (let y = 0; y < 28; y++)
+    for (let x = 0; x < 40; x++)
+      if (!engine.blocked(island.id, x, y) && !(x === 19 && y === 20))
+        painted.push([x, y]);
+  const moved = await admin(
+    "/api/admin/maps",
+    make({
+      id: island.id,
+      name: island.name,
+      bounds: island.bounds,
+      spawn: island.spawn,
+      ground: painted,
+    }),
+  );
+  assert.equal(moved.status, 200, JSON.stringify(moved.data));
+  assert.equal(moved.data.placement.moved.length, 1);
+  sqlite.close();
+});

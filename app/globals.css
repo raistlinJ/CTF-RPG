@@ -1761,3 +1761,13 @@ input::placeholder {
   display: block;
   width: max-content;
 }
+
+.map-settings { margin-bottom: 18px; border: 1px solid #42616e; border-radius: 8px; background: #152e3b; }
+.map-settings summary { cursor: pointer; padding: 14px; color: #a3e7ca; font-weight: 600; }
+.map-settings-body { padding: 0 14px 16px; display: grid; gap: 14px; }
+.map-settings-body label { display: grid; gap: 7px; }
+.map-settings-body input { width: 100%; padding: 10px; background: #102532; color: #e7f1ee; border: 1px solid #42616e; border-radius: 5px; }
+.map-settings-body small { color: #a9c1ca; line-height: 1.5; }
+.map-settings .admin-actions { flex-wrap: wrap; }
+.map-settings [aria-pressed="true"] { background: #2c4a58; border-color: #a3e7ca; }
+.ground-canvas { width: 100%; height: auto; touch-action: none; cursor: crosshair; border: 1px solid #42616e; }

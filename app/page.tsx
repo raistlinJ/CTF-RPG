@@ -22,6 +22,7 @@ import {
   mapInfo,
   activeWorld,
   configureWorld,
+  canPlaceChallenge,
 } from "@/lib/world-data.mjs";
 
 type Hero = string;
@@ -259,6 +260,12 @@ export function World({
         ctx.fillStyle = "#d5b86d";
         ctx.fillRect(exit.x * t, exit.y * t, t, t);
       }
+    }
+    if (onSelect) {
+      ctx.fillStyle = "rgba(135, 140, 145, 0.42)";
+      for (let y = 0; y < 28; y++)
+        for (let x = 0; x < 40; x++)
+          if (!canPlaceChallenge(map, x, y)) ctx.fillRect(x * t, y * t, t, t);
     }
     const portals =
       map === activeWorld.startMap

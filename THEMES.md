@@ -139,3 +139,13 @@ Theme manifests may set `badge: cpu`, `badge: snowflake`, or `badge: compass` fo
 Importing a theme or content pack preserves valid, unique challenge positions first. Questions on blocked, unreachable, entrance/exit, duplicate, out-of-grid, or missing-map positions move to the nearest free reachable tile in their map (Manhattan distance; ties by row, then column). If that map is full or missing, the start map and remaining maps are used. Each tile holds one challenge; there is no fixed number of predefined placement slots.
 
 If every map is full, the import pauses before changing data or storing assets. The admin sees the excluded question names and IDs and can cancel to choose a larger theme/reduce the content, or explicitly import only what fits. Keep the source ZIP or export current content before excluding questions. Import reports show relocated coordinates and excluded IDs. Accounts, teams, historical points, and written responses remain saved. Theme-only relocation updates the challenge catalog atomically with the theme; stale approvals are rejected.
+
+### Edit artwork and ground in the challenge studio
+
+Under **Map**, open **Map artwork & reachable ground**. Upload a PNG, JPEG, WebP, or GIF up to 4 MB; the artwork stretches over the 40 × 28 tile grid. Select **Paint walkable**, **Paint blocked**, or **Set spawn**, then click or drag. Tile X/Y and **Apply tool at tile** provide an alternative to painting. Fill/block controls are local edits until **Save map**. Map boundaries can also be adjusted.
+
+Green tiles are reachable from the yellow spawn. Gray tiles cannot hold challenges, including blocked tiles, disconnected floor, building walls, doors, and exits. Cyan outlines mark portals. Building geometry and portals stay in place; saves reject blocked spawns or unreachable door/exit approaches. Questions displaced by terrain changes move automatically; if no space remains, the admin chooses whether to cancel or exclude extras. Map artwork and painted ground belong to the theme and travel with theme export/import and full backups. Keep the total theme assets within the 8 MB pack limit.
+
+The YAML/JSON map field `ground` is an optional list of `[x, y]` walkable tiles (maximum 1,120). Omitted or `null` uses the existing bounds/obstacle rules. A list restricts walking to those tiles, still respecting bounds, obstacles, and building geometry. The painter replaces the selected map's obstacle rectangles with this tile list. Other maps keep their existing layout.
+
+**Location label** describes a challenge to students; changing it does not move the challenge. The selected map and X/Y coordinates set its actual position.

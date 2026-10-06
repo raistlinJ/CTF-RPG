@@ -95,3 +95,22 @@ test("building walls, furniture, water and outer boundaries block movement", () 
   const p = { map: "castle", pos: { x: 6, y: 10 } };
   assert.equal(step(p, -1, 0), p);
 });
+
+test("explicit walkable ground controls movement and challenge reachability", async () => {
+  const { defaultWorld, createWorld } = await import("../lib/world-data.mjs");
+  const world = structuredClone(defaultWorld);
+  const map = world.maps.find((m) => m.id === world.startMap),
+    p = map.spawn;
+  map.ground = [
+    [p.x, p.y],
+    [p.x + 1, p.y],
+    [p.x + 3, p.y],
+  ];
+  const engine = createWorld(world);
+  assert.equal(engine.blocked(map.id, p.x, p.y + 1), true);
+  assert.equal(engine.canPlaceChallenge(map.id, p.x + 3, p.y), false);
+  assert.deepEqual(engine.step({ map: map.id, pos: p }, 0, 1), {
+    map: map.id,
+    pos: p,
+  });
+});
