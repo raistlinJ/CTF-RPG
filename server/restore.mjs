@@ -52,6 +52,7 @@ try {
       "team_settings",
       "students",
       "challenge_catalog",
+      "theme_catalog",
     ])
       sqlite.prepare(`DELETE FROM ${table}`).run();
     const insert = sqlite.prepare(
@@ -70,9 +71,19 @@ try {
         a.provisioned,
         a.revision,
       );
-    for(const t of snapshot.teams)sqlite.prepare("INSERT INTO teams(id,name,name_key,hash,salt) VALUES(?,?,?,?,?)").run(t.id,t.name,t.name_key,t.hash,t.salt);
-    for(const m of snapshot.teamMembers)sqlite.prepare("INSERT INTO team_members(user,team) VALUES(?,?)").run(m.user,m.team);
-    sqlite.prepare("INSERT INTO team_settings(id,max_members) VALUES('active',?)").run(snapshot.teamMaxMembers??snapshot.config.teams.maxMembers);
+    for (const t of snapshot.teams)
+      sqlite
+        .prepare(
+          "INSERT INTO teams(id,name,name_key,hash,salt) VALUES(?,?,?,?,?)",
+        )
+        .run(t.id, t.name, t.name_key, t.hash, t.salt);
+    for (const m of snapshot.teamMembers)
+      sqlite
+        .prepare("INSERT INTO team_members(user,team) VALUES(?,?)")
+        .run(m.user, m.team);
+    sqlite
+      .prepare("INSERT INTO team_settings(id,max_members) VALUES('active',?)")
+      .run(snapshot.teamMaxMembers ?? snapshot.config.teams.maxMembers);
     const solved = sqlite.prepare(
       "INSERT INTO solved(user,challenge,points) VALUES(?,?,?)",
     );
@@ -87,6 +98,12 @@ try {
         "INSERT INTO challenge_catalog(id,payload,revision) VALUES('active',?,1)",
       )
       .run(JSON.stringify(snapshot.challenges));
+    if (snapshot.theme)
+      sqlite
+        .prepare(
+          "INSERT INTO theme_catalog(id,payload,revision) VALUES('active',?,1)",
+        )
+        .run(JSON.stringify(snapshot.theme));
     sqlite.exec("COMMIT");
   } catch (e) {
     sqlite.exec("ROLLBACK");

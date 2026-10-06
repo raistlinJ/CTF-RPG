@@ -14,6 +14,8 @@ COPY --from=build --chown=node:node /app/package-lock.json ./package-lock.json
 COPY --from=build --chown=node:node /app/server ./server
 COPY --from=build --chown=node:node /app/lib/config-schema.mjs ./lib/config-schema.mjs
 COPY --from=build --chown=node:node /app/lib/world-data.mjs ./lib/world-data.mjs
+COPY --from=build --chown=node:node /app/lib/default-world.json ./lib/default-world.json
+COPY --from=build --chown=node:node /app/lib/theme-schema.mjs ./lib/theme-schema.mjs
 COPY --from=build --chown=node:node /app/selfhost/dist ./selfhost/dist
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/content ./content

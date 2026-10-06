@@ -1,3 +1,12 @@
+import {
+  activeTheme,
+  exportPack,
+  importPacks,
+  readAsset,
+  assetKeyPattern,
+  assetTypes,
+} from "./packs.mjs";
+import { createWorld } from "../lib/world-data.mjs";
 import { handleTeams } from "./teams.mjs";
 import {
   passwordHash,
@@ -7,7 +16,6 @@ import {
 } from "./passwords.mjs";
 export { passwordHash } from "./passwords.mjs";
 import { stringify } from "yaml";
-import { canPlaceChallenge } from "../lib/world-data.mjs";
 import {
   normalize,
   publicConfig,
@@ -19,13 +27,17 @@ const json = (data, status = 200, headers = {}) =>
     status,
     headers: { "Cache-Control": "no-store", ...headers },
   });
-export function createApi({
+function createRequestApi({
   db,
   config,
   challenges,
   secureCookies = false,
   platformAdmin = false,
   exportBackup,
+  theme,
+  themeRevision = 0,
+  assetStore,
+  readBaseAsset,
 }) {
   const tokenOf = (req) =>
     /quest_session=([^;]+)/.exec(req.headers.get("cookie") || "")?.[1];
@@ -144,9 +156,68 @@ export function createApi({
     )
       return json({ error: "Invalid request origin." }, 403);
     if (["/api/teams", "/api/admin/teams"].includes(path))
-      return handleTeams(req, {db,config,user,platformAdmin});
+      return handleTeams(req, { db, config, user, platformAdmin });
+    if (path.startsWith("/api/assets/") && method === "GET") {
+      const key = path.slice(12);
+      if (!assetKeyPattern.test(key)) return json({ error: "Not found." }, 404);
+      const bytes = await readAsset(path, assetStore, readBaseAsset);
+      if (!bytes) return json({ error: "Not found." }, 404);
+      return new Response(bytes, {
+        headers: {
+          "Content-Type": assetTypes[key.split(".").pop()],
+          "X-Content-Type-Options": "nosniff",
+          "Content-Disposition": key.endsWith(".bin") ? "attachment" : "inline",
+          "Cache-Control": "public, max-age=31536000, immutable",
+        },
+      });
+    }
+    if (path === "/api/admin/packs") {
+      const u = await user(req);
+      if (!platformAdmin && u?.role !== "admin")
+        return json({ error: "Administrator access required." }, u ? 403 : 401);
+      const current = await catalog(),
+        kind = new URL(req.url).searchParams.get("kind");
+      if (method === "GET" && !kind)
+        return json({
+          theme,
+          themeRevision,
+          contentRevision: current.revision,
+          challengeCount: current.challenges.length,
+        });
+      if (!["theme", "content"].includes(kind))
+        return json({ error: "Choose theme or content." }, 400);
+      try {
+        if (method === "GET")
+          return await exportPack(
+            kind,
+            { theme, challenges: current.challenges },
+            assetStore,
+            readBaseAsset,
+          );
+        if (method === "POST")
+          return json({
+            ok: true,
+            ...(await importPacks(
+              req,
+              {
+                db,
+                config,
+                theme,
+                themeRevision,
+                challenges: current.challenges,
+                contentRevision: current.revision,
+                store: assetStore,
+              },
+              kind,
+            )),
+          });
+      } catch (e) {
+        return json({ error: e.message || "Invalid pack." }, 400);
+      }
+      return json({ error: "Method not allowed." }, 405);
+    }
     if (path === "/api/config" && method === "GET")
-      return json(publicConfig(config));
+      return json({ ...publicConfig(config), theme, themeRevision });
     if (path === "/api/auth" && method === "GET") {
       const u = await user(req);
       return json({ user: u, admin: platformAdmin || u?.role === "admin" });
@@ -484,7 +555,14 @@ export function createApi({
         );
       if (!exportBackup)
         return json({ error: "Backup packaging is not available." }, 503);
-      return exportBackup({ db, config, challenges });
+      return exportBackup({
+        db,
+        config,
+        challenges,
+        theme,
+        assetStore,
+        readBaseAsset,
+      });
     }
     if (path === "/api/admin/challenges") {
       const u = await user(req);
@@ -507,7 +585,7 @@ export function createApi({
               "Cache-Control": "no-store",
             },
           });
-        return json(current);
+        return json({ ...current, theme });
       }
       if (method === "POST") {
         const { challenge, revision, editingId } = await req.json();
@@ -523,6 +601,7 @@ export function createApi({
         try {
           validated = parseChallenges(
             stringify({ challenges: [challenge] }),
+            theme.world.maps.map((m) => m.id),
           )[0];
         } catch (e) {
           return json(
@@ -531,7 +610,7 @@ export function createApi({
           );
         }
         if (
-          !canPlaceChallenge(
+          !createWorld(theme.world).canPlaceChallenge(
             validated.map,
             validated.location.x,
             validated.location.y,
@@ -685,6 +764,30 @@ export function createApi({
       console.error("Game API request failed:", e.name);
       return json(
         { error: "The expedition is temporarily unavailable. Please retry." },
+        503,
+      );
+    }
+  };
+}
+
+export function createApi(options) {
+  return async (req) => {
+    try {
+      const current = await activeTheme(options.db, options.config);
+      return await createRequestApi({
+        ...options,
+        config: {
+          ...options.config,
+          characters: current.theme.characters,
+          audio: current.theme.audio,
+        },
+        theme: current.theme,
+        themeRevision: current.revision,
+      })(req);
+    } catch (e) {
+      console.error("Theme configuration unavailable:", e.name);
+      return json(
+        { error: "The game is temporarily unavailable. Please retry." },
         503,
       );
     }

@@ -9,7 +9,14 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import { World } from "../page";
-import { MAP_IDS, mapName, canPlaceChallenge } from "@/lib/world-data.mjs";
+import {
+  MAP_IDS,
+  mapName,
+  canPlaceChallenge,
+  configureWorld,
+  activeWorld,
+  mapInfo,
+} from "@/lib/world-data.mjs";
 import {
   Select,
   SelectContent,
@@ -84,11 +91,11 @@ export default function Admin() {
     !!draft &&
     Boolean(
       editingId ||
-      draft.object.trim() ||
-      draft.text.trim() ||
-      draft.flagsText.trim() ||
-      draft.hints.length ||
-      draft.downloads.length,
+        draft.object.trim() ||
+        draft.text.trim() ||
+        draft.flagsText.trim() ||
+        draft.hints.length ||
+        draft.downloads.length,
     ) &&
     JSON.stringify(draft) !== initial;
   function choose(c: Draft, id?: string) {
@@ -103,6 +110,7 @@ export default function Admin() {
     const d = (await r.json()) as {
       challenges: Definition[];
       revision: number;
+      theme: { world: typeof activeWorld };
       error?: string;
     };
     if (r.status === 401 || r.status === 403) {
@@ -112,13 +120,23 @@ export default function Admin() {
       return;
     }
     if (!r.ok) throw Error(d.error || "Challenge management is unavailable.");
+    configureWorld(d.theme.world);
     setCatalog(d.challenges);
     setRevision(d.revision);
     setAccess("ready");
     const selected = keepSelection
       ? d.challenges.find((c) => c.id === editingId)
       : undefined;
-    choose(selected ? toDraft(selected) : fresh(), selected?.id);
+    choose(
+      selected
+        ? toDraft(selected)
+        : fresh(
+            activeWorld.startMap,
+            mapInfo(activeWorld.startMap)!.spawn.x,
+            mapInfo(activeWorld.startMap)!.spawn.y,
+          ),
+      selected?.id,
+    );
   }
   useEffect(() => {
     fetch("/api/config")
@@ -240,11 +258,16 @@ export default function Admin() {
           <span className="brand-icon">
             <Snowflake size={24} />
           </span>
-          NORTH POLE <b>QUEST</b>
+          QUEST <b>STUDIO</b>
         </a>
         <div className="header-right">
           <span className="edition">ADMIN STUDIO</span>
-          <a className="admin-link" href="/admin/teams">Teams</a>
+          <a className="admin-link" href="/admin/packs">
+            Themes &amp; content
+          </a>
+          <a className="admin-link" href="/admin/teams">
+            Teams
+          </a>
           <a className="admin-link" href="/admin/users">
             Accounts
           </a>
@@ -337,7 +360,14 @@ export default function Admin() {
                     <Select
                       value={draft.map}
                       onValueChange={(map) => {
-                        if (canDiscard()) choose(fresh(map, 18, 20));
+                        if (canDiscard())
+                          choose(
+                            fresh(
+                              map,
+                              mapInfo(map)!.spawn.x,
+                              mapInfo(map)!.spawn.y,
+                            ),
+                          );
                       }}
                     >
                       <SelectTrigger aria-label="Select map">

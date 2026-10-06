@@ -1,3 +1,5 @@
+import { activeTheme, readAsset } from "./packs.mjs";
+import { parseTheme, themeAssetPaths } from "../lib/theme-schema.mjs";
 import { zipSync, unzipSync, strToU8 } from "fflate";
 import { stringify } from "yaml";
 import { z } from "zod";
@@ -40,19 +42,38 @@ export function validateSnapshot(input) {
       version: z.literal(1),
       createdAt: z.string().datetime(),
       config: z.unknown(),
+      theme: z.unknown().optional(),
       challenges: z.array(z.unknown()).max(100),
       accounts: z.array(account).max(10000),
-      teams:z.array(z.object({id:z.string().min(1),name:z.string().min(1).max(48),name_key:z.string().min(1),hash:z.string().regex(/^[a-f0-9]{64}$/),salt:z.string().min(1)}).strict()).max(10000).default([]),
-      teamMembers:z.array(z.object({user:z.string(),team:z.string()}).strict()).max(10000).default([]),
-      teamMaxMembers:z.number().int().min(1).max(100).optional(),
+      teams: z
+        .array(
+          z
+            .object({
+              id: z.string().min(1),
+              name: z.string().min(1).max(48),
+              name_key: z.string().min(1),
+              hash: z.string().regex(/^[a-f0-9]{64}$/),
+              salt: z.string().min(1),
+            })
+            .strict(),
+        )
+        .max(10000)
+        .default([]),
+      teamMembers: z
+        .array(z.object({ user: z.string(), team: z.string() }).strict())
+        .max(10000)
+        .default([]),
+      teamMaxMembers: z.number().int().min(1).max(100).optional(),
       solved: z.array(completion).max(1000000),
       purchasedHints: z.array(purchase).max(1000000),
     })
     .strict()
     .parse(input);
   snapshot.config = parseGame(stringify(snapshot.config));
+  if (snapshot.theme) snapshot.theme = parseTheme(snapshot.theme);
   snapshot.challenges = parseChallenges(
     stringify({ challenges: snapshot.challenges }),
+    snapshot.theme?.world.maps.map((m) => m.id),
   );
   const ids = new Set(snapshot.accounts.map((a) => a.id));
   if (
@@ -78,33 +99,49 @@ export function validateSnapshot(input) {
     ).size !== snapshot.purchasedHints.length
   )
     throw Error("Duplicate progress in backup.");
-  const teamIds=new Set(snapshot.teams.map(t=>t.id));
-  if(teamIds.size!==snapshot.teams.length||new Set(snapshot.teams.map(t=>t.name_key)).size!==snapshot.teams.length||new Set(snapshot.teamMembers.map(m=>m.user)).size!==snapshot.teamMembers.length)throw Error("Duplicate teams or membership in backup.");
-  if(snapshot.teamMembers.some(m=>!ids.has(m.user)||!teamIds.has(m.team)))throw Error("Unknown team or account in backup membership.");
+  const teamIds = new Set(snapshot.teams.map((t) => t.id));
+  if (
+    teamIds.size !== snapshot.teams.length ||
+    new Set(snapshot.teams.map((t) => t.name_key)).size !==
+      snapshot.teams.length ||
+    new Set(snapshot.teamMembers.map((m) => m.user)).size !==
+      snapshot.teamMembers.length
+  )
+    throw Error("Duplicate teams or membership in backup.");
+  if (
+    snapshot.teamMembers.some((m) => !ids.has(m.user) || !teamIds.has(m.team))
+  )
+    throw Error("Unknown team or account in backup membership.");
   return snapshot;
 }
-export async function createSnapshot({ db, config, challenges }) {
-  const [users, catalog, solved, hints,teams,members,teamSettings] = await db.batch([
-    db.prepare("SELECT * FROM students ORDER BY username").bind(),
-    db
-      .prepare(
-        "SELECT payload,revision FROM challenge_catalog WHERE id='active'",
-      )
-      .bind(),
-    db
-      .prepare(
-        "SELECT user,challenge,points FROM solved ORDER BY user,challenge",
-      )
-      .bind(),
-    db
-      .prepare(
-        "SELECT user,challenge,hint,cost FROM purchased_hints ORDER BY user,challenge,hint",
-      )
-      .bind(),
-    db.prepare("SELECT id,name,name_key,hash,salt FROM teams ORDER BY name").bind(),
-    db.prepare("SELECT user,team FROM team_members ORDER BY user").bind(),
-    db.prepare("SELECT max_members FROM team_settings WHERE id='active'").bind(),
-  ]);
+export async function createSnapshot({ db, config, challenges, theme }) {
+  theme ??= (await activeTheme(db, config)).theme;
+  const [users, catalog, solved, hints, teams, members, teamSettings] =
+    await db.batch([
+      db.prepare("SELECT * FROM students ORDER BY username").bind(),
+      db
+        .prepare(
+          "SELECT payload,revision FROM challenge_catalog WHERE id='active'",
+        )
+        .bind(),
+      db
+        .prepare(
+          "SELECT user,challenge,points FROM solved ORDER BY user,challenge",
+        )
+        .bind(),
+      db
+        .prepare(
+          "SELECT user,challenge,hint,cost FROM purchased_hints ORDER BY user,challenge,hint",
+        )
+        .bind(),
+      db
+        .prepare("SELECT id,name,name_key,hash,salt FROM teams ORDER BY name")
+        .bind(),
+      db.prepare("SELECT user,team FROM team_members ORDER BY user").bind(),
+      db
+        .prepare("SELECT max_members FROM team_settings WHERE id='active'")
+        .bind(),
+    ]);
   const records = [];
   for (const row of users.results) {
     const cfg = config.accounts.users.find((a) => a.username === row.username),
@@ -158,13 +195,17 @@ export async function createSnapshot({ db, config, challenges }) {
     version: 1,
     createdAt: new Date().toISOString(),
     config: exportConfig,
+    theme,
     challenges: catalog.results[0]
       ? JSON.parse(catalog.results[0].payload)
       : challenges,
     accounts: records,
     solved: solved.results,
     purchasedHints: hints.results,
-    teams:teams.results,teamMembers:members.results,teamMaxMembers:teamSettings.results[0]?.max_members??config.teams?.maxMembers??4,
+    teams: teams.results,
+    teamMembers: members.results,
+    teamMaxMembers:
+      teamSettings.results[0]?.max_members ?? config.teams?.maxMembers ?? 4,
   });
 }
 export async function exportFullBackup(state, assets = {}) {
@@ -172,6 +213,22 @@ export async function exportFullBackup(state, assets = {}) {
     bytes = Uint8Array.from(atob(kitBase64), (c) => c.charCodeAt(0));
   const entries = unzipSync(bytes);
   Object.assign(entries, assets);
+  const paths = [
+    ...new Set([
+      ...themeAssetPaths(snapshot.theme),
+      ...snapshot.challenges
+        .flatMap((c) => c.downloads.map((d) => d.url))
+        .filter((p) => p.startsWith("/")),
+    ]),
+  ];
+  for (const path of paths) {
+    const bytes = await readAsset(path, state.assetStore, state.readBaseAsset);
+    if (!bytes) throw Error(`Backup is missing asset ${path}`);
+    if (path.startsWith("/api/assets/"))
+      entries["data/pack-assets/" + path.slice(12)] = bytes;
+    else entries["public" + path] = bytes;
+  }
+
   entries["backup.json"] = strToU8(JSON.stringify(snapshot, null, 2));
   entries["content/game.yaml"] = strToU8(stringify(snapshot.config));
   entries["content/challenges.yaml"] = strToU8(
@@ -182,7 +239,7 @@ export async function exportFullBackup(state, assets = {}) {
     `export const kitBase64=${JSON.stringify(kitBase64)};\n`,
   );
   entries[".openai/hosting.json"] = strToU8(
-    JSON.stringify({ d1: "DB", r2: null }, null, 2),
+    JSON.stringify({ d1: "DB", r2: "ASSETS" }, null, 2),
   );
   entries["RESTORE.md"] = strToU8(
     `North Pole Quest complete backup\n\n1. Extract this ZIP into a new directory.\n2. Install Node.js 24 and run npm ci.\n3. Run npm run restore -- backup.json.\n4. Run npm run start:selfhost and open http://localhost:3000.\n\nThe ready-built frontend is included. You can also modify the included source and run npm run build:selfhost.\nAccounts retain their passwords through salted hashes. Active sessions are excluded.\nIf the original site used only platform-owner administration, promote a restored player with npm run restore -- backup.json --admin USERNAME on the initial restore, or add a new role: admin account to content/game.yaml before starting.\nLocal assets are included; external file URLs continue to depend on their external hosts.\nKeep this ZIP private: it contains password hashes, flags, and student progress.\nSee BACKUPS.md and ADMIN_GUIDE.md for details.\n`,

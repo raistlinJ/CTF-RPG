@@ -119,3 +119,7 @@ npx tsc --noEmit
 Tests verify YAML-managed and assigned heroes, credential changes, persistence after restart, scoring, origin checks, and private-file protection. The `/admin` challenge studio is documented in [ADMIN_GUIDE.md](ADMIN_GUIDE.md). Configure accounts with `role: admin` in your private game YAML. The Accounts screen manages users and resets passwords. Complete recreation exports and restore instructions are in [BACKUPS.md](BACKUPS.md). Browser movement remains client-side, suitable for a classroom activity rather than competitive anti-cheat.
 
 The existing Sites deployment is also supported with `npm run build`. In that mode, `content/game.yaml` and challenge YAML are bundled at build time, so edits require a new publication; the standalone runtime environment variables above apply only to your own Node server.
+
+## Theme and content packs
+
+Administrators can use **Manage → Themes & content** (`/admin/packs`) to export/import reusable themes separately from challenge content. Themes own map artwork/layout, entrances, characters/sprites, and MIDI; content owns challenge text/flags/points/hints/locations/downloads. Neither includes accounts or progress. Full backup still includes the complete system, including imported assets and the active theme. See [THEMES.md](THEMES.md) for formats, limits, authoring, and paired imports. Self-hosters must preserve `data/pack-assets` together with their SQLite database (the Docker data volume already covers it).

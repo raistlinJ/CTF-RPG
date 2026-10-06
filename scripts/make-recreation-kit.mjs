@@ -64,6 +64,7 @@ for (const name of [
   "MAP_GUIDE.md",
   "CHALLENGES.md",
   "BACKUPS.md",
+  "THEMES.md",
 ])
   if (existsSync(resolve(root, name))) add(resolve(root, name));
 const total = Object.values(entries).reduce((n, b) => n + b.length, 0);

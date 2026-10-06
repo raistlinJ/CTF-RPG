@@ -10,6 +10,7 @@ type Player = {
   isYou: boolean;
 };
 export default function Scoreboard() {
+  const [title, setTitle] = useState("Quest");
   const [players, setPlayers] = useState<Player[]>([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -35,7 +36,9 @@ export default function Scoreboard() {
         if (r.ok) {
           const d = (await r.json()) as {
             characters: { id: string; name: string }[];
+            theme: { title: string };
           };
+          setTitle(d.theme.title);
           setHeroes(
             Object.fromEntries(d.characters.map((c) => [c.id, c.name])),
           );
@@ -53,7 +56,7 @@ export default function Scoreboard() {
           <span className="brand-icon">
             <Snowflake size={24} />
           </span>
-          NORTH POLE <b>QUEST</b>
+          {title}
         </a>
         <a className="admin-link" href="/">
           Back to game

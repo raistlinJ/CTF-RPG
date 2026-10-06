@@ -144,9 +144,10 @@ export default function UsersPage() {
           <span className="brand-icon">
             <Snowflake size={24} />
           </span>
-          NORTH POLE <b>QUEST</b>
+          QUEST <b>STUDIO</b>
         </a>
         <div className="admin-header-links">
+          <a href="/admin/packs">Themes &amp; content</a>
           <a href="/admin">Challenges</a>
           <a href="/admin/teams">Teams</a>
           <a href="/scoreboard">Scoreboard</a>

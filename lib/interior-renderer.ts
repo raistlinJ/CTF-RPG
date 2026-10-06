@@ -124,7 +124,7 @@ export function drawInterior(ctx: CanvasRenderingContext2D, map: string) {
       rect("#624334", x * t + 12, 14 * t + 14, 4, 8);
     }
   }
-  const exit = exitTile(map);
+  const exit = exitTile(map)!;
   rect("#d9c9a3", exit.x * t, exit.y * t, 24, 24);
   rect("#a06850", exit.x * t + 6, exit.y * t, 12, 24);
   ctx.font = "bold 12px monospace";

@@ -1,5 +1,5 @@
 "use client";
-import TeamSetup, {type Team} from "./team-setup";
+import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
@@ -14,8 +14,15 @@ import {
   MapPin,
   Flag,
 } from "lucide-react";
-import { buildings, trees, step, mapName } from "@/lib/world-data.mjs";
-import { drawInterior } from "@/lib/interior-renderer";
+import {
+  buildings,
+  step,
+  mapName,
+  mapInfo,
+  activeWorld,
+  configureWorld,
+} from "@/lib/world-data.mjs";
+
 type Hero = string;
 type Character = {
   id: string;
@@ -28,6 +35,8 @@ type GameConfig = {
   characters: Character[];
   audio: MusicConfig;
   allowRegistration: boolean;
+  theme: { title: string; description: string; world: typeof activeWorld };
+  themeRevision: number;
 };
 type Challenge = {
   id: string;
@@ -152,139 +161,44 @@ export function World({
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const image = useSprite(hero.sprite);
+  const background = useSprite(mapInfo(map)?.background || null);
   useEffect(() => {
     const c = ref.current!;
     const ctx = c.getContext("2d")!;
     const t = 24;
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, 960, 672);
-    if (map === "town") {
-      for (let y = 0; y < 28; y++)
-        for (let x = 0; x < 40; x++) {
-          ctx.fillStyle = (x * 7 + y * 13) % 11 === 0 ? "#c9e5e9" : "#dfedef";
-          ctx.fillRect(x * t, y * t, t, t);
-          if ((x * 11 + y * 3) % 9 === 0) {
-            ctx.fillStyle = "#b6d7df";
-            ctx.fillRect(x * t + 7, y * t + 14, 3, 2);
-          }
-        }
-      ctx.fillStyle = "#bdd1cf";
-      ctx.fillRect(17 * t, 7 * t, 3 * t, 20 * t);
-      ctx.fillRect(8 * t, 16 * t, 22 * t, 3 * t);
-      ctx.fillRect(6 * t, 7 * t, 27 * t, 2 * t);
-      ctx.fillRect(3 * t, 21 * t, 15 * t, 2 * t);
-      ctx.fillRect(32 * t, 14 * t, 2 * t, 4 * t);
-      ctx.fillRect(10 * t, 5 * t, 2 * t, 4 * t);
-      // Town square and its decorated Christmas tree.
-      ctx.fillStyle = "#d0d9cb";
-      ctx.fillRect(16 * t, 11 * t, 7 * t, 7 * t);
-      ctx.fillStyle = "#346c5c";
-      ctx.fillRect(19 * t - 12, 14 * t, 72, 24);
-      ctx.fillRect(19 * t - 4, 13 * t, 56, 24);
-      ctx.fillRect(19 * t + 4, 12 * t, 40, 24);
-      ctx.fillRect(19 * t + 12, 11 * t + 12, 24, 24);
-      ctx.fillStyle = "#f2d081";
-      ctx.fillRect(20 * t - 4, 11 * t + 6, 8, 12);
-      ctx.fillRect(20 * t - 8, 11 * t + 10, 16, 4);
-      for (const [dx, dy] of [
-        [4, 34],
-        [26, 42],
-        [14, 58],
-        [35, 64],
-      ]) {
-        ctx.fillStyle = dx % 2 ? "#e7bd76" : "#cd6263";
-        ctx.fillRect(19 * t + dx, 11 * t + dy, 7, 7);
-      }
-      ctx.fillStyle = "#b94d59";
-      ctx.fillRect(18 * t, 15 * t, 16, 18);
-      ctx.fillStyle = "#efd496";
-      ctx.fillRect(18 * t + 6, 15 * t, 4, 18);
-      ctx.fillStyle = "#487e83";
-      ctx.fillRect(21 * t, 15 * t, 18, 16);
-      ctx.fillStyle = "#9ec6d1";
-      ctx.fillRect(23 * t, 17 * t, 9 * t, 7 * t);
-      ctx.fillStyle = "#77afc3";
-      ctx.fillRect(24 * t, 18 * t, 7 * t, 5 * t);
-      ctx.fillStyle = "#bfe3e7";
-      for (let i = 0; i < 7; i++)
-        ctx.fillRect((24 + i) * t, (18 + (i % 4)) * t, 20, 3);
-      for (const b of buildings) {
-        const x = b.x * t,
-          y = b.y * t;
-        ctx.fillStyle = "#adc4cb";
-        ctx.fillRect(x + 8, y + 12, b.w * t, b.h * t);
-        ctx.fillStyle = b.color;
-        ctx.fillRect(x, y + 24, b.w * t, b.h * t - 24);
-        ctx.fillStyle = "#4c353d";
-        ctx.fillRect(x - 6, y + 12, b.w * t + 12, 30);
-        ctx.fillStyle = "#fff7e6";
-        ctx.fillRect(x - 6, y + 8, b.w * t + 12, 12);
-        ctx.fillStyle = "#d9e9e7";
-        ctx.fillRect(x + 8, y, b.w * t - 16, 12);
-        ctx.fillStyle = "#f5c677";
-        ctx.fillRect(x + 14, y + 50, 18, 18);
-        ctx.fillRect(x + b.w * t - 32, y + 50, 18, 18);
-        ctx.fillStyle = "#483a43";
-        ctx.fillRect(x + (b.w * t) / 2 - 10, y + b.h * t - 28, 20, 28);
-        ctx.fillStyle = "#cf7180";
-        ctx.fillRect(x + b.w * t - 26, y - 8, 12, 22);
-        if (b.id === "castle") {
-          for (const towerX of [x, x + b.w * t - 48]) {
-            ctx.fillStyle = "#b9475b";
-            ctx.fillRect(towerX, y, 48, 6 * t);
-            for (let stripe = 0; stripe < 6; stripe++) {
-              ctx.fillStyle = stripe % 2 ? "#f3e5cb" : "#b9475b";
-              ctx.fillRect(towerX, y + stripe * 24, 48, 10);
-            }
-            ctx.fillStyle = "#235f59";
-            ctx.fillRect(towerX - 6, y - 8, 60, 24);
-            ctx.fillStyle = "#f4edda";
-            ctx.fillRect(towerX - 6, y - 8, 60, 6);
-            ctx.fillStyle = "#e9c470";
-            ctx.fillRect(towerX + 23, y - 24, 3, 18);
-            ctx.fillStyle = "#c44959";
-            ctx.fillRect(towerX + 26, y - 24, 20, 10);
-          }
-          ctx.fillStyle = "#2f7360";
-          ctx.fillRect(x + 48, y + 3 * t, b.w * t - 96, 9);
-          for (let i = 0; i < 6; i++) {
-            ctx.fillStyle = i % 2 ? "#f2d48b" : "#cf6661";
-            ctx.fillRect(x + 54 + i * 22, y + 3 * t, 6, 8);
-          }
-          ctx.fillStyle = "#374745";
-          ctx.fillRect(b.door.x * t, b.door.y * t, 24, 24);
+    const info = mapInfo(map);
+    ctx.fillStyle = info?.wall || "#1b2e39";
+    ctx.fillRect(0, 0, 960, 672);
+    if (info) {
+      const b = info.bounds;
+      ctx.fillStyle = info.floor;
+      ctx.fillRect(
+        b.left * t,
+        b.top * t,
+        (b.right - b.left + 1) * t,
+        (b.bottom - b.top + 1) * t,
+      );
+    }
+    if (background) ctx.drawImage(background, 0, 0, 960, 672);
+    else if (info) {
+      ctx.fillStyle = info.wall;
+      for (const b of info.obstacles)
+        ctx.fillRect(b.x * t, b.y * t, b.w * t, b.h * t);
+      if (map === activeWorld.startMap)
+        for (const b of buildings) {
+          ctx.fillStyle = b.color;
+          ctx.fillRect(b.x * t, b.y * t, b.w * t, b.h * t);
           ctx.fillStyle = "#d5b86d";
-          ctx.fillRect(b.door.x * t + 4, b.door.y * t + 2, 16, 22);
-        } else {
-          ctx.fillStyle = "#ecd296";
-          ctx.fillRect(b.door.x * t + 4, b.door.y * t, 16, 24);
-          ctx.fillStyle = "#2e735e";
-          ctx.fillRect(b.door.x * t + 7, b.door.y * t + 3, 10, 10);
+          ctx.fillRect(b.door.x * t, b.door.y * t, t, t);
         }
+      const exit = info.exit;
+      if (exit) {
+        ctx.fillStyle = "#d5b86d";
+        ctx.fillRect(exit.x * t, exit.y * t, t, t);
       }
-      for (const [x, y] of trees) {
-        const a = x * t + 12,
-          b = y * t + 10;
-        ctx.fillStyle = "#aecbd2";
-        ctx.fillRect(a - 12, b + 10, 29, 10);
-        ctx.fillStyle = "#745a52";
-        ctx.fillRect(a - 3, b + 3, 6, 16);
-        for (let i = 0; i < 3; i++) {
-          ctx.fillStyle = ["#21585c", "#2e7775", "#438a83"][i];
-          ctx.fillRect(a - 15 + i * 4, b - 4 - i * 9, 30 - i * 8, 13);
-          ctx.fillStyle = "#edf5eb";
-          ctx.fillRect(a - 10 + i * 3, b - 5 - i * 9, 20 - i * 6, 4);
-        }
-      }
-      ctx.font = "bold 10px monospace";
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#526e7c";
-      ctx.fillText("SANTA’S CHRISTMAS CASTLE", 20 * t, 8 * t);
-      ctx.fillText("EVERGREEN GROVE", 8 * t, 5 * t);
-      ctx.fillText("AURORA RIDGE", 29 * t, 5 * t);
-      ctx.fillText("FROSTBITE LAKE", 27.5 * t, 24.5 * t);
-      ctx.fillText("LANTERN LANE", 10.5 * t, 18 * t);
-    } else drawInterior(ctx, map);
+    }
     for (const q of challenges) {
       if (q.map !== map || solved.includes(q.id)) continue;
       const a = q.location.x * t + 12,
@@ -297,14 +211,7 @@ export function World({
       ctx.fillStyle = "#fff6cc";
       ctx.fillRect(a - 2, b - 2, 4, 4);
     }
-    // Trail markers and lamplights.
-    if (map === "town")
-      for (const x of [14, 21]) {
-        ctx.fillStyle = "#677c83";
-        ctx.fillRect(x * t, 16 * t - 15, 3, 30);
-        ctx.fillStyle = "#ffe6a1";
-        ctx.fillRect(x * t - 3, 16 * t - 18, 9, 9);
-      }
+
     if (onSelect) {
       ctx.strokeStyle = "#456d7b66";
       ctx.lineWidth = 1;
@@ -328,7 +235,7 @@ export function World({
     } else drawCharacter(ctx, pos.x * t + 12, pos.y * t + 12, hero, image, 42);
     ctx.fillStyle = "#264954";
     ctx.fillRect(pos.x * t + 9, pos.y * t + 34, 6, 3);
-  }, [hero, image, map, pos, challenges, solved, onSelect]);
+  }, [hero, image, background, map, pos, challenges, solved, onSelect]);
   return (
     <div className="world">
       <canvas
@@ -376,15 +283,12 @@ export function World({
         aria-label={
           onSelect
             ? `Challenge location picker: ${mapName(map)}. Click a tile or use arrow keys to choose a location.`
-            : `North Pole exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
+            : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
         }
       />
       <div className="map-label">
-        <span className="live-dot" />{" "}
-        {map === "town" ? "NORTH POLE" : mapName(map).toUpperCase()}{" "}
-        <span>
-          {map === "town" ? "38° BELOW · CLEAR SKIES" : "WARM & COZY"}
-        </span>
+        <span className="live-dot" /> {mapName(map).toUpperCase()}{" "}
+        <span>{map === activeWorld.startMap ? "WORLD MAP" : "INTERIOR"}</span>
       </div>
       <div className="map-bottom">
         <span>
@@ -455,9 +359,7 @@ export default function Game() {
     [answer, setAnswer] = useState(""),
     [feedback, setFeedback] = useState(""),
     [hintMessage, setHintMessage] = useState(""),
-    [notice, setNotice] = useState(
-      "Follow the paths. Look for a glimmer in the snow.",
-    ),
+    [notice, setNotice] = useState("Follow the paths. Look for a glimmer."),
     [muted, setMuted] = useState(true);
   const { map, pos } = place;
   const audio = useRef<AudioContext | null>(null);
@@ -467,7 +369,7 @@ export default function Game() {
   const [audioBusy, setAudioBusy] = useState(false);
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
-  const [team,setTeam]=useState<Team|null>(null);
+  const [team, setTeam] = useState<Team | null>(null);
   function applyGame(d: GameState) {
     setChallenges(d.challenges);
     setSolved(d.solved);
@@ -498,6 +400,11 @@ export default function Game() {
       ),
     ])
       .then(async ([settings, d]) => {
+        configureWorld(settings.theme.world);
+        setPlace({
+          map: settings.theme.world.startMap,
+          pos: { ...mapInfo(settings.theme.world.startMap)!.spawn },
+        });
         setConfig(settings);
         setHero(settings.characters[0].id);
         setMode(settings.allowRegistration ? "register" : "login");
@@ -517,12 +424,23 @@ export default function Game() {
   }, []);
   useEffect(() => {
     if (!user) return;
-    const refresh = () => {
-      void loadGame().catch((e) => setError(e.message));
+    const refresh = async () => {
+      try {
+        const r = await fetch("/api/config");
+        if (!r.ok) throw Error("Configuration is unavailable.");
+        const latest = (await r.json()) as GameConfig;
+        if (latest.themeRevision !== config?.themeRevision) {
+          window.location.reload();
+          return;
+        }
+        await loadGame();
+      } catch (e) {
+        setError((e as Error).message);
+      }
     };
     window.addEventListener("focus", refresh);
     return () => window.removeEventListener("focus", refresh);
-  }, [!!user]);
+  }, [!!user, config?.themeRevision]);
   async function toggleMusic() {
     if (audioBusy) return;
     setAudioError("");
@@ -569,11 +487,9 @@ export default function Game() {
   }
   useEffect(() => {
     setNotice(
-      map === "town"
-        ? "Walk into a lit doorway to enter a building. Santa’s castle is at the north end of town."
-        : map === "castle"
-          ? "Welcome to Santa’s Christmas castle! Visit Santa near his throne, then explore. Walk through the southern door to return to town."
-          : `Welcome to ${mapName(map)}. Look around, then walk through the southern door to return to town.`,
+      map === activeWorld.startMap
+        ? "Follow the paths and walk into doorways to explore buildings."
+        : `Welcome to ${mapName(map)}. Search for clues, then use the exit to return.`,
     );
   }, [map]);
   function move(dx: number, dy: number) {
@@ -634,7 +550,7 @@ export default function Game() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [user, active, map, pos, challenges, solved,canAdmin,team]);
+  }, [user, active, map, pos, challenges, solved, canAdmin, team]);
   async function login(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -657,6 +573,10 @@ export default function Game() {
       setUser(d.user);
       setCanAdmin((d as typeof d & { admin?: boolean }).admin || false);
       setPassword("");
+      setPlace({
+        map: activeWorld.startMap,
+        pos: { ...mapInfo(activeWorld.startMap)!.spawn },
+      });
       await loadGame();
     } catch (e) {
       setError((e as Error).message);
@@ -773,10 +693,10 @@ export default function Game() {
           <span className="brand-icon">
             <Snowflake size={24} />
           </span>{" "}
-          NORTH POLE <b>QUEST</b>
+          {config?.theme.title || "North Pole Quest"}
         </a>
         <div className="header-right">
-          <span className="edition">THE WINTER EXPEDITION</span>
+          <span className="edition">{config?.theme.description}</span>
           {user && (
             <a href="/scoreboard" className="admin-link">
               Scores
@@ -806,7 +726,10 @@ export default function Game() {
                   setUser(null);
                   setTeam(null);
                   setCanAdmin(false);
-                  setPlace({ map: "town", pos: { x: 18, y: 20 } });
+                  setPlace({
+                    map: activeWorld.startMap,
+                    pos: { ...mapInfo(activeWorld.startMap)!.spawn },
+                  });
                   setError("");
                 } catch {
                   setError("Could not sign out. Please retry.");
@@ -823,7 +746,13 @@ export default function Game() {
           {audioError}
         </p>
       )}
-      {user && !canAdmin && <TeamSetup key={user.username} username={user.username} onChange={setTeam}/>}
+      {user && !canAdmin && (
+        <TeamSetup
+          key={user.username}
+          username={user.username}
+          onChange={setTeam}
+        />
+      )}
       {!user || !chosen ? (
         <section className="start">
           <div className="start-heading">
@@ -833,9 +762,7 @@ export default function Game() {
               <br />
               starts here<span>✦</span>
             </h1>
-            <p>
-              Hidden treasures. Curious challenges. One snowy world to explore.
-            </p>
+            <p>Hidden treasures. Curious challenges. One world to explore.</p>
           </div>
           <form onSubmit={login} className="start-panel">
             <div className="form-top">
@@ -943,7 +870,7 @@ export default function Game() {
               </div>
               <span className="region-pill">
                 <Snowflake size={16} />{" "}
-                {map === "town" ? "Winter village" : "Indoors"}
+                {map === activeWorld.startMap ? "World map" : "Indoors"}
               </span>
             </div>
             <World
@@ -973,7 +900,7 @@ export default function Game() {
                 <b>
                   {solved.length === challenges.length && challenges.length
                     ? "Expedition complete"
-                    : "A note from the North Pole"}
+                    : "A note from the expedition"}
                 </b>
                 <p>{notice}</p>
               </div>

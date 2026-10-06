@@ -7,6 +7,7 @@ import {
   statSync,
   createReadStream,
   realpathSync,
+  writeFileSync,
 } from "node:fs";
 import { resolve, dirname, extname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,6 +30,7 @@ const challenges = parseChallenges(
     ),
     "utf8",
   ),
+  null,
 );
 const output = resolve(root, "selfhost/dist");
 if (!existsSync(resolve(output, "index.html")))
@@ -62,11 +64,38 @@ function publicAssets() {
   walk(directory, "public/");
   return files;
 }
+const assetDirectory = resolve(
+  process.env.ASSET_PATH || resolve(root, "data/pack-assets"),
+);
+mkdirSync(assetDirectory, { recursive: true });
+const assetStore = {
+  async get(key) {
+    const p = resolve(assetDirectory, key);
+    return existsSync(p) ? new Uint8Array(readFileSync(p)) : null;
+  },
+  async put(key, bytes) {
+    writeFileSync(resolve(assetDirectory, key), bytes);
+  },
+};
+const readBaseAsset = (path) => {
+  const p = resolve(root, "public", "." + path),
+    directory = resolve(root, "public");
+  if (
+    !p.startsWith(directory + sep) ||
+    !existsSync(p) ||
+    !statSync(p).isFile() ||
+    !realpathSync(p).startsWith(realpathSync(directory) + sep)
+  )
+    return null;
+  return new Uint8Array(readFileSync(p));
+};
 const api = createApi({
   db,
   config,
   challenges,
   secureCookies: secure,
+  assetStore,
+  readBaseAsset,
   exportBackup: (state) => exportFullBackup(state, publicAssets()),
 });
 const origin = process.env.PUBLIC_ORIGIN;
@@ -126,14 +155,19 @@ const server = createServer(async (req, res) => {
           }),
         );
       }
-      let body = "";
+      const chunks = [];
+      let length = 0;
+      const bodyLimit =
+        url.pathname === "/api/admin/packs" ? 17 * 1024 * 1024 : 524288;
       for await (const chunk of req) {
-        body += chunk;
-        if (Buffer.byteLength(body) > 524288) {
+        length += chunk.length;
+        chunks.push(chunk);
+        if (length > bodyLimit) {
           res.writeHead(413);
           return res.end();
         }
       }
+      const body = Buffer.concat(chunks);
       const headers = new Headers();
       for (const [key, value] of Object.entries(req.headers))
         if (value)
@@ -144,7 +178,9 @@ const server = createServer(async (req, res) => {
           headers,
           body: ["GET", "HEAD"].includes(req.method)
             ? undefined
-            : body || undefined,
+            : body.length
+              ? body
+              : undefined,
         }),
       );
       res.writeHead(response.status, Object.fromEntries(response.headers));
@@ -177,6 +213,8 @@ const server = createServer(async (req, res) => {
         "/",
         "/admin",
         "/admin/",
+        "/admin/packs",
+        "/admin/packs/",
         "/admin/teams",
         "/admin/teams/",
         "/admin/users",
@@ -204,7 +242,9 @@ const server = createServer(async (req, res) => {
 const host = process.env.HOST || "0.0.0.0",
   port = Number(process.env.PORT || 3000);
 server.listen(port, host, () =>
-  console.log(`North Pole Quest listening on http://${host}:${port}`),
+  console.log(
+    `North Pole Quest listening on http://${host}:${server.address().port}`,
+  ),
 );
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () =>

@@ -9,6 +9,19 @@ export function handle(req: Request) {
     config: gameConfig,
     challenges,
     exportBackup: exportFullBackup,
+    assetStore: {
+      async get(key: string) {
+        const object = await (
+          env as unknown as { ASSETS: R2Bucket }
+        ).ASSETS.get(key);
+        return object ? new Uint8Array(await object.arrayBuffer()) : null;
+      },
+      async put(key: string, bytes: Uint8Array, type: string) {
+        await (env as unknown as { ASSETS: R2Bucket }).ASSETS.put(key, bytes, {
+          httpMetadata: { contentType: type },
+        });
+      },
+    },
     platformAdmin: gameConfig.admin.platformEmails.includes(
       (req.headers.get("oai-authenticated-user-email") || "").toLowerCase(),
     ),

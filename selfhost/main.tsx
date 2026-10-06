@@ -1,13 +1,18 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import Game from "../app/page";
+import PacksAdmin from "../app/admin/packs/page";
 import TeamsAdmin from "../app/admin/teams/page";
 import UsersPage from "../app/admin/users/page";
 import Scoreboard from "../app/scoreboard/page";
 import Admin from "../app/admin/editor";
 import "../app/globals.css";
 createRoot(document.getElementById("root")!).render(
-  window.location.pathname.startsWith("/admin/teams") ? (<TeamsAdmin />) : window.location.pathname.startsWith("/admin/users") ? (
+  window.location.pathname.startsWith("/admin/packs") ? (
+    <PacksAdmin />
+  ) : window.location.pathname.startsWith("/admin/teams") ? (
+    <TeamsAdmin />
+  ) : window.location.pathname.startsWith("/admin/users") ? (
     <UsersPage />
   ) : window.location.pathname.startsWith("/admin") ? (
     <Admin />

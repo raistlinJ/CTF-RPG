@@ -29,6 +29,8 @@ function setup(platformAdmin = false) {
     "0001_white_maria_hill.sql",
     "0002_melodic_stephen_strange.sql",
     "0003_chief_xorn.sql",
+    "0004_high_sentinels.sql",
+    "0005_conscious_magneto.sql",
   ])
     sqlite.exec(readFileSync("drizzle/" + file, "utf8"));
   const db = {
