@@ -135,13 +135,17 @@ export default function Admin() {
     const selected = keepSelection
       ? d.challenges.find((c) => c.id === editingId)
       : undefined;
+    const freshMap =
+      keepSelection && draft && mapInfo(draft.map)
+        ? draft.map
+        : activeWorld.startMap;
     choose(
       selected
         ? toDraft(selected)
         : fresh(
-            activeWorld.startMap,
-            mapInfo(activeWorld.startMap)!.spawn.x,
-            mapInfo(activeWorld.startMap)!.spawn.y,
+            freshMap,
+            mapInfo(freshMap)!.spawn.x,
+            mapInfo(freshMap)!.spawn.y,
           ),
       selected?.id,
     );

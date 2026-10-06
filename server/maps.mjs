@@ -1,7 +1,7 @@
 import { unzipSync, zipSync, strToU8 } from "fflate";
 import { stringify } from "yaml";
 import { parseTheme, themeAssetPaths } from "../lib/theme-schema.mjs";
-import { exportPack, importPacks, assertAsset } from "./packs.mjs";
+import { exportPack, importPacks, assertAsset, readAsset } from "./packs.mjs";
 
 export async function updateMap(req, state) {
   const reader = req.body?.getReader();
@@ -38,20 +38,37 @@ export async function updateMap(req, state) {
     );
   const patch = JSON.parse(String(form.get("map"))),
     next = structuredClone(state.theme);
-  if (!Array.isArray(patch.ground))
+  const restoring = form.get("action") === "restore";
+  if (!Array.isArray(patch.ground) && !(restoring && patch.ground === null))
     throw Error("Specify walkable ground tiles.");
   const index = next.world.maps.findIndex((m) => m.id === patch.id);
   if (index < 0) throw Error("Unknown map.");
   if (
     Object.keys(patch).some(
-      (k) => !["id", "name", "bounds", "spawn", "ground"].includes(k),
+      (k) =>
+        !(
+          restoring
+            ? [
+                "id",
+                "name",
+                "bounds",
+                "spawn",
+                "ground",
+                "background",
+                "exit",
+                "floor",
+                "wall",
+                "obstacles",
+              ]
+            : ["id", "name", "bounds", "spawn", "ground"]
+        ).includes(k),
     )
   )
     throw Error("Unsupported map setting.");
   next.world.maps[index] = {
     ...next.world.maps[index],
     ...patch,
-    obstacles: [],
+    obstacles: restoring ? patch.obstacles : [],
   };
   const image = form.get("image");
   let imageBytes, imagePath;
@@ -77,6 +94,12 @@ export async function updateMap(req, state) {
   const used = new Set(themeAssetPaths(next).map((p) => "assets" + p));
   for (const key of Object.keys(entries))
     if (key.startsWith("assets/") && !used.has(key)) delete entries[key];
+  for (const path of themeAssetPaths(next)) {
+    if (path === imagePath || entries["assets" + path]) continue;
+    const asset = await readAsset(path, state.store, state.readBaseAsset);
+    if (!asset) throw Error("The previous map artwork is unavailable.");
+    entries["assets" + path] = asset;
+  }
   entries["theme.yaml"] = strToU8(stringify(next));
   if (imageBytes) entries["assets" + imagePath] = imageBytes;
   const packed = new FormData();

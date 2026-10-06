@@ -682,3 +682,67 @@ test("map editing protects access, stores custom artwork/ground, relocates quest
   assert.equal(moved.data.placement.moved.length, 1);
   sqlite.close();
 });
+
+test("restoring a saved map recovers prior artwork and legacy collision data", async () => {
+  const { sqlite, config, client } = setup(),
+    admin = client();
+  await admin("/api/auth", {
+    mode: "login",
+    username: "teacher",
+    password: "teacher-password",
+    hero: "web",
+  });
+  let state = (await admin("/api/admin/packs")).data;
+  await admin(
+    "/api/admin/packs?kind=theme",
+    form(themeZip(custom(config)), state, contentZip(content)),
+  );
+  state = (await admin("/api/admin/packs")).data;
+  const original = structuredClone(state.theme.world.maps[0]),
+    ground = [];
+  for (let y = 1; y <= 26; y++)
+    for (let x = 1; x <= 38; x++) ground.push([x, y]);
+  let f = new FormData();
+  f.set(
+    "map",
+    JSON.stringify({
+      id: original.id,
+      name: "Edited",
+      bounds: original.bounds,
+      spawn: original.spawn,
+      ground,
+    }),
+  );
+  f.set("themeRevision", String(state.themeRevision));
+  f.set("contentRevision", String(state.contentRevision));
+  f.set(
+    "image",
+    new Blob([readFileSync("public/sprites/web.png")]),
+    "different.png",
+  );
+  assert.equal((await admin("/api/admin/maps", f)).status, 200);
+  state = (await admin("/api/admin/packs")).data;
+  assert.notEqual(state.theme.world.maps[0].background, original.background);
+  assert.equal(
+    createWorld(state.theme.world).blocked(original.id, 21, 10),
+    false,
+  );
+  f = new FormData();
+  f.set("map", JSON.stringify(original));
+  f.set("action", "restore");
+  f.set("themeRevision", String(state.themeRevision));
+  f.set("contentRevision", String(state.contentRevision));
+  const result = await admin("/api/admin/maps", f);
+  assert.equal(result.status, 200, JSON.stringify(result.data));
+  state = (await admin("/api/admin/packs")).data;
+  assert.deepEqual(state.theme.world.maps[0], original);
+  assert.equal(
+    createWorld(state.theme.world).blocked(original.id, 21, 10),
+    true,
+  );
+  assert.deepEqual(
+    (await admin(original.background)).bytes,
+    new Uint8Array(readFileSync("public/maps/town.png")),
+  );
+  sqlite.close();
+});

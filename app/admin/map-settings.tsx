@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { paintStroke } from "@/lib/paint-stroke.mjs";
 import { createWorld, activeWorld } from "@/lib/world-data.mjs";
 import {
   AlertDialog,
@@ -39,21 +40,39 @@ export default function MapSettings({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
+    [previousSave, setPreviousSave] = useState<MapData | null>(null),
+    [restoreTarget, setRestoreTarget] = useState<MapData | null>(null),
     [overflow, setOverflow] = useState<Overflow | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null),
-    dragging = useRef(false);
-  useEffect(() => {
+    dragging = useRef(false),
+    lastPaint = useRef<{ x: number; y: number } | null>(null),
+    imageInput = useRef<HTMLInputElement>(null);
+  function reset() {
     const engine = createWorld(world),
       next = new Set<string>();
     for (let y = 0; y < 28; y++)
       for (let x = 0; x < 40; x++)
         if (!engine.blocked(mapId, x, y)) next.add(`${x},${y}`);
-    setMap(original);
+    setMap(structuredClone(original));
     setCells(next);
     setImage(null);
+    setImageUrl(null);
+    if (imageInput.current) imageInput.current.value = "";
+    setCursor({ ...original.spawn });
+    setMode("allow");
     setError("");
     setOverflow(null);
+    setRestoreTarget(null);
+    dragging.current = false;
+    lastPaint.current = null;
+  }
+  useEffect(() => {
+    reset();
   }, [world, mapId]);
+  useEffect(() => {
+    setPreviousSave(null);
+    setMessage("");
+  }, [mapId]);
   useEffect(() => {
     if (!image) {
       setImageUrl(null);
@@ -89,11 +108,16 @@ export default function MapSettings({
         for (let x = 0; x < 40; x++) {
           ctx.fillStyle = engine.canPlaceChallenge(mapId, x, y)
             ? "rgba(70,205,155,0.14)"
-            : "rgba(135,140,145,0.48)";
+            : !engine.blocked(mapId, x, y)
+              ? "rgba(235,170,60,0.40)"
+              : "rgba(135,140,145,0.48)";
           ctx.fillRect(x * 24, y * 24, 24, 24);
           ctx.strokeStyle = "rgba(20,40,50,0.25)";
           ctx.strokeRect(x * 24, y * 24, 24, 24);
         }
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cursor.x * 24 + 1, cursor.y * 24 + 1, 22, 22);
       ctx.fillStyle = "#fff4a6";
       ctx.fillRect(map.spawn.x * 24 + 5, map.spawn.y * 24 + 5, 14, 14);
       ctx.strokeStyle = "#85f4ea";
@@ -117,8 +141,8 @@ export default function MapSettings({
     return () => {
       cancelled = true;
     };
-  }, [map, world, mapId, imageUrl, engine]);
-  function paint(x: number, y: number) {
+  }, [map, world, mapId, imageUrl, engine, cursor]);
+  function paint(x: number, y: number, continuous = false) {
     if (
       !Number.isInteger(x) ||
       !Number.isInteger(y) ||
@@ -129,16 +153,33 @@ export default function MapSettings({
     )
       return;
     setCursor({ x, y });
-    if (mode === "spawn") {
-      setMap((m) => ({ ...m, spawn: { x, y } }));
-      setCells((s) => new Set(s).add(`${x},${y}`));
-    } else
-      setCells((s) => {
-        const next = new Set(s);
-        if (mode === "allow") next.add(`${x},${y}`);
-        else next.delete(`${x},${y}`);
-        return next;
-      });
+    if (
+      x < map.bounds.left ||
+      x > map.bounds.right ||
+      y < map.bounds.top ||
+      y > map.bounds.bottom
+    ) {
+      setError(
+        "This tile is outside the map boundaries. Expand the boundaries to paint here.",
+      );
+      lastPaint.current = null;
+      return;
+    }
+    const points =
+      mode === "spawn"
+        ? [{ x, y }]
+        : paintStroke(continuous ? lastPaint.current : null, { x, y });
+    lastPaint.current = { x, y };
+    if (mode === "spawn") setMap((m) => ({ ...m, spawn: { x, y } }));
+    setCells((s) => {
+      const next = new Set(s);
+      for (const p of points) {
+        if (mode === "block") next.delete(`${p.x},${p.y}`);
+        else next.add(`${p.x},${p.y}`);
+      }
+      return next;
+    });
+    setError("");
     setMessage("");
   }
   function at(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -152,9 +193,10 @@ export default function MapSettings({
         0,
         Math.min(27, Math.floor(((e.clientY - r.top) / r.height) * 28)),
       ),
+      true,
     );
   }
-  async function save(dropOverflow = false) {
+  async function save(dropOverflow = false, restore?: MapData) {
     setBusy(true);
     setError("");
     setMessage("");
@@ -162,17 +204,22 @@ export default function MapSettings({
       const form = new FormData();
       form.set(
         "map",
-        JSON.stringify({
-          id: map.id,
-          name: map.name,
-          bounds: map.bounds,
-          spawn: map.spawn,
-          ground,
-        }),
+        JSON.stringify(
+          restore
+            ? { ...restore, ground: restore.ground ?? null }
+            : {
+                id: map.id,
+                name: map.name,
+                bounds: map.bounds,
+                spawn: map.spawn,
+                ground,
+              },
+        ),
       );
       form.set("themeRevision", String(themeRevision));
       form.set("contentRevision", String(contentRevision));
-      if (image) form.set("image", image);
+      if (restore) form.set("action", "restore");
+      if (image && !restore) form.set("image", image);
       if (dropOverflow) form.set("dropOverflow", "true");
       const r = await fetch("/api/admin/maps", { method: "POST", body: form }),
         d = (await r.json()) as {
@@ -182,13 +229,16 @@ export default function MapSettings({
         };
       if (!r.ok) throw Error(d.error || "Could not save the map.");
       if (d.needsDecision) {
+        setRestoreTarget(restore || null);
         setOverflow(d.placement);
         return;
       }
       setOverflow(null);
+      setPreviousSave(restore ? null : structuredClone(original));
+      setRestoreTarget(null);
       await onSaved();
       setMessage(
-        `Map saved. ${d.placement.moved.length} challenges moved; ${d.placement.excluded.length} excluded. Reload the game to use it.`,
+        `${restore ? "Previous saved map restored" : "Map saved"}. ${d.placement.moved.length} challenges moved; ${d.placement.excluded.length} excluded. Reload the game to use it.`,
       );
     } catch (e) {
       setError((e as Error).message);
@@ -203,8 +253,9 @@ export default function MapSettings({
         <p>
           Upload artwork for this map and paint the tiles students can walk on.
           The image fills a 40 × 28 grid. Gray tiles cannot hold challenges;
-          green tiles are reachable from the yellow spawn. Buildings and portals
-          keep their existing positions.
+          green tiles are reachable from the yellow spawn. Amber tiles are
+          painted walkable but disconnected. Painting overrides old building
+          collision tiles; portals keep their existing positions.
         </p>
         <label>
           Map name
@@ -217,6 +268,7 @@ export default function MapSettings({
         <label>
           Upload map image
           <input
+            ref={imageInput}
             type="file"
             accept="image/png,image/jpeg,image/webp,image/gif"
             onChange={(e) => {
@@ -301,6 +353,7 @@ export default function MapSettings({
           aria-label="Reachable ground painter"
           onPointerDown={(e) => {
             e.preventDefault();
+            lastPaint.current = null;
             dragging.current = true;
             e.currentTarget.setPointerCapture(e.pointerId);
             at(e);
@@ -310,9 +363,15 @@ export default function MapSettings({
           }}
           onPointerUp={() => {
             dragging.current = false;
+            lastPaint.current = null;
+          }}
+          onLostPointerCapture={() => {
+            dragging.current = false;
+            lastPaint.current = null;
           }}
           onPointerCancel={() => {
             dragging.current = false;
+            lastPaint.current = null;
           }}
         />
         <div className="admin-coordinate-fields">
@@ -351,7 +410,36 @@ export default function MapSettings({
         <small>
           Click or drag to paint. Yellow square: spawn ({map.spawn.x},{" "}
           {map.spawn.y}); cyan outlines: portals. Disconnected floor stays gray.
-          Spawn and all door/exit approaches must remain reachable.
+          Amber floor needs a connected path to spawn. Spawn and all door/exit
+          approaches must remain reachable.
+        </small>
+        <div className="admin-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={busy}
+            onClick={() => {
+              reset();
+              setMessage(
+                "Unsaved map changes reset to the last saved version.",
+              );
+            }}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={busy || !previousSave}
+            onClick={() => void save(false, previousSave!)}
+          >
+            Undo last save
+          </button>
+        </div>
+        <small>
+          Reset discards unsaved map edits. Undo last save restores the map from
+          before your most recent save on this page; it also restores the
+          previous artwork. Earned points stay saved.
         </small>
         {error && (
           <p role="alert" className="error">
@@ -397,7 +485,7 @@ export default function MapSettings({
               disabled={busy}
               onClick={(e) => {
                 e.preventDefault();
-                void save(true);
+                void save(true, restoreTarget || undefined);
               }}
             >
               Save and exclude {overflow?.excluded.length}
