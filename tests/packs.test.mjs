@@ -595,7 +595,7 @@ test("content imports repair duplicate, outside-grid, unknown-map and blocked pl
   sqlite.close();
 });
 
-test("map editing protects access, stores custom artwork/ground, relocates questions, and rejects stale or disconnected edits", async () => {
+test("map editing protects access, stores custom artwork/ground, moves questions explicitly, and rejects stale or disconnected edits", async () => {
   const { sqlite, config, client, files } = setup(),
     admin = client(),
     anonymous = client();
@@ -678,8 +678,26 @@ test("map editing protects access, stores custom artwork/ground, relocates quest
       ground: painted,
     }),
   );
-  assert.equal(moved.status, 200, JSON.stringify(moved.data));
-  assert.equal(moved.data.placement.moved.length, 1);
+  assert.equal(moved.status, 400, JSON.stringify(moved.data));
+  assert.match(moved.data.error, /Move challenges off unusable tiles/);
+  const moveForm = make({
+    id: island.id,
+    name: island.name,
+    bounds: island.bounds,
+    spawn: island.spawn,
+    ground: painted,
+  });
+  moveForm.set(
+    "moves",
+    JSON.stringify([{ id: "island-question", x: 19, y: 21 }]),
+  );
+  const explicit = await admin("/api/admin/maps", moveForm);
+  assert.equal(explicit.status, 200, JSON.stringify(explicit.data));
+  const collection = await admin("/api/admin/packs?kind=content");
+  const placed = parse(strFromU8(unzipSync(collection.bytes)["content.yaml"]))
+    .challenges[0];
+  assert.deepEqual(placed.location, { x: 19, y: 21 });
+  assert.deepEqual(placed.flags, content[0].flags);
   sqlite.close();
 });
 
@@ -744,5 +762,86 @@ test("restoring a saved map recovers prior artwork and legacy collision data", a
     (await admin(original.background)).bytes,
     new Uint8Array(readFileSync("public/maps/town.png")),
   );
+  sqlite.close();
+});
+
+test("map saves cannot bypass blocked/duplicate challenge checks and rejected moves leave data/assets untouched", async () => {
+  const { sqlite, config, client, files } = setup(),
+    admin = client();
+  await admin("/api/auth", {
+    mode: "login",
+    username: "teacher",
+    password: "teacher-password",
+    hero: "web",
+  });
+  let state = (await admin("/api/admin/packs")).data;
+  const questions = [
+    content[0],
+    {
+      ...content[0],
+      id: "second",
+      object: "Second question",
+      location: { x: 20, y: 20 },
+    },
+  ];
+  await admin(
+    "/api/admin/packs?kind=theme",
+    form(themeZip(custom(config)), state, contentZip(questions)),
+  );
+  state = (await admin("/api/admin/packs")).data;
+  const m = state.theme.world.maps[0],
+    engine = createWorld(state.theme.world),
+    ground = [];
+  for (let y = 0; y < 28; y++)
+    for (let x = 0; x < 40; x++)
+      if (!engine.blocked(m.id, x, y) && !(x === 19 && y === 20))
+        ground.push([x, y]);
+  const make = (moves = []) => {
+    const f = new FormData();
+    f.set(
+      "map",
+      JSON.stringify({
+        id: m.id,
+        name: m.name,
+        bounds: m.bounds,
+        spawn: m.spawn,
+        ground,
+      }),
+    );
+    f.set("themeRevision", String(state.themeRevision));
+    f.set("contentRevision", String(state.contentRevision));
+    f.set("moves", JSON.stringify(moves));
+    f.set("dropOverflow", "true");
+    f.set(
+      "image",
+      new Blob([readFileSync("public/sprites/web.png")]),
+      "new.png",
+    );
+    return f;
+  };
+  const before = files.size;
+  for (const moves of [
+    [],
+    [{ id: "island-question", x: 20, y: 20 }],
+    [{ id: "missing", x: 19, y: 21 }],
+    [{ id: "island-question", x: 19, y: 20 }],
+  ]) {
+    const result = await admin("/api/admin/maps", make(moves));
+    assert.equal(result.status, 400, JSON.stringify(result.data));
+    assert.equal(files.size, before);
+    assert.equal(
+      (await admin("/api/admin/packs")).data.themeRevision,
+      state.themeRevision,
+    );
+  }
+  const result = await admin(
+    "/api/admin/maps",
+    make([{ id: "island-question", x: 19, y: 21 }]),
+  );
+  assert.equal(result.status, 200, JSON.stringify(result.data));
+  const after = (await admin("/api/admin/packs")).data;
+  assert.equal(after.themeRevision, state.themeRevision + 1);
+  assert.equal(after.contentRevision, state.contentRevision + 1);
+  assert.equal(after.challengeCount, 2);
   sqlite.close();
 });

@@ -2,33 +2,30 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { paintStroke } from "@/lib/paint-stroke.mjs";
 import { createWorld, activeWorld } from "@/lib/world-data.mjs";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
 type MapData = (typeof activeWorld.maps)[number] & {
   ground?: [number, number][] | null;
 };
 type WorldData = Omit<typeof activeWorld, "maps"> & { maps: MapData[] };
-type Overflow = { kept: number; excluded: { id: string; object: string }[] };
+type Placement = {
+  id: string;
+  object: string;
+  map: string;
+  location: { x: number; y: number };
+};
 export default function MapSettings({
   world,
   mapId,
   themeRevision,
   contentRevision,
   onSaved,
+  challenges,
 }: {
   world: WorldData;
   mapId: string;
   themeRevision: number;
   contentRevision: number;
   onSaved: () => Promise<void>;
+  challenges: Placement[];
 }) {
   const original = world.maps.find((m) => m.id === mapId)!;
   const [map, setMap] = useState<MapData>(original),
@@ -36,13 +33,13 @@ export default function MapSettings({
     [image, setImage] = useState<File | null>(null),
     [imageUrl, setImageUrl] = useState<string | null>(null),
     [cursor, setCursor] = useState({ x: 0, y: 0 }),
-    [mode, setMode] = useState<"allow" | "block" | "spawn">("allow"),
+    [mode, setMode] = useState<"allow" | "block" | "spawn" | "move">("allow"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [previousSave, setPreviousSave] = useState<MapData | null>(null),
-    [restoreTarget, setRestoreTarget] = useState<MapData | null>(null),
-    [overflow, setOverflow] = useState<Overflow | null>(null);
+    [moves, setMoves] = useState<Record<string, { x: number; y: number }>>({}),
+    [selectedChallenge, setSelectedChallenge] = useState("");
   const canvas = useRef<HTMLCanvasElement>(null),
     dragging = useRef(false),
     lastPaint = useRef<{ x: number; y: number } | null>(null),
@@ -61,8 +58,8 @@ export default function MapSettings({
     setCursor({ ...original.spawn });
     setMode("allow");
     setError("");
-    setOverflow(null);
-    setRestoreTarget(null);
+    setMoves({});
+    setSelectedChallenge("");
     dragging.current = false;
     lastPaint.current = null;
   }
@@ -96,6 +93,23 @@ export default function MapSettings({
     [world, mapId, map, ground],
   );
   const engine = useMemo(() => createWorld(preview), [preview]);
+  const placements = useMemo(
+    () =>
+      challenges.map((c) => ({ ...c, location: moves[c.id] || c.location })),
+    [challenges, moves],
+  );
+  const invalid = placements.filter(
+    (c) => !engine.canPlaceChallenge(c.map, c.location.x, c.location.y),
+  );
+  const duplicated = placements.filter((c, i) =>
+    placements.some(
+      (d, j) =>
+        j < i &&
+        d.map === c.map &&
+        d.location.x === c.location.x &&
+        d.location.y === c.location.y,
+    ),
+  );
   useEffect(() => {
     let cancelled = false;
     const draw = (img?: HTMLImageElement) => {
@@ -115,6 +129,23 @@ export default function MapSettings({
           ctx.strokeStyle = "rgba(20,40,50,0.25)";
           ctx.strokeRect(x * 24, y * 24, 24, 24);
         }
+      for (const c of placements.filter((c) => c.map === mapId)) {
+        ctx.fillStyle = engine.canPlaceChallenge(
+          c.map,
+          c.location.x,
+          c.location.y,
+        )
+          ? "#ffe393"
+          : "#ff8585";
+        ctx.font = "bold 20px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("✦", c.location.x * 24 + 12, c.location.y * 24 + 19);
+        if (c.id === selectedChallenge) {
+          ctx.strokeStyle = "#ffe393";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(c.location.x * 24 + 1, c.location.y * 24 + 1, 22, 22);
+        }
+      }
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2;
       ctx.strokeRect(cursor.x * 24 + 1, cursor.y * 24 + 1, 22, 22);
@@ -141,7 +172,16 @@ export default function MapSettings({
     return () => {
       cancelled = true;
     };
-  }, [map, world, mapId, imageUrl, engine, cursor]);
+  }, [
+    map,
+    world,
+    mapId,
+    imageUrl,
+    engine,
+    cursor,
+    placements,
+    selectedChallenge,
+  ]);
   function paint(x: number, y: number, continuous = false) {
     if (
       !Number.isInteger(x) ||
@@ -153,6 +193,30 @@ export default function MapSettings({
     )
       return;
     setCursor({ x, y });
+    if (mode === "move") {
+      const clicked = placements.find(
+        (c) => c.map === mapId && c.location.x === x && c.location.y === y,
+      );
+      if (clicked) {
+        setSelectedChallenge(clicked.id);
+        setError("");
+        return;
+      }
+      if (!selectedChallenge) {
+        setError(
+          "Click a challenge star or choose a challenge, then click its destination.",
+        );
+        return;
+      }
+      if (!engine.canPlaceChallenge(mapId, x, y)) {
+        setError("Choose a free, reachable tile for this challenge.");
+        return;
+      }
+      setMoves((s) => ({ ...s, [selectedChallenge]: { x, y } }));
+      setError("");
+      setMessage("");
+      return;
+    }
     if (
       x < map.bounds.left ||
       x > map.bounds.right ||
@@ -196,7 +260,7 @@ export default function MapSettings({
       true,
     );
   }
-  async function save(dropOverflow = false, restore?: MapData) {
+  async function save(restore?: MapData) {
     setBusy(true);
     setError("");
     setMessage("");
@@ -220,25 +284,20 @@ export default function MapSettings({
       form.set("contentRevision", String(contentRevision));
       if (restore) form.set("action", "restore");
       if (image && !restore) form.set("image", image);
-      if (dropOverflow) form.set("dropOverflow", "true");
+      form.set(
+        "moves",
+        JSON.stringify(Object.entries(moves).map(([id, p]) => ({ id, ...p }))),
+      );
       const r = await fetch("/api/admin/maps", { method: "POST", body: form }),
         d = (await r.json()) as {
           error?: string;
-          needsDecision?: boolean;
-          placement: Overflow & { moved: unknown[] };
+          placement: { moved: unknown[]; excluded: unknown[] };
         };
       if (!r.ok) throw Error(d.error || "Could not save the map.");
-      if (d.needsDecision) {
-        setRestoreTarget(restore || null);
-        setOverflow(d.placement);
-        return;
-      }
-      setOverflow(null);
       setPreviousSave(restore ? null : structuredClone(original));
-      setRestoreTarget(null);
       await onSaved();
       setMessage(
-        `${restore ? "Previous saved map restored" : "Map saved"}. ${d.placement.moved.length} challenges moved; ${d.placement.excluded.length} excluded. Reload the game to use it.`,
+        `${restore ? "Previous saved map restored" : "Map saved"}. ${d.placement.moved.length} challenges moved. Reload the game to use it.`,
       );
     } catch (e) {
       setError((e as Error).message);
@@ -306,7 +365,7 @@ export default function MapSettings({
           ))}
         </div>
         <div className="admin-actions">
-          {(["allow", "block", "spawn"] as const).map((tool) => (
+          {(["allow", "block", "spawn", "move"] as const).map((tool) => (
             <button
               type="button"
               className="secondary-button"
@@ -318,7 +377,9 @@ export default function MapSettings({
                 ? "Paint walkable"
                 : tool === "block"
                   ? "Paint blocked"
-                  : "Set spawn"}
+                  : tool === "spawn"
+                    ? "Set spawn"
+                    : "Move challenge"}
             </button>
           ))}
         </div>
@@ -344,6 +405,28 @@ export default function MapSettings({
             Block all tiles
           </button>
         </div>
+        {mode === "move" && (
+          <label>
+            Challenge to move
+            <select
+              value={selectedChallenge}
+              onChange={(e) => setSelectedChallenge(e.target.value)}
+            >
+              <option value="">Choose a challenge</option>
+              {placements
+                .filter((c) => c.map === mapId)
+                .map((c) => (
+                  <option value={c.id} key={c.id}>
+                    {c.object} ({c.location.x}, {c.location.y})
+                  </option>
+                ))}
+            </select>
+            <small>
+              Choose a challenge or click its star, then click a free green
+              destination. Moves are saved together with the map.
+            </small>
+          </label>
+        )}
         <canvas
           ref={canvas}
           width={960}
@@ -359,7 +442,7 @@ export default function MapSettings({
             at(e);
           }}
           onPointerMove={(e) => {
-            if (dragging.current) at(e);
+            if (dragging.current && mode !== "move") at(e);
           }}
           onPointerUp={() => {
             dragging.current = false;
@@ -431,7 +514,7 @@ export default function MapSettings({
             type="button"
             className="secondary-button"
             disabled={busy || !previousSave}
-            onClick={() => void save(false, previousSave!)}
+            onClick={() => void save(previousSave!)}
           >
             Undo last save
           </button>
@@ -441,6 +524,22 @@ export default function MapSettings({
           before your most recent save on this page; it also restores the
           previous artwork. Earned points stay saved.
         </small>
+        {(invalid.length > 0 || duplicated.length > 0) && (
+          <div role="alert" className="error">
+            <p>Move these challenges to free, reachable tiles before saving:</p>
+            <ul>
+              {[
+                ...new Map(
+                  [...invalid, ...duplicated].map((c) => [c.id, c]),
+                ).values(),
+              ].map((c) => (
+                <li key={c.id}>
+                  {c.object} ({c.location.x}, {c.location.y})
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {error && (
           <p role="alert" className="error">
             {error}
@@ -450,49 +549,12 @@ export default function MapSettings({
         <button
           type="button"
           className="primary"
-          disabled={busy}
+          disabled={busy || invalid.length > 0 || duplicated.length > 0}
           onClick={() => void save()}
         >
           {busy ? "Saving map…" : "Save map"}
         </button>
       </div>
-      <AlertDialog
-        open={!!overflow}
-        onOpenChange={(open) => {
-          if (!open && !busy) setOverflow(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Not every challenge fits</AlertDialogTitle>
-            <AlertDialogDescription>
-              Nothing has changed. Cancel to add more reachable ground, or save
-              the map and exclude the listed extras. Export your content first
-              to keep a copy.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="max-h-48 overflow-y-auto">
-            {overflow?.excluded.map((c) => (
-              <p key={c.id}>
-                {c.object} ({c.id})
-              </p>
-            ))}
-            <a href="/api/admin/packs?kind=content">Export current content</a>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={busy}
-              onClick={(e) => {
-                e.preventDefault();
-                void save(true, restoreTarget || undefined);
-              }}
-            >
-              Save and exclude {overflow?.excluded.length}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </details>
   );
 }

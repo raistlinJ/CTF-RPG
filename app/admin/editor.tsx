@@ -410,6 +410,7 @@ export default function Admin() {
                 </div>
                 <MapSettings
                   world={activeWorld}
+                  challenges={catalog}
                   mapId={draft.map}
                   themeRevision={themeRevision}
                   contentRevision={revision}

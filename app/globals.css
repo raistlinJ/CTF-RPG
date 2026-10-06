@@ -1771,3 +1771,5 @@ input::placeholder {
 .map-settings .admin-actions { flex-wrap: wrap; }
 .map-settings [aria-pressed="true"] { background: #2c4a58; border-color: #a3e7ca; }
 .ground-canvas { width: 100%; height: auto; touch-action: none; cursor: crosshair; border: 1px solid #42616e; }
+
+.map-settings-body select { padding: 10px; background: #102532; color: #e7f1ee; border: 1px solid #42616e; border-radius: 5px; }

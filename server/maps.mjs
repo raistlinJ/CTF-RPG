@@ -1,4 +1,6 @@
 import { unzipSync, zipSync, strToU8 } from "fflate";
+import { z } from "zod";
+import { createWorld } from "../lib/world-data.mjs";
 import { stringify } from "yaml";
 import { parseTheme, themeAssetPaths } from "../lib/theme-schema.mjs";
 import { exportPack, importPacks, assertAsset, readAsset } from "./packs.mjs";
@@ -84,6 +86,47 @@ export async function updateMap(req, state) {
     next.world.maps[index].background = imagePath;
   }
   parseTheme(next); // Validate spawn and portals before storing anything.
+  const moves = z
+    .array(
+      z
+        .object({
+          id: z.string(),
+          x: z.number().int().min(0).max(39),
+          y: z.number().int().min(0).max(27),
+        })
+        .strict(),
+    )
+    .max(100)
+    .parse(JSON.parse(String(form.get("moves") || "[]")));
+  if (new Set(moves.map((m) => m.id)).size !== moves.length)
+    throw Error("Duplicate challenge moves.");
+  const moved = new Map(moves.map((m) => [m.id, m]));
+  for (const move of moves)
+    if (!state.challenges.some((c) => c.id === move.id && c.map === patch.id))
+      throw Error("Select a saved challenge on this map.");
+  const challenges = state.challenges.map((c) =>
+    moved.has(c.id)
+      ? { ...c, location: { x: moved.get(c.id).x, y: moved.get(c.id).y } }
+      : c,
+  );
+  const engine = createWorld(next.world),
+    invalid = challenges.filter(
+      (c) => !engine.canPlaceChallenge(c.map, c.location.x, c.location.y),
+    );
+  if (invalid.length)
+    throw Error(
+      "Move challenges off unusable tiles before saving: " +
+        invalid.map((c) => `${c.object} (${c.id})`).join(", "),
+    );
+  const occupied = new Set();
+  for (const c of challenges) {
+    const key = `${c.map}:${c.location.x},${c.location.y}`;
+    if (occupied.has(key))
+      throw Error(
+        "Two challenges cannot share a tile. Move them to separate tiles before saving.",
+      );
+    occupied.add(key);
+  }
   const exported = await exportPack(
     "theme",
     { theme: state.theme },
@@ -104,11 +147,42 @@ export async function updateMap(req, state) {
   if (imageBytes) entries["assets" + imagePath] = imageBytes;
   const packed = new FormData();
   packed.set("file", new Blob([zipSync(entries)]), "map-theme.zip");
-  for (const key of ["themeRevision", "contentRevision", "dropOverflow"])
+  if (moves.length) {
+    const content = await exportPack(
+      "content",
+      { challenges },
+      state.store,
+      state.readBaseAsset,
+    );
+    packed.set(
+      "content",
+      new Blob([await content.arrayBuffer()]),
+      "moved-content.zip",
+    );
+  }
+  for (const key of ["themeRevision", "contentRevision"])
     if (form.has(key)) packed.set(key, String(form.get(key)));
-  return importPacks(
+  const result = await importPacks(
     new Request(req.url, { method: "POST", body: packed }),
     state,
     "theme",
   );
+  const explicitMoves = challenges.flatMap((c) => {
+    const before = state.challenges.find((old) => old.id === c.id);
+    return before.location.x !== c.location.x ||
+      before.location.y !== c.location.y
+      ? [
+          {
+            id: c.id,
+            object: c.object,
+            from: { map: before.map, ...before.location },
+            to: { map: c.map, ...c.location },
+          },
+        ]
+      : [];
+  });
+  return {
+    ...result,
+    placement: { ...result.placement, moved: explicitMoves },
+  };
 }
