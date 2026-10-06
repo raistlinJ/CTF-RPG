@@ -1,5 +1,15 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Footprints,
+  Ban,
+  MapPin,
+  Move,
+  Image as ImageIcon,
+  SlidersHorizontal,
+  Paintbrush,
+  RotateCcw,
+} from "lucide-react";
 import { paintStroke } from "@/lib/paint-stroke.mjs";
 import { createWorld, activeWorld } from "@/lib/world-data.mjs";
 type MapData = (typeof activeWorld.maps)[number] & {
@@ -19,6 +29,7 @@ export default function MapSettings({
   contentRevision,
   onSaved,
   challenges,
+  onOpenChange,
 }: {
   world: WorldData;
   mapId: string;
@@ -26,6 +37,7 @@ export default function MapSettings({
   contentRevision: number;
   onSaved: () => Promise<void>;
   challenges: Placement[];
+  onOpenChange: (open: boolean) => void;
 }) {
   const original = world.maps.find((m) => m.id === mapId)!;
   const [map, setMap] = useState<MapData>(original),
@@ -33,6 +45,8 @@ export default function MapSettings({
     [image, setImage] = useState<File | null>(null),
     [imageUrl, setImageUrl] = useState<string | null>(null),
     [cursor, setCursor] = useState({ x: 0, y: 0 }),
+    [editorOpen, setEditorOpen] = useState(false),
+    [panel, setPanel] = useState<"ground" | "artwork" | "advanced">("ground"),
     [mode, setMode] = useState<"allow" | "block" | "spawn" | "move">("allow"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -305,127 +319,216 @@ export default function MapSettings({
       setBusy(false);
     }
   }
+  const tools = {
+    allow: {
+      name: "Walkable",
+      label: "Paint walkable",
+      icon: Footprints,
+      help: "Click or drag to paint walkable ground.",
+    },
+    block: {
+      name: "Blocked",
+      label: "Paint blocked",
+      icon: Ban,
+      help: "Click or drag to block tiles. Move any affected challenges before saving.",
+    },
+    spawn: {
+      name: "Spawn",
+      label: "Set spawn",
+      icon: MapPin,
+      help: "Click a reachable tile to set the player’s starting position.",
+    },
+    move: {
+      name: "Move challenge",
+      label: "Move challenge",
+      icon: Move,
+      help: "Select a star or challenge name, then click a free green destination.",
+    },
+  };
+  const attention = [
+    ...new Map([...invalid, ...duplicated].map((c) => [c.id, c])).values(),
+  ];
   return (
-    <details className="map-settings">
-      <summary>Map artwork &amp; reachable ground</summary>
+    <details
+      className="map-settings"
+      onToggle={(e) => {
+        setEditorOpen(e.currentTarget.open);
+        onOpenChange(e.currentTarget.open);
+      }}
+    >
+      <summary>
+        <span>
+          <Paintbrush size={17} />
+          Map artwork &amp; reachable ground
+        </span>
+        <span className="map-summary-hint">
+          {editorOpen ? "Close editor" : "Edit map"}
+        </span>
+      </summary>
       <div className="map-settings-body">
-        <p>
-          Upload artwork for this map and paint the tiles students can walk on.
-          The image fills a 40 × 28 grid. Gray tiles cannot hold challenges;
-          green tiles are reachable from the yellow spawn. Amber tiles are
-          painted walkable but disconnected. Painting overrides old building
-          collision tiles; portals keep their existing positions.
-        </p>
-        <label>
-          Map name
-          <input
-            value={map.name}
-            maxLength={80}
-            onChange={(e) => setMap((m) => ({ ...m, name: e.target.value }))}
-          />
-        </label>
-        <label>
-          Upload map image
-          <input
-            ref={imageInput}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              setError("");
-              if (file && file.size > 4 * 1024 * 1024) {
-                setError("Image must be at most 4 MB.");
-                return;
-              }
-              setImage(file || null);
-            }}
-          />
-          <small>
-            PNG, JPEG, WebP or GIF · maximum 4 MB. Artwork changes do not
-            automatically change walkable ground.
-          </small>
-        </label>
-        <div className="admin-coordinate-fields">
-          {(["left", "right", "top", "bottom"] as const).map((side) => (
-            <label key={side}>
-              Boundary {side}
-              <input
-                type="number"
-                min={0}
-                max={side === "left" || side === "right" ? 39 : 27}
-                value={map.bounds[side]}
-                onChange={(e) =>
-                  setMap((m) => ({
-                    ...m,
-                    bounds: { ...m.bounds, [side]: Number(e.target.value) },
-                  }))
-                }
-              />
-            </label>
-          ))}
-        </div>
-        <div className="admin-actions">
-          {(["allow", "block", "spawn", "move"] as const).map((tool) => (
+        <div className="map-settings-tabs" aria-label="Map settings sections">
+          {(
+            [
+              { id: "ground", label: "Ground & challenges", icon: Paintbrush },
+              { id: "artwork", label: "Artwork", icon: ImageIcon },
+              { id: "advanced", label: "Advanced", icon: SlidersHorizontal },
+            ] as const
+          ).map((tab) => (
             <button
               type="button"
-              className="secondary-button"
-              aria-pressed={mode === tool}
-              key={tool}
-              onClick={() => setMode(tool)}
+              key={tab.id}
+              aria-pressed={panel === tab.id}
+              onClick={() => setPanel(tab.id)}
             >
-              {tool === "allow"
-                ? "Paint walkable"
-                : tool === "block"
-                  ? "Paint blocked"
-                  : tool === "spawn"
-                    ? "Set spawn"
-                    : "Move challenge"}
+              <tab.icon size={16} />
+              {tab.label}
             </button>
           ))}
         </div>
-        <div className="admin-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => {
-              const next = new Set<string>();
-              for (let y = map.bounds.top; y <= map.bounds.bottom; y++)
-                for (let x = map.bounds.left; x <= map.bounds.right; x++)
-                  next.add(`${x},${y}`);
-              setCells(next);
-            }}
-          >
-            Fill walkable within bounds
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => setCells(new Set())}
-          >
-            Block all tiles
-          </button>
-        </div>
-        {mode === "move" && (
-          <label>
-            Challenge to move
-            <select
-              value={selectedChallenge}
-              onChange={(e) => setSelectedChallenge(e.target.value)}
-            >
-              <option value="">Choose a challenge</option>
-              {placements
-                .filter((c) => c.map === mapId)
-                .map((c) => (
-                  <option value={c.id} key={c.id}>
-                    {c.object} ({c.location.x}, {c.location.y})
-                  </option>
-                ))}
-            </select>
+        {panel === "ground" && (
+          <div className="map-edit-tools">
+            <div className="map-tool-buttons" aria-label="Map tools">
+              {(["allow", "block", "spawn", "move"] as const).map((tool) => {
+                const Icon = tools[tool].icon;
+                return (
+                  <button
+                    type="button"
+                    key={tool}
+                    aria-label={tools[tool].label}
+                    aria-pressed={mode === tool}
+                    onClick={() => {
+                      setMode(tool);
+                      lastPaint.current = null;
+                    }}
+                  >
+                    <Icon size={16} />
+                    {tools[tool].name}
+                  </button>
+                );
+              })}
+            </div>
+            <p id="map-tool-help" className="map-tool-help">
+              {tools[mode].help}
+            </p>
+            {mode === "move" && (
+              <label className="map-move-picker">
+                Challenge to move
+                <select
+                  value={selectedChallenge}
+                  onChange={(e) => setSelectedChallenge(e.target.value)}
+                >
+                  <option value="">Choose a challenge</option>
+                  {placements
+                    .filter((c) => c.map === mapId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.object} ({c.location.x}, {c.location.y})
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
+          </div>
+        )}
+        {panel === "artwork" && (
+          <div className="map-settings-section">
+            <label>
+              Map name
+              <input
+                value={map.name}
+                maxLength={80}
+                onChange={(e) =>
+                  setMap((m) => ({ ...m, name: e.target.value }))
+                }
+              />
+            </label>
+            <label>
+              Upload map image
+              <input
+                ref={imageInput}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  setError("");
+                  if (file && file.size > 4 * 1024 * 1024) {
+                    setError("Image must be at most 4 MB.");
+                    return;
+                  }
+                  setImage(file || null);
+                }}
+              />
+            </label>
+            {image && <small>Selected image: {image.name}</small>}
             <small>
-              Choose a challenge or click its star, then click a free green
-              destination. Moves are saved together with the map.
+              PNG, JPEG, WebP or GIF · up to 4 MB. Images fill the 40 × 28 grid;
+              ground is painted separately.
             </small>
-          </label>
+          </div>
+        )}
+        {panel === "advanced" && (
+          <div className="map-settings-section">
+            <fieldset className="map-boundaries">
+              <legend>Map boundaries</legend>
+              {(["left", "right", "top", "bottom"] as const).map((side) => (
+                <label key={side}>
+                  {side[0].toUpperCase() + side.slice(1)}
+                  <input
+                    type="number"
+                    aria-label={`Boundary ${side}`}
+                    min={0}
+                    max={side === "left" || side === "right" ? 39 : 27}
+                    value={map.bounds[side]}
+                    onChange={(e) =>
+                      setMap((m) => ({
+                        ...m,
+                        bounds: { ...m.bounds, [side]: Number(e.target.value) },
+                      }))
+                    }
+                  />
+                </label>
+              ))}
+            </fieldset>
+            <div className="map-bulk-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  const next = new Set<string>();
+                  for (
+                    let y = Math.max(0, map.bounds.top);
+                    y <= Math.min(27, map.bounds.bottom);
+                    y++
+                  )
+                    for (
+                      let x = Math.max(0, map.bounds.left);
+                      x <= Math.min(39, map.bounds.right);
+                      x++
+                    )
+                      next.add(`${x},${y}`);
+                  setCells(next);
+                }}
+              >
+                Fill walkable within bounds
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setCells(new Set())}
+              >
+                Block all tiles
+              </button>
+            </div>
+            <small>
+              Painted ground overrides the old collision tiles. Entrances,
+              exits, and spawn must stay reachable. Challenges need separate,
+              reachable tiles.
+            </small>
+            <small>
+              Undo last save restores the previous artwork and terrain while
+              this page remains open.
+            </small>
+          </div>
         )}
         <canvas
           ref={canvas}
@@ -434,8 +537,11 @@ export default function MapSettings({
           className="ground-canvas"
           tabIndex={0}
           aria-label="Reachable ground painter"
+          aria-describedby={panel === "ground" ? "map-tool-help" : undefined}
           onPointerDown={(e) => {
+            if (panel !== "ground" || busy) return;
             e.preventDefault();
+            e.currentTarget.focus();
             lastPaint.current = null;
             dragging.current = true;
             e.currentTarget.setPointerCapture(e.pointerId);
@@ -456,85 +562,72 @@ export default function MapSettings({
             dragging.current = false;
             lastPaint.current = null;
           }}
+          onKeyDown={(e) => {
+            if (panel !== "ground" || busy) return;
+            const dirs: Record<string, [number, number]> = {
+              ArrowLeft: [-1, 0],
+              ArrowRight: [1, 0],
+              ArrowUp: [0, -1],
+              ArrowDown: [0, 1],
+            };
+            if (dirs[e.key]) {
+              e.preventDefault();
+              const [dx, dy] = dirs[e.key];
+              setCursor((c) => ({
+                x: Math.max(0, Math.min(39, c.x + dx)),
+                y: Math.max(0, Math.min(27, c.y + dy)),
+              }));
+            } else if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              paint(cursor.x, cursor.y);
+            }
+          }}
         />
-        <div className="admin-coordinate-fields">
-          <label>
-            Tile X
-            <input
-              type="number"
-              min={0}
-              max={39}
-              value={cursor.x}
-              onChange={(e) =>
-                setCursor((c) => ({ ...c, x: Number(e.target.value) }))
-              }
-            />
-          </label>
-          <label>
-            Tile Y
-            <input
-              type="number"
-              min={0}
-              max={27}
-              value={cursor.y}
-              onChange={(e) =>
-                setCursor((c) => ({ ...c, y: Number(e.target.value) }))
-              }
-            />
-          </label>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => paint(cursor.x, cursor.y)}
-          >
-            Apply tool at tile
-          </button>
+        <div className="map-canvas-meta">
+          <div className="map-legend">
+            <span>
+              <i className="legend-walkable" />
+              Reachable
+            </span>
+            <span>
+              <i className="legend-disconnected" />
+              Disconnected
+            </span>
+            <span>
+              <i className="legend-blocked" />
+              Blocked
+            </span>
+            <span className="legend-star">✦ Challenge</span>
+          </div>
+          <span className="map-tile-readout">
+            Tile {cursor.x}, {cursor.y}
+          </span>
         </div>
-        <small>
-          Click or drag to paint. Yellow square: spawn ({map.spawn.x},{" "}
-          {map.spawn.y}); cyan outlines: portals. Disconnected floor stays gray.
-          Amber floor needs a connected path to spawn. Spawn and all door/exit
-          approaches must remain reachable.
-        </small>
-        <div className="admin-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={busy}
-            onClick={() => {
-              reset();
-              setMessage(
-                "Unsaved map changes reset to the last saved version.",
-              );
-            }}
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={busy || !previousSave}
-            onClick={() => void save(previousSave!)}
-          >
-            Undo last save
-          </button>
-        </div>
-        <small>
-          Reset discards unsaved map edits. Undo last save restores the map from
-          before your most recent save on this page; it also restores the
-          previous artwork. Earned points stay saved.
-        </small>
-        {(invalid.length > 0 || duplicated.length > 0) && (
-          <div role="alert" className="error">
-            <p>Move these challenges to free, reachable tiles before saving:</p>
+        {attention.length > 0 && (
+          <div role="alert" className="map-attention">
+            <b>
+              {attention.length}{" "}
+              {attention.length === 1 ? "challenge needs" : "challenges need"} a
+              valid location
+            </b>
+            <p>Move to free, reachable ground before saving.</p>
             <ul>
-              {[
-                ...new Map(
-                  [...invalid, ...duplicated].map((c) => [c.id, c]),
-                ).values(),
-              ].map((c) => (
+              {attention.map((c) => (
                 <li key={c.id}>
-                  {c.object} ({c.location.x}, {c.location.y})
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPanel("ground");
+                      setMode("move");
+                      setSelectedChallenge(c.id);
+                      setCursor(c.location);
+                    }}
+                  >
+                    {c.object}
+                    <span>
+                      {c.location.x}, {c.location.y} →
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -546,14 +639,42 @@ export default function MapSettings({
           </p>
         )}
         {message && <p role="status">{message}</p>}
-        <button
-          type="button"
-          className="primary"
-          disabled={busy || invalid.length > 0 || duplicated.length > 0}
-          onClick={() => void save()}
-        >
-          {busy ? "Saving map…" : "Save map"}
-        </button>
+        <div className="map-edit-footer">
+          <div>
+            <button
+              type="button"
+              className="text-button"
+              disabled={busy}
+              onClick={() => {
+                reset();
+                setMessage(
+                  "Unsaved map changes reset to the last saved version.",
+                );
+              }}
+            >
+              <RotateCcw size={15} />
+              Reset
+            </button>
+            {previousSave && (
+              <button
+                type="button"
+                className="text-button"
+                disabled={busy}
+                onClick={() => void save(previousSave)}
+              >
+                Undo last save
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            className="primary"
+            disabled={busy || attention.length > 0}
+            onClick={() => void save()}
+          >
+            {busy ? "Saving…" : "Save map"}
+          </button>
+        </div>
       </div>
     </details>
   );

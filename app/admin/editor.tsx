@@ -83,6 +83,7 @@ export default function Admin() {
     [catalog, setCatalog] = useState<Definition[]>([]),
     [revision, setRevision] = useState(0),
     [themeRevision, setThemeRevision] = useState(0),
+    [mapEditing, setMapEditing] = useState(false),
     [draft, setDraft] = useState<Draft | null>(null),
     [editingId, setEditingId] = useState<string | undefined>(),
     [initial, setInitial] = useState(""),
@@ -400,16 +401,21 @@ export default function Admin() {
                       </SelectContent>
                     </Select>
                   </label>
-                  <span
-                    className={validLocation ? "tile-valid" : "tile-invalid"}
-                  >
-                    <MapPin size={16} />
-                    {draft.location.x}, {draft.location.y} ·{" "}
-                    {validLocation ? "Available ground" : "Choose clear ground"}
-                  </span>
+                  {!mapEditing && (
+                    <span
+                      className={validLocation ? "tile-valid" : "tile-invalid"}
+                    >
+                      <MapPin size={16} />
+                      {draft.location.x}, {draft.location.y} ·{" "}
+                      {validLocation
+                        ? "Available ground"
+                        : "Choose clear ground"}
+                    </span>
+                  )}
                 </div>
                 <MapSettings
                   world={activeWorld}
+                  onOpenChange={setMapEditing}
                   challenges={catalog}
                   mapId={draft.map}
                   themeRevision={themeRevision}
@@ -418,60 +424,62 @@ export default function Admin() {
                     await load(true, dirty);
                   }}
                 />
-                <World
-                  hero={explorer}
-                  map={draft.map}
-                  pos={draft.location}
-                  challenges={catalog
-                    .filter((c) => c.map === draft.map)
-                    .map((c) => ({
-                      ...c,
-                      remainingPoints: c.points,
-                      awardedPoints: null,
-                      submission: null,
-                      hintCost: 0,
-                      hints: c.hints.map((h) => ({ ...h, unlocked: false })),
-                    }))}
-                  solved={[]}
-                  onMove={noop}
-                  onSearch={noop}
-                  onSelect={selectTile}
-                />
-                <p className="admin-map-help">
-                  Gray tiles cannot hold challenges. Gold sparkles mark saved
-                  challenges. Click a sparkle to edit it; click clear ground to
-                  place or move your selected challenge. Arrow keys also select
-                  tiles.
-                </p>
-                <div className="admin-list-heading">
-                  <h2>Saved discoveries</h2>
-                  <span>
-                    {catalog.filter((c) => c.map === draft.map).length} on this
-                    map
-                  </span>
-                </div>
-                <div className="admin-challenge-list">
-                  {catalog
-                    .filter((c) => c.map === draft.map)
-                    .map((c) => (
-                      <button
-                        className={c.id === editingId ? "active" : ""}
-                        key={c.id}
-                        onClick={() => selectExisting(c)}
-                      >
-                        <span>✦</span>
-                        <div>
-                          <b>{c.object}</b>
-                          <small>
-                            {c.region} · {c.location.x}, {c.location.y}
-                          </small>
-                        </div>
-                        <strong>{c.points} pts</strong>
-                      </button>
-                    ))}
-                  {!catalog.some((c) => c.map === draft.map) && (
-                    <p>No challenges here yet. Pick a tile to add the first.</p>
-                  )}
+                <div hidden={mapEditing}>
+                  <World
+                    hero={explorer}
+                    map={draft.map}
+                    pos={draft.location}
+                    challenges={catalog
+                      .filter((c) => c.map === draft.map)
+                      .map((c) => ({
+                        ...c,
+                        remainingPoints: c.points,
+                        awardedPoints: null,
+                        submission: null,
+                        hintCost: 0,
+                        hints: c.hints.map((h) => ({ ...h, unlocked: false })),
+                      }))}
+                    solved={[]}
+                    onMove={noop}
+                    onSearch={noop}
+                    onSelect={selectTile}
+                  />
+                  <p className="admin-map-help">
+                    Click a star to edit a challenge or clear ground to choose
+                    its location. Gray tiles are unavailable.
+                  </p>
+                  <div className="admin-list-heading">
+                    <h2>Saved discoveries</h2>
+                    <span>
+                      {catalog.filter((c) => c.map === draft.map).length} on
+                      this map
+                    </span>
+                  </div>
+                  <div className="admin-challenge-list">
+                    {catalog
+                      .filter((c) => c.map === draft.map)
+                      .map((c) => (
+                        <button
+                          className={c.id === editingId ? "active" : ""}
+                          key={c.id}
+                          onClick={() => selectExisting(c)}
+                        >
+                          <span>✦</span>
+                          <div>
+                            <b>{c.object}</b>
+                            <small>
+                              {c.region} · {c.location.x}, {c.location.y}
+                            </small>
+                          </div>
+                          <strong>{c.points} pts</strong>
+                        </button>
+                      ))}
+                    {!catalog.some((c) => c.map === draft.map) && (
+                      <p>
+                        No challenges here yet. Pick a tile to add the first.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
               <form className="admin-editor" onSubmit={save}>
