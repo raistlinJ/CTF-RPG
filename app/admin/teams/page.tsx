@@ -37,6 +37,7 @@ export default function TeamsAdmin() {
       names: true,
       scores: true,
       messaging: true,
+      everyone: { names: true, scores: true, messaging: true },
       revision: 0,
     }),
     [presenceRevision, setPresenceRevision] = useState(0),
@@ -239,38 +240,89 @@ export default function TeamsAdmin() {
             </form>
             <form className="team-limit admin-editor" onSubmit={saveFeatures}>
               <h2>Team cards &amp; messages</h2>
-              <label className="admin-checkbox">
-                <Checkbox
-                  checked={features.names}
-                  onCheckedChange={(value) =>
-                    setFeatures({ ...features, names: value === true })
-                  }
-                />
-                Show team names
-              </label>
-              <label className="admin-checkbox">
-                <Checkbox
-                  checked={features.scores}
-                  onCheckedChange={(value) =>
-                    setFeatures({ ...features, scores: value === true })
-                  }
-                />
-                Show team scores
-              </label>
-              <label className="admin-checkbox">
-                <Checkbox
-                  checked={features.messaging}
-                  onCheckedChange={(value) =>
-                    setFeatures({ ...features, messaging: value === true })
-                  }
-                />
-                Enable team messages
-              </label>
+              <fieldset className="team-feature-scope">
+                <legend>Your team</legend>
+                <label className="admin-checkbox">
+                  <Checkbox
+                    checked={features.names}
+                    onCheckedChange={(value) =>
+                      setFeatures({ ...features, names: value === true })
+                    }
+                  />
+                  Show your team’s name
+                </label>
+                <label className="admin-checkbox">
+                  <Checkbox
+                    checked={features.scores}
+                    onCheckedChange={(value) =>
+                      setFeatures({ ...features, scores: value === true })
+                    }
+                  />
+                  Show your team’s score
+                </label>
+                <label className="admin-checkbox">
+                  <Checkbox
+                    checked={features.messaging}
+                    onCheckedChange={(value) =>
+                      setFeatures({ ...features, messaging: value === true })
+                    }
+                  />
+                  Enable messages within your team
+                </label>
+              </fieldset>
+              <fieldset className="team-feature-scope">
+                <legend>Other teams · All players</legend>
+                <label className="admin-checkbox">
+                  <Checkbox
+                    checked={features.everyone.names}
+                    onCheckedChange={(value) =>
+                      setFeatures({
+                        ...features,
+                        everyone: {
+                          ...features.everyone,
+                          names: value === true,
+                        },
+                      })
+                    }
+                  />
+                  Show other teams’ names
+                </label>
+                <label className="admin-checkbox">
+                  <Checkbox
+                    checked={features.everyone.scores}
+                    onCheckedChange={(value) =>
+                      setFeatures({
+                        ...features,
+                        everyone: {
+                          ...features.everyone,
+                          scores: value === true,
+                        },
+                      })
+                    }
+                  />
+                  Show other teams’ scores
+                </label>
+                <label className="admin-checkbox">
+                  <Checkbox
+                    checked={features.everyone.messaging}
+                    onCheckedChange={(value) =>
+                      setFeatures({
+                        ...features,
+                        everyone: {
+                          ...features.everyone,
+                          messaging: value === true,
+                        },
+                      })
+                    }
+                  />
+                  Enable messages between teams
+                </label>
+              </fieldset>
               <p>
-                Team scores total the earned points of active student members.
-                When names are hidden, students see a team reference. Turning
-                messaging off hides conversations and prevents sending; saved
-                messages are kept.
+                Other-team controls apply in the team list and when clicking
+                players from another team in All players mode. Your-team
+                controls apply to each student’s own team. Hidden names use a
+                team reference. Disabled conversations stay saved.
               </p>
               <button className="primary" disabled={busy}>
                 Save team features

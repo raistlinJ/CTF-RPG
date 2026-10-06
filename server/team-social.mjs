@@ -3,7 +3,7 @@ const reply = (data, status = 200) =>
 export async function teamFeatures(db, config) {
   const row = await db
     .prepare(
-      "SELECT names,scores,messaging,revision FROM team_social_settings WHERE id='active'",
+      "SELECT names,scores,messaging,everyone_names,everyone_scores,everyone_messaging,revision FROM team_social_settings WHERE id='active'",
     )
     .bind()
     .first();
@@ -17,25 +17,41 @@ export async function teamFeatures(db, config) {
         names: !!row.names,
         scores: !!row.scores,
         messaging: !!row.messaging,
+        everyone: {
+          names: !!(row.everyone_names ?? row.names),
+          scores: !!(row.everyone_scores ?? row.scores),
+          messaging: !!(row.everyone_messaging ?? row.messaging),
+        },
         revision: row.revision,
       }
-    : { ...defaults, revision: 0 };
+    : {
+        ...defaults,
+        everyone: defaults.everyone || {
+          names: defaults.names,
+          scores: defaults.scores,
+          messaging: defaults.messaging,
+        },
+        revision: 0,
+      };
 }
+export const teamPolicy = (features, own) =>
+  own ? features : features.everyone;
 export const teamLabel = (team, features) =>
   features.names ? team.name : `Team #${team.id.slice(0, 8)}`;
 export async function teamInbox(db, features, team) {
-  if (!features.messaging || !team) return 0;
+  if ((!features.messaging && !features.everyone.messaging) || !team) return 0;
   return (
     (
       await db
         .prepare(
-          "SELECT MAX(created_at) AS latest FROM team_messages WHERE recipient_team=?",
+          `SELECT MAX(created_at) AS latest FROM team_messages WHERE recipient_team=? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team))`,
         )
-        .bind(team)
+        .bind(team, +features.messaging, +features.everyone.messaging)
         .first()
     )?.latest || 0
   );
 }
+
 export async function handleTeamSocial(
   req,
   { db, config, user, platformAdmin },
@@ -61,6 +77,17 @@ export async function handleTeamSocial(
         { error: "Provide each team feature and its revision." },
         400,
       );
+    const everyone = body.everyone || {
+      names: body.names,
+      scores: body.scores,
+      messaging: body.messaging,
+    };
+    if (
+      !["names", "scores", "messaging"].every(
+        (k) => typeof everyone[k] === "boolean",
+      )
+    )
+      return reply({ error: "Provide each other-team feature." }, 400);
     if (body.revision !== features.revision)
       return reply(
         { error: "Team features changed. Reload before saving." },
@@ -68,9 +95,17 @@ export async function handleTeamSocial(
       );
     const r = await db
       .prepare(
-        "INSERT INTO team_social_settings(id,names,scores,messaging,revision) VALUES('active',?,?,?,1) ON CONFLICT(id) DO UPDATE SET names=excluded.names,scores=excluded.scores,messaging=excluded.messaging,revision=team_social_settings.revision+1 WHERE team_social_settings.revision=?",
+        "INSERT INTO team_social_settings(id,names,scores,messaging,everyone_names,everyone_scores,everyone_messaging,revision) VALUES('active',?,?,?,?,?,?,1) ON CONFLICT(id) DO UPDATE SET names=excluded.names,scores=excluded.scores,messaging=excluded.messaging,everyone_names=excluded.everyone_names,everyone_scores=excluded.everyone_scores,everyone_messaging=excluded.everyone_messaging,revision=team_social_settings.revision+1 WHERE team_social_settings.revision=?",
       )
-      .bind(+body.names, +body.scores, +body.messaging, body.revision)
+      .bind(
+        +body.names,
+        +body.scores,
+        +body.messaging,
+        +everyone.names,
+        +everyone.scores,
+        +everyone.messaging,
+        body.revision,
+      )
       .run();
     if (!(r.meta?.changes ?? r.changes))
       return reply(
@@ -92,11 +127,6 @@ export async function handleTeamSocial(
       403,
     );
   if (req.method === "POST") {
-    if (!features.messaging)
-      return reply(
-        { error: "Team messaging is turned off by your instructor." },
-        403,
-      );
     const body = await req.json();
     if (
       typeof body.team !== "string" ||
@@ -109,6 +139,16 @@ export async function handleTeamSocial(
       return reply(
         { error: "Choose a team and write a message of 1–1000 characters." },
         400,
+      );
+    const internal = admin || body.team === own;
+    if (!teamPolicy(features, internal).messaging)
+      return reply(
+        {
+          error: internal
+            ? "Messaging within your team is turned off by your instructor."
+            : "Messaging other teams is turned off by your instructor.",
+        },
+        403,
       );
     const existing = await db
       .prepare(
@@ -127,13 +167,13 @@ export async function handleTeamSocial(
       return reply({ sent: true, id: body.id });
     }
     const now = Date.now(),
-      defaults = config.teams?.features?.messaging !== false;
+      defaults = teamPolicy(features, internal).messaging;
     // Membership, feature switch, recipient and per-sender throttle are checked in the write.
     const r = await db
       .prepare(
         `INSERT OR IGNORE INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at)
  SELECT ?,?,?,t.id,?,?,? FROM teams t WHERE t.id=?
- AND COALESCE((SELECT messaging FROM team_social_settings WHERE id='active'),?)=1
+ AND (CASE WHEN ?=1 THEN COALESCE((SELECT messaging FROM team_social_settings WHERE id='active'),?) ELSE COALESCE((SELECT everyone_messaging FROM team_social_settings WHERE id='active'),(SELECT messaging FROM team_social_settings WHERE id='active'),?) END)=1
  AND (?=1 OR EXISTS(SELECT 1 FROM team_members WHERE user=? AND team=?))
  AND (SELECT COUNT(*) FROM team_messages WHERE sender_user IS ? AND created_at>?)<5`,
       )
@@ -145,6 +185,8 @@ export async function handleTeamSocial(
         body.text.trim(),
         now,
         body.team,
+        +internal,
+        +defaults,
         +defaults,
         +admin,
         u?.id || null,
@@ -179,7 +221,7 @@ export async function handleTeamSocial(
           404,
         );
       const latest = await teamFeatures(db, config);
-      if (!latest.messaging)
+      if (!teamPolicy(latest, internal).messaging)
         return reply(
           { error: "Team messaging is turned off by your instructor." },
           403,
@@ -212,7 +254,7 @@ export async function handleTeamSocial(
       .all()
   ).results;
   const scores = new Map();
-  if (features.scores) {
+  if (features.scores || features.everyone.scores) {
     const rows = (
       await db
         .prepare(
@@ -230,14 +272,22 @@ export async function handleTeamSocial(
         scores.set(r.team, (scores.get(r.team) || 0) + r.score);
     }
   }
-  const summary = (t) => ({
-    id: t.id,
-    label: teamLabel(t, features),
-    members: t.members,
-    isYourTeam: t.id === own,
-    ...(features.names ? { name: t.name } : {}),
-    ...(features.scores ? { score: scores.get(t.id) || 0 } : {}),
-  });
+  const summary = (t) => {
+    const policy = teamPolicy(features, admin || t.id === own);
+    return {
+      id: t.id,
+      label: teamLabel(t, policy),
+      members: t.members,
+      isYourTeam: t.id === own,
+      canMessage: policy.messaging,
+      canReadMessages:
+        admin || t.id === own
+          ? features.messaging || features.everyone.messaging
+          : policy.messaging,
+      ...(policy.names ? { name: t.name } : {}),
+      ...(policy.scores ? { score: scores.get(t.id) || 0 } : {}),
+    };
+  };
   const selectedId = url.searchParams.get("team");
   if (!selectedId)
     return reply({
@@ -249,7 +299,7 @@ export async function handleTeamSocial(
   const selected = teams.find((t) => t.id === selectedId);
   if (!selected) return reply({ error: "This team was disbanded." }, 404);
   let messages = [];
-  if (features.messaging) {
+  if (summary(selected).canReadMessages) {
     const predicate = admin
       ? "(recipient_team=? OR sender_team=?)"
       : selectedId === own
@@ -263,24 +313,22 @@ export async function handleTeamSocial(
     const rows = (
       await db
         .prepare(
-          `SELECT id,sender_team,recipient_team,sender,text,created_at FROM team_messages WHERE ${predicate} ORDER BY created_at DESC,id DESC LIMIT 100`,
+          `SELECT id,sender_team,recipient_team,sender,text,created_at FROM team_messages WHERE ${predicate} AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) ORDER BY created_at DESC,id DESC LIMIT 100`,
         )
-        .bind(...args)
+        .bind(...args, +features.messaging, +features.everyone.messaging)
         .all()
     ).results;
-    messages = rows
-      .reverse()
-      .map((m) => ({
-        id: m.id,
-        sender: m.sender,
-        fromTeam: m.sender_team
-          ? summary(teams.find((t) => t.id === m.sender_team))
-          : null,
-        toTeam: summary(teams.find((t) => t.id === m.recipient_team)),
-        text: m.text,
-        createdAt: m.created_at,
-        outgoing: admin ? m.sender_team === null : m.sender_team === own,
-      }));
+    messages = rows.reverse().map((m) => ({
+      id: m.id,
+      sender: m.sender,
+      fromTeam: m.sender_team
+        ? summary(teams.find((t) => t.id === m.sender_team))
+        : null,
+      toTeam: summary(teams.find((t) => t.id === m.recipient_team)),
+      text: m.text,
+      createdAt: m.created_at,
+      outgoing: admin ? m.sender_team === null : m.sender_team === own,
+    }));
   }
   return reply({
     features,

@@ -15,6 +15,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 export type TeamFeatures = {
+  everyone: { names: boolean; scores: boolean; messaging: boolean };
   names: boolean;
   scores: boolean;
   messaging: boolean;
@@ -27,6 +28,8 @@ type TeamCard = {
   score?: number;
   members: number;
   isYourTeam: boolean;
+  canMessage: boolean;
+  canReadMessages: boolean;
 };
 type Message = {
   id: string;
@@ -200,13 +203,13 @@ export default function TeamPanel({
                           {t.members} explorers
                         </small>
                       </div>
-                      {data.features.scores && (
+                      {t.score !== undefined && (
                         <strong>
                           {t.score?.toLocaleString()}
                           <small>points</small>
                         </strong>
                       )}
-                      {data.features.messaging && <MessageCircle size={19} />}
+                      {t.canMessage && <MessageCircle size={19} />}
                     </button>
                   ))}
                   {!data.teams?.length && <p>No teams yet.</p>}
@@ -219,14 +222,14 @@ export default function TeamPanel({
                       {data.team?.members} explorers
                       {data.team?.isYourTeam ? " · Your team" : ""}
                     </span>
-                    {data.features.scores && (
+                    {data.team?.score !== undefined && (
                       <strong>
                         <Trophy size={19} />
                         {data.team?.score?.toLocaleString()} points
                       </strong>
                     )}
                   </div>
-                  {data.features.messaging ? (
+                  {data.team?.canReadMessages ? (
                     <>
                       <h3>
                         {data.team?.isYourTeam
@@ -287,39 +290,48 @@ export default function TeamPanel({
                           <p className="empty-messages">No messages yet.</p>
                         )}
                       </div>
-                      <form className="team-message-form" onSubmit={send}>
-                        <label>
-                          Message{" "}
-                          {data.team?.isYourTeam
-                            ? "your team"
-                            : data.team?.label}
-                          <textarea
-                            required
-                            maxLength={1000}
-                            rows={3}
-                            value={text}
-                            onChange={(e) => setText(e.target.value)}
-                            placeholder="Write a message…"
-                            disabled={busy}
-                          />
-                        </label>
-                        <div>
-                          <small>
-                            {text.length}/1000 · visible to team members
-                          </small>
-                          <button
-                            className="primary"
-                            disabled={busy || !text.trim()}
-                          >
-                            <Send size={16} />
-                            {busy ? "Sending…" : "Send message"}
-                          </button>
-                        </div>
-                      </form>
+                      {data.team?.canMessage ? (
+                        <form className="team-message-form" onSubmit={send}>
+                          <label>
+                            Message{" "}
+                            {data.team?.isYourTeam
+                              ? "your team"
+                              : data.team?.label}
+                            <textarea
+                              required
+                              maxLength={1000}
+                              rows={3}
+                              value={text}
+                              onChange={(e) => setText(e.target.value)}
+                              placeholder="Write a message…"
+                              disabled={busy}
+                            />
+                          </label>
+                          <div>
+                            <small>
+                              {text.length}/1000 · visible to team members
+                            </small>
+                            <button
+                              className="primary"
+                              disabled={busy || !text.trim()}
+                            >
+                              <Send size={16} />
+                              {busy ? "Sending…" : "Send message"}
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <p className="team-muted">
+                          Messaging within your team is turned off by your
+                          instructor.
+                        </p>
+                      )}
                     </>
                   ) : (
                     <p className="team-muted">
-                      Team messaging is turned off by your instructor.
+                      {data.team?.isYourTeam
+                        ? "Team messaging is turned off by your instructor."
+                        : "Messaging other teams is turned off by your instructor."}
                     </p>
                   )}
                 </>

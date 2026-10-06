@@ -1,4 +1,4 @@
-import { teamFeatures, teamLabel } from "./team-social.mjs";
+import { teamFeatures, teamLabel, teamPolicy } from "./team-social.mjs";
 import { passwordHash, equal } from "./passwords.mjs";
 const reply = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -21,17 +21,18 @@ export async function teamState(db, config, u, admin = false) {
       .bind()
       .all()
   ).results;
-  if (!admin) {
-    const features = await teamFeatures(db, config);
-    if (!features.names)
-      teams.forEach((t) => (t.name = teamLabel(t, features)));
-  }
   const membership = u
     ? await db
         .prepare("SELECT team FROM team_members WHERE user=?")
         .bind(u.id)
         .first()
     : null;
+  if (!admin) {
+    const features = await teamFeatures(db, config);
+    teams.forEach((t) => {
+      t.name = teamLabel(t, teamPolicy(features, t.id === membership?.team));
+    });
+  }
   return {
     maxMembers: setting?.max_members ?? config.teams?.maxMembers ?? 4,
     teams,

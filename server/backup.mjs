@@ -72,6 +72,14 @@ export function validateSnapshot(input) {
           names: z.boolean(),
           scores: z.boolean(),
           messaging: z.boolean(),
+          everyone: z
+            .object({
+              names: z.boolean(),
+              scores: z.boolean(),
+              messaging: z.boolean(),
+            })
+            .strict()
+            .optional(),
         })
         .strict()
         .optional(),

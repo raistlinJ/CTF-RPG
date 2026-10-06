@@ -1866,3 +1866,6 @@ input::placeholder {
 .team-message-form small,.team-muted,.empty-messages { color:#a6bcc6; font-size:13px; line-height:1.6; }
 .team-message-form .primary { display:flex; align-items:center; gap:8px; padding:11px 14px; }
 @media(max-width:500px){.team-message-form > div { align-items:start; flex-direction:column; }.team-message-form .primary { width:100%; justify-content:center; }.team-dialog { padding:20px; }}
+
+.team-feature-scope { display:grid; gap:14px; border:1px solid #3c5b67; border-radius:6px; padding:16px; min-width:0; }
+.team-feature-scope legend { padding:0 6px; color:#a9decf; font-weight:600; }

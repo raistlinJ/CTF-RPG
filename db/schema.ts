@@ -135,6 +135,9 @@ export const presenceSettings = sqliteTable("presence_settings", {
 });
 
 export const teamSocialSettings = sqliteTable("team_social_settings", {
+  everyoneNames: integer("everyone_names"),
+  everyoneScores: integer("everyone_scores"),
+  everyoneMessaging: integer("everyone_messaging"),
   id: text("id").primaryKey(),
   names: integer("names").notNull(),
   scores: integer("scores").notNull(),

@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS team_settings(id TEXT PRIMARY KEY,max_members INTEGER
 CREATE TABLE IF NOT EXISTS presence_settings(id TEXT PRIMARY KEY,visibility TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS player_presence(user TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,map TEXT NOT NULL,x INTEGER NOT NULL,y INTEGER NOT NULL,theme_revision INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_player_presence_map_revision_updated ON player_presence(map,theme_revision,updated_at);
-CREATE TABLE IF NOT EXISTS team_social_settings(id TEXT PRIMARY KEY,names INTEGER NOT NULL,scores INTEGER NOT NULL,messaging INTEGER NOT NULL,revision INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS team_social_settings(id TEXT PRIMARY KEY,names INTEGER NOT NULL,scores INTEGER NOT NULL,messaging INTEGER NOT NULL,everyone_names INTEGER,everyone_scores INTEGER,everyone_messaging INTEGER,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS team_messages(id TEXT PRIMARY KEY,sender_user TEXT REFERENCES students(id),sender_team TEXT REFERENCES teams(id) ON DELETE CASCADE,recipient_team TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,sender TEXT NOT NULL,text TEXT NOT NULL,created_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_team_messages_recipient_created ON team_messages(recipient_team,created_at);
 CREATE INDEX IF NOT EXISTS idx_team_messages_sender_team_created ON team_messages(sender_team,created_at);
@@ -69,6 +69,19 @@ CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES student
 CREATE TABLE IF NOT EXISTS written_responses(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,answer TEXT NOT NULL,question TEXT NOT NULL,object TEXT NOT NULL,max_points INTEGER NOT NULL,hint_cost INTEGER NOT NULL,submitted_at INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 1,grade INTEGER,feedback TEXT NOT NULL DEFAULT '',reviewer TEXT,graded_at INTEGER,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS theme_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);`);
+  const socialColumns = sqlite
+    .prepare("PRAGMA table_info(team_social_settings)")
+    .all()
+    .map((c) => c.name);
+  for (const name of [
+    "everyone_names",
+    "everyone_scores",
+    "everyone_messaging",
+  ])
+    if (!socialColumns.includes(name))
+      sqlite.exec(
+        `ALTER TABLE team_social_settings ADD COLUMN ${name} INTEGER`,
+      );
   const columns = sqlite
     .prepare("PRAGMA table_info(students)")
     .all()

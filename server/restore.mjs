@@ -96,11 +96,19 @@ try {
       )
       .run(snapshot.playerVisibility || snapshot.config.presence.visibility);
     const features = snapshot.teamFeatures || snapshot.config.teams.features;
+    const everyone = features.everyone || features;
     sqlite
       .prepare(
-        "INSERT INTO team_social_settings(id,names,scores,messaging,revision) VALUES('active',?,?,?,1)",
+        "INSERT INTO team_social_settings(id,names,scores,messaging,everyone_names,everyone_scores,everyone_messaging,revision) VALUES('active',?,?,?,?,?,?,1)",
       )
-      .run(+features.names, +features.scores, +features.messaging);
+      .run(
+        +features.names,
+        +features.scores,
+        +features.messaging,
+        +everyone.names,
+        +everyone.scores,
+        +everyone.messaging,
+      );
     const insertMessage = sqlite.prepare(
       "INSERT INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at) VALUES(?,?,?,?,?,?,?)",
     );

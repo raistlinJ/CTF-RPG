@@ -25,6 +25,7 @@ export function usePlayerPresence(
       names: true,
       scores: true,
       messaging: true,
+      everyone: { names: true, scores: true, messaging: true },
       revision: 0,
     }),
     [latestMessageAt, setLatestMessageAt] = useState(0),

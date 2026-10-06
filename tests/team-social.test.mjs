@@ -118,6 +118,7 @@ test("team cards aggregate net scores; each admin switch is enforced in student 
         names: false,
         scores: false,
         messaging: false,
+        everyone: { names: false, scores: false, messaging: false },
       })
     ).data;
     assert.equal(
@@ -148,7 +149,11 @@ test("team cards aggregate net scores; each admin switch is enforced in student 
       403,
     );
     settings = (
-      await admin("/api/admin/team-social", { ...settings, messaging: true })
+      await admin("/api/admin/team-social", {
+        ...settings,
+        messaging: true,
+        everyone: { ...settings.everyone, messaging: true },
+      })
     ).data;
     assert.equal(settings.names, false);
     assert.equal(settings.scores, false);
@@ -269,7 +274,11 @@ test("team messages deliver to all members, isolate other conversations, dedupli
       "Instructor",
     );
     let features = (await admin("/api/admin/team-social")).data;
-    await admin("/api/admin/team-social", { ...features, messaging: false });
+    await admin("/api/admin/team-social", {
+      ...features,
+      messaging: false,
+      everyone: { ...features.everyone, messaging: false },
+    });
     assert.deepEqual(
       (await a("/api/team-social?team=" + tb.id)).data.messages,
       [],
@@ -280,6 +289,7 @@ test("team messages deliver to all members, isolate other conversations, dedupli
       challenges: s.challenges,
     });
     assert.equal(snap.teamFeatures.messaging, false);
+    assert.equal(snap.teamFeatures.everyone.messaging, false);
     assert.equal(snap.teamMessages.length, 7);
     assert.throws(() =>
       validateSnapshot({
@@ -317,6 +327,11 @@ test("team messages deliver to all members, isolate other conversations, dedupli
       sql.prepare("SELECT messaging FROM team_social_settings").get().messaging,
       0,
     );
+    assert.equal(
+      sql.prepare("SELECT everyone_messaging FROM team_social_settings").get()
+        .everyone_messaging,
+      0,
+    );
     sql.close();
     assert.equal(
       (await admin("/api/admin/teams", { id: tb.id }, "DELETE")).status,
@@ -334,5 +349,155 @@ test("team messages deliver to all members, isolate other conversations, dedupli
   } finally {
     s.sqlite.close();
     if (folder) rmSync(folder, { recursive: true, force: true });
+  }
+});
+
+test("All players uses independent other-team permissions, including inbox history, metadata and message writes", async () => {
+  const s = setup();
+  try {
+    const { admin, a, mate, b, ta, tb } = await prepare(s);
+    await admin("/api/admin/presence", { visibility: "all", revision: 0 });
+    await a("/api/team-social", {
+      id: crypto.randomUUID(),
+      team: ta.id,
+      text: "internal hello",
+    });
+    await b("/api/team-social", {
+      id: crypto.randomUUID(),
+      team: ta.id,
+      text: "cross-team hello",
+    });
+    const first = (await admin("/api/admin/team-social")).data;
+    let flags = (
+      await admin("/api/admin/team-social", {
+        ...first,
+        everyone: { names: false, scores: false, messaging: false },
+      })
+    ).data;
+    assert.equal(flags.messaging, true);
+    assert.equal(flags.everyone.messaging, false);
+    const directory = (await a("/api/team-social")).data,
+      own = directory.teams.find((t) => t.id === ta.id),
+      other = directory.teams.find((t) => t.id === tb.id);
+    assert.equal(own.name, "Team Alpha");
+    assert.equal(own.score, 0);
+    assert.equal(own.canMessage, true);
+    assert.equal("name" in other, false);
+    assert.equal("score" in other, false);
+    assert.equal(other.canMessage, false);
+    const others = (await a("/api/team-social?team=" + tb.id)).data;
+    assert.equal(others.team.canReadMessages, false);
+    assert.deepEqual(others.messages, []);
+    const inbox = (await mate("/api/team-social?team=" + ta.id)).data;
+    assert.deepEqual(
+      inbox.messages.map((m) => m.text),
+      ["internal hello"],
+    );
+    assert.equal(
+      (
+        await a("/api/team-social", {
+          id: crypto.randomUUID(),
+          team: tb.id,
+          text: "blocked",
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await a("/api/team-social", {
+          id: crypto.randomUUID(),
+          team: ta.id,
+          text: "still internal",
+        })
+      ).status,
+      200,
+    );
+    const joinList = (await a("/api/teams")).data;
+    assert.equal(joinList.team.name, "Team Alpha");
+    assert.ok(!JSON.stringify(joinList).includes("Team Beta"));
+    // Seeing another sprite does not grant access to its team's disabled fields.
+    await b("/api/presence", { map: "town", x: 18, y: 20, themeRevision: 0 });
+    const presence = (
+      await a("/api/presence", { map: "town", x: 18, y: 20, themeRevision: 0 })
+    ).data;
+    assert.ok(presence.players.some((p) => p.team === tb.id));
+    assert.equal(presence.teamFeatures.everyone.messaging, false);
+    const snapshot = await createSnapshot({
+      db: s.db,
+      config: s.config,
+      challenges: s.challenges,
+    });
+    assert.equal(snapshot.teamFeatures.messaging, true);
+    assert.equal(snapshot.teamFeatures.everyone.messaging, false);
+    // The reverse policy allows other teams while hiding internal conversations.
+    flags = (
+      await admin("/api/admin/team-social", {
+        ...flags,
+        names: false,
+        scores: false,
+        messaging: false,
+        everyone: { names: true, scores: true, messaging: true },
+      })
+    ).data;
+    const reverse = (await a("/api/team-social")).data;
+    assert.equal("name" in reverse.teams.find((t) => t.id === ta.id), false);
+    assert.equal(reverse.teams.find((t) => t.id === tb.id).name, "Team Beta");
+    assert.equal(reverse.teams.find((t) => t.id === tb.id).score, 0);
+    assert.equal(
+      (
+        await a("/api/team-social", {
+          id: crypto.randomUUID(),
+          team: ta.id,
+          text: "blocked internal",
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await a("/api/team-social", {
+          id: crypto.randomUUID(),
+          team: tb.id,
+          text: "allowed external",
+        })
+      ).status,
+      200,
+    );
+    const reverseInbox = (await a("/api/team-social?team=" + ta.id)).data;
+    assert.equal(reverseInbox.team.canMessage, false);
+    assert.equal(reverseInbox.team.canReadMessages, true);
+    assert.ok(reverseInbox.messages.every((m) => !m.text.includes("internal")));
+    assert.ok(reverseInbox.messages.some((m) => m.text === "cross-team hello"));
+  } finally {
+    s.sqlite.close();
+  }
+});
+test("legacy saved controls and legacy YAML retain their behavior for other teams", async () => {
+  const s = setup();
+  try {
+    const { admin } = await prepare(s);
+    s.sqlite
+      .prepare(
+        "INSERT INTO team_social_settings(id,names,scores,messaging,revision) VALUES('active',0,1,0,1)",
+      )
+      .run();
+    const flags = (await admin("/api/admin/team-social")).data;
+    assert.deepEqual(flags.everyone, {
+      names: false,
+      scores: true,
+      messaging: false,
+    });
+    const cfg = parseGame(
+      "characters:\n - id: web\n   name: Web\nteams:\n features:\n  names: false\n  scores: true\n  messaging: false",
+    );
+    assert.equal(cfg.teams.features.everyone, undefined);
+    const yaml = parseGame(
+      "characters:\n - id: web\n   name: Web\nteams:\n features:\n  messaging: true\n  everyone:\n   messaging: false",
+    );
+    assert.equal(yaml.teams.features.messaging, true);
+    assert.equal(yaml.teams.features.everyone.messaging, false);
+  } finally {
+    s.sqlite.close();
   }
 });

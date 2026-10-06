@@ -905,7 +905,8 @@ export default function Game() {
               onClick={() => openTeam(null)}
             >
               Teams
-              {presence.features.messaging &&
+              {(presence.features.messaging ||
+                presence.features.everyone.messaging) &&
                 presence.latestMessageAt > readMessagesAt && (
                   <span
                     className="message-badge"

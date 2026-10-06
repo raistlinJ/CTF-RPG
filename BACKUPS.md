@@ -87,3 +87,5 @@ The built-in **Agentic Circuit** theme is available under **Themes & content**. 
 Full backups also retain the classroom player-visibility setting. Temporary online positions are excluded; players appear again as they reconnect. Older backups without starting positions or visibility settings use the theme’s default spawn and teammate visibility.
 
 Full backups retain team-card feature switches and private team messages, including sender and recipient references. Restores preserve conversations; older backups start with an empty inbox and enabled team-card features. Treat these messages as student records when storing or sharing a full backup. Theme and content exports contain no team messages.
+
+Full backups preserve the separate own-team and other-team permissions for names, scores, and messaging. Older backups without the other-team switches inherit their existing team switches for both scopes.

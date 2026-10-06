@@ -87,7 +87,9 @@ Click **Teams** in the game header, your team banner, or a nearby player to open
 
 Use **Send message** to contact the selected team. Conversations are visible to all members of the sending and receiving teams; unrelated teams cannot read them. **Your team → Team inbox** collects messages, with **Reply to…** opening the sending team’s conversation. A dot next to **Teams** indicates incoming messages until the inbox is opened. Admins can send instructor messages from management and view conversations for the selected team. Messages are plain text (1–1000 characters), with at most five sends per explorer per minute and the latest 100 messages displayed. Retrying a send preserves its reference to avoid duplicate delivery.
 
-Under **Manage → Teams → Team cards & messages**, independently toggle **Show team names**, **Show team scores**, and **Enable team messages**. All are enabled initially. Hidden names use `Team #…` references, including team-selection lists; hidden scores are omitted from student team APIs. These controls concern team cards; individual scores and player usernames retain their existing behavior. Disabling messaging hides stored conversations and rejects new sends. Re-enabling restores access. Open cards refresh every five seconds while visible; message notifications use existing position updates, including when player visibility is off.
+Under **Manage → Teams → Team cards & messages**, **Your team** controls the name, score, and messages within each student’s team. **Other teams · All players** independently controls other teams’ names, scores, and messages between teams. These apply to the team list and to cards opened by clicking another team’s player in **All players** mode. You can show everyone’s sprites while allowing only internal team conversations, or enable other-team details while hiding your own team’s score.
+
+Hidden names use `Team #…` references, including team-selection lists. Disabled scores are omitted from the corresponding student team APIs. These controls concern team cards; individual scores and player usernames retain their existing behavior. Turning off a messaging scope hides its history and blocks sending in that scope; stored messages return when it is enabled again. The team inbox only shows permitted internal or external conversations, and notifications follow the same rules. Instructor notes follow the within-team messaging setting. Open cards refresh every five seconds while visible; notifications use existing position updates, including when player visibility is off.
 
 For standalone configuration:
 
@@ -98,6 +100,10 @@ teams:
     names: true
     scores: true
     messaging: true
+    everyone:
+      names: true
+      scores: true
+      messaging: false
 ```
 
-Saved admin settings take priority over YAML. Full backups include these switches and private messages; theme/content packs exclude them. Disbanding a team removes conversations involving it and preserves account progress.
+Saved admin settings take priority over YAML. Older saved settings and YAML without `everyone` initially apply their existing switches to both scopes; saving the new controls makes the scopes independent. Full backups include these switches and private messages; theme/content packs exclude them. Disbanding a team removes conversations involving it and preserves account progress.
