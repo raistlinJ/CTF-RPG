@@ -26,12 +26,24 @@ type State = {
     preview: string;
   }[];
 };
+type Placement = {
+  kept: number;
+  moved: {
+    id: string;
+    object: string;
+    from: { map: string; x: number; y: number };
+    to: { map: string; x: number; y: number };
+  }[];
+  excluded: { id: string; object: string }[];
+};
 export default function PacksAdmin() {
   const [state, setState] = useState<State | null>(null),
     [theme, setTheme] = useState<File | null>(null),
     [content, setContent] = useState<File | null>(null),
     [paired, setPaired] = useState<File | null>(null),
     [pending, setPending] = useState<"theme" | "content" | null>(null),
+    [overflow, setOverflow] = useState<Placement | null>(null),
+    [result, setResult] = useState<Placement | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
@@ -47,7 +59,7 @@ export default function PacksAdmin() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
-  async function apply() {
+  async function apply(dropOverflow = false) {
     if (!pending || !state) return;
     setBusy(true);
     setError("");
@@ -55,15 +67,28 @@ export default function PacksAdmin() {
     const form = new FormData();
     form.set("file", pending === "theme" ? theme! : content!);
     if (pending === "theme" && paired) form.set("content", paired);
+    if (dropOverflow) form.set("dropOverflow", "true");
     form.set("themeRevision", String(state.themeRevision));
     form.set("contentRevision", String(state.contentRevision));
+    let awaitingDecision = false;
     try {
       const r = await fetch("/api/admin/packs?kind=" + pending, {
           method: "POST",
           body: form,
         }),
-        d = (await r.json()) as { error?: string };
+        d = (await r.json()) as {
+          error?: string;
+          needsDecision?: boolean;
+          placement?: Placement;
+        };
       if (!r.ok) throw Error(d.error || "Could not import pack.");
+      if (d.needsDecision && d.placement) {
+        awaitingDecision = true;
+        setOverflow(d.placement);
+        return;
+      }
+      setResult(d.placement || null);
+      setOverflow(null);
       await load();
       setMessage(
         "Import complete. Reload the game and map editor to use the updated packs.",
@@ -72,7 +97,10 @@ export default function PacksAdmin() {
       setError((e as Error).message);
     } finally {
       setBusy(false);
-      setPending(null);
+      if (!awaitingDecision) {
+        setPending(null);
+        setOverflow(null);
+      }
     }
   }
   async function usePreset(id: string) {
@@ -137,6 +165,32 @@ export default function PacksAdmin() {
           </p>
         )}
         {message && <p role="status">{message}</p>}
+        {message &&
+          result &&
+          (result.moved.length > 0 || result.excluded.length > 0) && (
+            <section aria-label="Placement report">
+              <p>
+                {result.kept} challenges placed · {result.moved.length} moved ·{" "}
+                {result.excluded.length} excluded.
+              </p>
+              <details>
+                <summary>View placement changes</summary>
+                <ul>
+                  {result.moved.map((c) => (
+                    <li key={c.id}>
+                      {c.object} ({c.id}): {c.from.map} ({c.from.x}, {c.from.y})
+                      → {c.to.map} ({c.to.x}, {c.to.y})
+                    </li>
+                  ))}
+                  {result.excluded.map((c) => (
+                    <li key={c.id}>
+                      Excluded: {c.object} ({c.id})
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </section>
+          )}
         {loading ? (
           <p>Loading packs…</p>
         ) : !state ? (
@@ -211,8 +265,9 @@ export default function PacksAdmin() {
                   />
                 </label>
                 <small>
-                  Include matching content when the new maps change challenge
-                  locations. Both are checked and applied together.
+                  Invalid or overlapping positions move to the nearest free,
+                  reachable tile. If all maps fill up, you choose whether to
+                  exclude the extras or cancel.
                 </small>
                 <button
                   className="primary"
@@ -270,33 +325,78 @@ export default function PacksAdmin() {
       <AlertDialog
         open={!!pending}
         onOpenChange={(open) => {
-          if (!open && !busy) setPending(null);
+          if (!open && !busy) {
+            setPending(null);
+            setOverflow(null);
+          }
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent
+          style={{
+            background: "#10222c",
+            color: "#e4eff1",
+            maxHeight: "90vh",
+            overflowY: "auto",
+          }}
+        >
           <AlertDialogHeader>
-            <AlertDialogTitle>Import {pending} pack?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {overflow
+                ? "Not every challenge fits"
+                : `Import ${pending} pack?`}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {pending === "theme"
-                ? "This replaces the active world, characters, sprites, and music."
-                : "This replaces the active challenge collection."}
-              {pending === "theme" && paired
+              {overflow
+                ? `${overflow.kept} challenges fit; ${overflow.excluded.length} have no available reachable tile. Nothing has changed yet. Cancel to choose a larger theme or adjust your content, or explicitly import only the challenges that fit. Existing accounts, responses, and points stay saved. Keep your original content pack or export the current content before excluding questions.`
+                : pending === "theme"
+                  ? "This replaces the active world, characters, sprites, and music."
+                  : "This replaces the active challenge collection."}
+              {!overflow && pending === "theme" && paired
                 ? " The selected content pack replaces challenges in the same operation."
                 : ""}{" "}
-              Accounts, teams, and recorded points stay saved. Export the
-              current pack first if you want to keep it.
+              {!overflow &&
+                "Accounts, teams, and recorded points stay saved. Export the current pack first if you want to keep it."}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {overflow && (
+            <div className="max-h-48 overflow-y-auto">
+              <p>Questions that would be excluded:</p>
+              <ul>
+                {overflow.excluded.map((c) => (
+                  <li key={c.id}>
+                    {c.object} ({c.id})
+                  </li>
+                ))}
+              </ul>
+              <p>
+                {overflow.moved.length} other questions will move automatically.
+              </p>
+              <a href="/api/admin/packs?kind=content">
+                Export current content first
+              </a>
+            </div>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              style={{
+                background: "#57cbbb",
+                color: "#07151c",
+                padding: "10px 16px",
+                height: "auto",
+                whiteSpace: "normal",
+              }}
               disabled={busy}
               onClick={(e) => {
                 e.preventDefault();
-                void apply();
+                void apply(!!overflow);
               }}
             >
-              {busy ? "Importing…" : "Apply import"}
+              {busy
+                ? "Importing…"
+                : overflow
+                  ? `Import ${overflow.kept} and exclude ${overflow.excluded.length}`
+                  : "Apply import"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

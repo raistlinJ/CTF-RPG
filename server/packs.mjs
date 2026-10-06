@@ -1,3 +1,4 @@
+import { planChallengePlacement } from "../lib/challenge-placement.mjs";
 import { gradingCompatible } from "./review.mjs";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { parse, stringify } from "yaml";
@@ -156,7 +157,11 @@ function unpack(bytes, kind) {
       )
     )
       throw Error("Unsupported content manifest.");
-    value = parseChallenges(stringify({ challenges: raw.challenges }), null);
+    value = parseChallenges(
+      stringify({ challenges: raw.challenges }),
+      null,
+      true,
+    );
   }
   return { entries, value };
 }
@@ -265,7 +270,7 @@ export async function importPacks(
   const nextTheme = kind === "theme" ? primary.value : theme,
     nextContent =
       kind === "content" ? primary.value : secondary?.value || challenges;
-  themeContentValid(nextTheme, nextContent);
+  const placement = planChallengePlacement(nextTheme, nextContent);
   await gradingCompatible(db, challenges, nextContent);
   const ids = new Set(nextTheme.characters.map((c) => c.id)),
     accounts = (
@@ -279,6 +284,18 @@ export async function importPacks(
     throw Error(
       "The theme must retain character IDs used by existing accounts. Reassign those accounts before removing a character.",
     );
+  if (placement.excluded.length && form.get("dropOverflow") !== "true")
+    return {
+      needsDecision: true,
+      placement: {
+        moved: placement.moved,
+        excluded: placement.excluded,
+        kept: placement.challenges.length,
+      },
+    };
+  if (kind === "content") primary.value = placement.challenges;
+  else if (secondary) secondary.value = placement.challenges;
+  themeContentValid(nextTheme, placement.challenges);
   // Immutable assets are written first. A failed import leaves the active theme/content unchanged.
   const appliedTheme =
       kind === "theme" ? await stage(primary, "theme", store) : null,
@@ -287,7 +304,9 @@ export async function importPacks(
         ? await stage(primary, "content", store)
         : secondary
           ? await stage(secondary, "content", store)
-          : null;
+          : placement.moved.length || placement.excluded.length
+            ? placement.challenges
+            : null;
   const statements = [];
   if (appliedTheme)
     statements.push(
@@ -321,6 +340,11 @@ export async function importPacks(
       "Another admin changed the packs while importing. Refresh and try again.",
     );
   return {
+    placement: {
+      moved: placement.moved,
+      excluded: placement.excluded,
+      kept: placement.challenges.length,
+    },
     themeRevision: themeRevision + (appliedTheme ? 1 : 0),
     contentRevision: contentRevision + (appliedContent ? 1 : 0),
   };

@@ -133,3 +133,9 @@ Hosted assets live in the `ASSETS` object-storage binding; active theme metadata
 Full backups include imported asset bytes under `data/pack-assets` and the active theme in `backup.json`. Follow `BACKUPS.md` to recreate the application, restore accounts, and preserve both active packs. Older backups without a theme continue to use the bundled default theme.
 
 Theme manifests may set `badge: cpu`, `badge: snowflake`, or `badge: compass` for the game/scoreboard icon. Omitted badges use the compass. The built-in Agentic Circuit course theme is selectable from the admin page; see `themes/agentic-circuit/README.md`. Challenge grading modes remain independent of every theme.
+
+### Automatic placement repair
+
+Importing a theme or content pack preserves valid, unique challenge positions first. Questions on blocked, unreachable, entrance/exit, duplicate, out-of-grid, or missing-map positions move to the nearest free reachable tile in their map (Manhattan distance; ties by row, then column). If that map is full or missing, the start map and remaining maps are used. Each tile holds one challenge; there is no fixed number of predefined placement slots.
+
+If every map is full, the import pauses before changing data or storing assets. The admin sees the excluded question names and IDs and can cancel to choose a larger theme/reduce the content, or explicitly import only what fits. Keep the source ZIP or export current content before excluding questions. Import reports show relocated coordinates and excluded IDs. Accounts, teams, historical points, and written responses remain saved. Theme-only relocation updates the challenge catalog atomically with the theme; stale approvals are rejected.

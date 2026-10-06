@@ -244,13 +244,6 @@ test("admin-only separate packs, paired world/content changes, assets, roundtrip
   assert.ok(unzipSync(contentExport.bytes)["content.yaml"]);
   assert.ok(!unzipSync(contentExport.bytes)["theme.yaml"]);
   const t = custom(config);
-  assert.equal(
-    (await admin("/api/admin/packs?kind=theme", form(themeZip(t), state)))
-      .status,
-    400,
-  );
-  assert.equal((await admin("/api/admin/packs")).data.themeRevision, 0);
-  assert.equal(files.size, 0);
   const result = await admin(
     "/api/admin/packs?kind=theme",
     form(themeZip(t), state, contentZip(content)),
@@ -404,7 +397,7 @@ test("admin-only separate packs, paired world/content changes, assets, roundtrip
   }
   sqlite.close();
 });
-test("bad packs, unsafe assets, unknown heroes and unreachable locations do not change active data", async () => {
+test("bad packs, unsafe assets, unknown heroes and malformed locations do not change active data", async () => {
   const { sqlite, config, client } = setup(),
     admin = client();
   await admin("/api/auth", {
@@ -444,7 +437,7 @@ test("bad packs, unsafe assets, unknown heroes and unreachable locations do not 
     400,
   );
   const blocked = structuredClone(content);
-  blocked[0].location = { x: 0, y: 0 };
+  blocked[0].location = { x: 0.5, y: 0 };
   assert.equal(
     (
       await admin(
@@ -503,5 +496,101 @@ test("simultaneous paired imports keep the winning theme and content together", 
     catalog.challenges[0].id,
     final.theme.title === "Island A" ? "question-a" : "question-b",
   );
+  sqlite.close();
+});
+
+test("theme-only imports relocate questions and require an explicit overflow decision without writing", async () => {
+  const { sqlite, config, client, files } = setup(),
+    admin = client();
+  await admin("/api/auth", {
+    mode: "login",
+    username: "teacher",
+    password: "teacher-password",
+    hero: "web",
+  });
+  let state = (await admin("/api/admin/packs")).data;
+  const moved = await admin(
+    "/api/admin/packs?kind=theme",
+    form(themeZip(custom(config)), state),
+  );
+  assert.equal(moved.status, 200);
+  assert.equal(moved.data.placement.moved.length, baseline.length);
+  state = (await admin("/api/admin/packs")).data;
+  assert.equal(state.contentRevision, 1);
+  assert.equal(state.challengeCount, baseline.length);
+  const tiny = custom(config);
+  tiny.world.buildings = [];
+  tiny.world.maps = [tiny.world.maps[0]];
+  Object.assign(tiny.world.maps[0], {
+    bounds: { left: 1, right: 1, top: 1, bottom: 1 },
+    spawn: { x: 1, y: 1 },
+  });
+  const beforeFiles = files.size;
+  const preview = await admin(
+    "/api/admin/packs?kind=theme",
+    form(themeZip(tiny), state),
+  );
+  assert.equal(preview.data.needsDecision, true);
+  assert.equal(preview.data.placement.kept, 1);
+  assert.equal(preview.data.placement.excluded.length, baseline.length - 1);
+  assert.equal(files.size, beforeFiles);
+  assert.equal(
+    (await admin("/api/admin/packs")).data.themeRevision,
+    state.themeRevision,
+  );
+  const approved = form(themeZip(tiny), state);
+  approved.set("dropOverflow", "true");
+  const result = await admin("/api/admin/packs?kind=theme", approved);
+  assert.equal(result.status, 200, JSON.stringify(result.data));
+  assert.equal(result.data.placement.excluded.length, baseline.length - 1);
+  assert.equal((await admin("/api/admin/packs")).data.challengeCount, 1);
+  assert.equal(
+    (await admin("/api/admin/packs?kind=theme", approved)).status,
+    400,
+  );
+  sqlite.close();
+});
+
+test("content imports repair duplicate, outside-grid, unknown-map and blocked placements", async () => {
+  const { sqlite, config, client } = setup(),
+    admin = client();
+  await admin("/api/auth", {
+    mode: "login",
+    username: "teacher",
+    password: "teacher-password",
+    hero: "web",
+  });
+  const state = (await admin("/api/admin/packs")).data;
+  const questions = [
+    content[0],
+    ...[
+      { x: 19, y: 20 },
+      { x: -40, y: 100 },
+      { x: 21, y: 12 },
+    ].map((location, i) => ({ ...content[0], id: `question-${i}`, location })),
+    { ...content[0], id: "unknown", map: "missing" },
+  ];
+  const result = await admin(
+    "/api/admin/packs?kind=theme",
+    form(themeZip(custom(config)), state, contentZip(questions)),
+  );
+  assert.equal(result.status, 200, JSON.stringify(result.data));
+  assert.equal(result.data.placement.moved.length, 4);
+  const exported = await admin("/api/admin/packs?kind=content");
+  const saved = parse(
+    strFromU8(unzipSync(exported.bytes)["content.yaml"]),
+  ).challenges;
+  assert.deepEqual(saved[0].location, content[0].location);
+  assert.equal(
+    new Set(saved.map((c) => `${c.map}:${c.location.x},${c.location.y}`)).size,
+    5,
+  );
+  const world = createWorld(custom(config).world);
+  assert.ok(
+    saved.every((c) =>
+      world.canPlaceChallenge(c.map, c.location.x, c.location.y),
+    ),
+  );
+  assert.deepEqual(saved[1].flags, content[0].flags);
   sqlite.close();
 });
