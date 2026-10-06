@@ -46,6 +46,7 @@ The example URL and local scroll are illustrative: replace them with your own fi
 | Field | Meaning |
 | --- | --- |
 | `id` | Required unique, stable lowercase identifier using letters, digits, and hyphens. Keep it unchanged to preserve completions and hint purchases. |
+| `map` | Optional map ID, default `town`. Use `castle`, `toy-workshop`, `cocoa-cottage`, `post-office`, `elf-house`, or `bakery` for interiors. See [MAP_GUIDE.md](MAP_GUIDE.md). |
 | `object` | Required name of the hidden object. |
 | `location` | Required `{x, y}` map tile coordinates, x 0–39 and y 0–27. See the [map guide](README.md#map-coordinates-and-locations). |
 | `region` | Required location clue shown in the treasure journal. |
@@ -94,6 +95,6 @@ Local downloads are public assets, accessible by URL without a game login. They 
 
 The original `prompt`, `answers`, and single `hint` fields still work. They are converted to `text`, `flags`, and one free hint with ID `hint`. Use the new fields for new challenges. Do not supply both old and new forms of the same field. Previously completed challenges retain their earned points.
 
-Startup/build validation rejects invalid coordinates, duplicate challenge IDs or positions, duplicate hint IDs, negative costs, total costs above the reward, whitespace-only flags, and invalid download URLs. Unknown challenge/hint/download fields are rejected to catch spelling errors. Maximum 100 challenges. Place treasures on accessible ground or within two walkable tiles; the [map guide](README.md#map-coordinates-and-locations) lists suggested locations.
+Startup/build validation rejects invalid coordinates, duplicate challenge IDs or positions within the same map, duplicate hint IDs, negative costs, total costs above the reward, whitespace-only flags, and invalid download URLs. Unknown challenge/hint/download fields are rejected to catch spelling errors. Maximum 100 challenges. Place treasures on accessible ground or within two walkable tiles; the [map guide](README.md#map-coordinates-and-locations) lists suggested locations.
 
 Node/SQLite self-hosting automatically adds the hint-purchase table on startup without changing old scores. For a local Cloudflare preview, apply the new `drizzle/0001_white_maria_hill.sql` migration once; production Sites applies it during publication.

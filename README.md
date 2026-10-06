@@ -28,17 +28,7 @@ Restart your standalone Node server after YAML changes. For Sites, rebuild and r
 
 ## Map coordinates and locations
 
-The map is 40 columns × 28 rows. Coordinates are zero-based from the top left: x increases east, y increases south. The player's coordinates appear at the lower left. Students start at (18,20). Treasure interactions use Manhattan distance ≤2. Place objects on accessible ground or within two tiles of it.
-
-| Region | Suggested placement |
-| --- | --- |
-| Evergreen Grove | x 6–12, y 7–10 (example: 8,8) |
-| Santa's Workshop | x 15–22, y 7–9 (example: 20,7) |
-| Aurora Ridge | x 26–32, y 7–10 (example: 29,8) |
-| Lantern Lane | x 8–15, y 17–21 (example: 11,19) |
-| Frostbite Lake shore | x 32–33, y 18–23 (example: 32,20) |
-
-Buildings block (15–21,3–6), (8–12,12–15), (25–29,11–14). The lake blocks (23–31,17–23). Outer map borders and tree tiles are blocked. The `trees`, `buildings`, and `blocked()` definitions in `app/page.tsx` define these map features. Avoid placing objects more than two accessible tiles inside obstacles. The region field is a text clue, not a separate map or teleport.
+See [MAP_GUIDE.md](MAP_GUIDE.md) for the expanded town, Santa's castle, all house doors, interior coordinates, furniture collision, and placing treasures indoors. Walk into a lit doorway to enter, and through the southern door to exit. The map is 40 × 28 tiles; x increases east and y increases south. Challenge YAML's optional `map` defaults to `town`.
 
 ## Accounts and scope
 

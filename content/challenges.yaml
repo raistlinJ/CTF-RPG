@@ -62,8 +62,9 @@ challenges:
         cost: 15
   - id: present
     object: Secret present
-    location: { x: 20, y: 7 }
-    region: Santa's Workshop
+    map: castle
+    location: { x: 20, y: 10 }
+    region: Santa's Christmas Castle
     text: "Which planet is known as the Red Planet?"
     flags: ["mars"]
     caseSensitive: false
@@ -72,3 +73,27 @@ challenges:
       - id: planet
         text: "It is the fourth planet from the Sun."
         cost: 20
+  - id: ribbon
+    object: Lost gift ribbon
+    map: toy-workshop
+    location: { x: 15, y: 15 }
+    region: Toy Workshop
+    text: "An elf wraps 5 presents each hour. How many presents are wrapped in 3 hours?"
+    flags: ["15", "fifteen"]
+    points: 75
+    hints:
+      - id: wrapping
+        text: "Multiply presents per hour by the number of hours."
+        cost: 5
+  - id: cookie
+    object: Gingerbread cookie
+    map: bakery
+    location: { x: 20, y: 12 }
+    region: Gingerbread Bakery
+    text: "The baker has 3 star cookies and 5 snowflake cookies. How many cookies are there altogether?"
+    flags: ["8", "eight"]
+    points: 50
+    hints:
+      - id: cookies
+        text: "Add the two groups together."
+        cost: 0

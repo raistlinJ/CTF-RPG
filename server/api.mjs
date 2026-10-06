@@ -77,6 +77,7 @@ export function createApi({ db, config, challenges, secureCookies = false }) {
         const award = completions.results.find((r) => r.challenge === c.id);
         return {
           id: c.id,
+          map: c.map,
           object: c.object,
           location: c.location,
           region: c.region,
