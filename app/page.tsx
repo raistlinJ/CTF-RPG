@@ -1,4 +1,5 @@
 "use client";
+import TeamSetup, {type Team} from "./team-setup";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
@@ -466,6 +467,7 @@ export default function Game() {
   const [audioBusy, setAudioBusy] = useState(false);
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
+  const [team,setTeam]=useState<Team|null>(null);
   function applyGame(d: GameState) {
     setChallenges(d.challenges);
     setSolved(d.solved);
@@ -607,7 +609,7 @@ export default function Game() {
       );
   }
   useEffect(() => {
-    if (!user) return;
+    if (!user || (!canAdmin && !team)) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).matches("input,textarea") || active) return;
       const dirs: Record<string, number[]> = {
@@ -632,7 +634,7 @@ export default function Game() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [user, active, map, pos, challenges, solved]);
+  }, [user, active, map, pos, challenges, solved,canAdmin,team]);
   async function login(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -781,8 +783,8 @@ export default function Game() {
             </a>
           )}
           {canAdmin && (
-            <a href="/admin" className="admin-link">
-              Manage challenges
+            <a href="/admin/teams" className="admin-link">
+              Manage
             </a>
           )}
           <button
@@ -802,6 +804,8 @@ export default function Game() {
                   const r = await fetch("/api/auth", { method: "DELETE" });
                   if (!r.ok) throw Error();
                   setUser(null);
+                  setTeam(null);
+                  setCanAdmin(false);
                   setPlace({ map: "town", pos: { x: 18, y: 20 } });
                   setError("");
                 } catch {
@@ -819,6 +823,7 @@ export default function Game() {
           {audioError}
         </p>
       )}
+      {user && !canAdmin && <TeamSetup key={user.username} username={user.username} onChange={setTeam}/>}
       {!user || !chosen ? (
         <section className="start">
           <div className="start-heading">
@@ -928,7 +933,7 @@ export default function Game() {
             <span>Built for curious minds</span>
           </footer>
         </section>
-      ) : (
+      ) : canAdmin || team ? (
         <section className="game-layout">
           <div className="play-column">
             <div className="play-heading">
@@ -1063,7 +1068,7 @@ export default function Game() {
             </div>
           </aside>
         </section>
-      )}
+      ) : null}
       <Dialog
         open={!!active}
         onOpenChange={(v) => {

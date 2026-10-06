@@ -3,6 +3,7 @@ import {
   sqliteTable,
   text,
   primaryKey,
+  index,
 } from "drizzle-orm/sqlite-core";
 export const students = sqliteTable("students", {
   id: text("id").primaryKey(),
@@ -53,3 +54,7 @@ export const challengeCatalog = sqliteTable("challenge_catalog", {
   payload: text("payload").notNull(),
   revision: integer("revision").notNull(),
 });
+
+export const teams = sqliteTable("teams", {id:text("id").primaryKey(),name:text("name").notNull(),nameKey:text("name_key").notNull().unique(),hash:text("hash").notNull(),salt:text("salt").notNull()});
+export const teamMembers = sqliteTable("team_members", {user:text("user").primaryKey().references(()=>students.id),team:text("team").notNull().references(()=>teams.id,{onDelete:"cascade"})},t=>[index("idx_team_members_team").on(t.team)]);
+export const teamSettings = sqliteTable("team_settings", {id:text("id").primaryKey(),maxMembers:integer("max_members").notNull()});

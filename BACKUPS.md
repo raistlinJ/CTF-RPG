@@ -63,3 +63,11 @@ Use `DATABASE_PATH` to select a different database path. Configuration is writte
 ## Existing installations
 
 Self-hosting adds account-management columns automatically on startup. Cloudflare previews need `drizzle/0003_chief_xorn.sql` applied once; hosted Sites applies it during publication. Existing accounts retain their passwords and scores. Initial YAML remains supported; database-managed accounts and the admin-saved challenge set take precedence after studio edits.
+
+## Teams
+
+Students create a team with a name and password, or join an existing team after signing in. Team passwords have 8–128 characters and are stored as salted hashes. Team names are unique ignoring case. Membership persists across logins; students cannot leave or switch teams. Only admins may disband a team, which releases its members to choose again without changing individual scores.
+
+Admins see **Manage** in the game header. `/admin/teams` links to challenges, accounts, and scores. Set the maximum team size from 1–100 (default 4, initially configured by `teams.maxMembers` in `content/game.yaml`). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. Team management routes enforce admin authorization.
+
+Full backups include teams, team password hashes, memberships, and the saved size limit. Older backups without teams still restore successfully.

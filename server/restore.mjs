@@ -35,7 +35,8 @@ try {
   if (
     !args.includes("--replace") &&
     (sqlite.prepare("SELECT COUNT(*) AS n FROM students").get().n ||
-      sqlite.prepare("SELECT COUNT(*) AS n FROM challenge_catalog").get().n)
+      sqlite.prepare("SELECT COUNT(*) AS n FROM challenge_catalog").get().n ||
+      sqlite.prepare("SELECT COUNT(*) AS n FROM teams").get().n)
   )
     throw Error(
       "Restore requires an empty database. Use --replace only when you intend to replace its accounts and progress.",
@@ -46,6 +47,9 @@ try {
       "sessions",
       "solved",
       "purchased_hints",
+      "team_members",
+      "teams",
+      "team_settings",
       "students",
       "challenge_catalog",
     ])
@@ -66,6 +70,9 @@ try {
         a.provisioned,
         a.revision,
       );
+    for(const t of snapshot.teams)sqlite.prepare("INSERT INTO teams(id,name,name_key,hash,salt) VALUES(?,?,?,?,?)").run(t.id,t.name,t.name_key,t.hash,t.salt);
+    for(const m of snapshot.teamMembers)sqlite.prepare("INSERT INTO team_members(user,team) VALUES(?,?)").run(m.user,m.team);
+    sqlite.prepare("INSERT INTO team_settings(id,max_members) VALUES('active',?)").run(snapshot.teamMaxMembers??snapshot.config.teams.maxMembers);
     const solved = sqlite.prepare(
       "INSERT INTO solved(user,challenge,points) VALUES(?,?,?)",
     );

@@ -25,8 +25,12 @@ accounts:
   #   - username: student01
   #     password: replace-with-a-unique-password
   #     hero: thunder # Optional. Omit to let the student choose on first sign-in.
-  #     role: admin # Only YAML-managed accounts can be administrators.
+  #     role: admin # Give this account administrator access.
 audio:
   midi: /audio/north-pole.mid # Replace with your own MIDI in public/audio/.
   loop: true
   volume: 0.15
+
+# Initial team capacity; the admin Teams page overrides this in the database.
+teams:
+  maxMembers: 4

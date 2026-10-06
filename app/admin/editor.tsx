@@ -244,6 +244,7 @@ export default function Admin() {
         </a>
         <div className="header-right">
           <span className="edition">ADMIN STUDIO</span>
+          <a className="admin-link" href="/admin/teams">Teams</a>
           <a className="admin-link" href="/admin/users">
             Accounts
           </a>

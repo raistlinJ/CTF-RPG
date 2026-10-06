@@ -51,6 +51,10 @@ export function createSQLiteAdapter(sqlite) {
 export function initializeSchema(sqlite) {
   sqlite.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS students(id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE,hash TEXT NOT NULL,salt TEXT NOT NULL,hero TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'student',disabled INTEGER NOT NULL DEFAULT 0,managed INTEGER NOT NULL DEFAULT 0,provisioned INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS teams(id TEXT PRIMARY KEY,name TEXT NOT NULL,name_key TEXT NOT NULL UNIQUE,hash TEXT NOT NULL,salt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS team_members(user TEXT PRIMARY KEY REFERENCES students(id),team TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE);
+CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team);
+CREATE TABLE IF NOT EXISTS team_settings(id TEXT PRIMARY KEY,max_members INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,hint TEXT NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(user,challenge,hint));

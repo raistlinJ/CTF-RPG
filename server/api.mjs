@@ -1,3 +1,4 @@
+import { handleTeams } from "./teams.mjs";
 import {
   passwordHash,
   equal,
@@ -142,6 +143,8 @@ export function createApi({
       req.headers.get("origin") !== new URL(req.url).origin
     )
       return json({ error: "Invalid request origin." }, 403);
+    if (["/api/teams", "/api/admin/teams"].includes(path))
+      return handleTeams(req, {db,config,user,platformAdmin});
     if (path === "/api/config" && method === "GET")
       return json(publicConfig(config));
     if (path === "/api/auth" && method === "GET") {

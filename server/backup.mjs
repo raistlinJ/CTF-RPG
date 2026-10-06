@@ -42,6 +42,9 @@ export function validateSnapshot(input) {
       config: z.unknown(),
       challenges: z.array(z.unknown()).max(100),
       accounts: z.array(account).max(10000),
+      teams:z.array(z.object({id:z.string().min(1),name:z.string().min(1).max(48),name_key:z.string().min(1),hash:z.string().regex(/^[a-f0-9]{64}$/),salt:z.string().min(1)}).strict()).max(10000).default([]),
+      teamMembers:z.array(z.object({user:z.string(),team:z.string()}).strict()).max(10000).default([]),
+      teamMaxMembers:z.number().int().min(1).max(100).optional(),
       solved: z.array(completion).max(1000000),
       purchasedHints: z.array(purchase).max(1000000),
     })
@@ -75,10 +78,13 @@ export function validateSnapshot(input) {
     ).size !== snapshot.purchasedHints.length
   )
     throw Error("Duplicate progress in backup.");
+  const teamIds=new Set(snapshot.teams.map(t=>t.id));
+  if(teamIds.size!==snapshot.teams.length||new Set(snapshot.teams.map(t=>t.name_key)).size!==snapshot.teams.length||new Set(snapshot.teamMembers.map(m=>m.user)).size!==snapshot.teamMembers.length)throw Error("Duplicate teams or membership in backup.");
+  if(snapshot.teamMembers.some(m=>!ids.has(m.user)||!teamIds.has(m.team)))throw Error("Unknown team or account in backup membership.");
   return snapshot;
 }
 export async function createSnapshot({ db, config, challenges }) {
-  const [users, catalog, solved, hints] = await db.batch([
+  const [users, catalog, solved, hints,teams,members,teamSettings] = await db.batch([
     db.prepare("SELECT * FROM students ORDER BY username").bind(),
     db
       .prepare(
@@ -95,6 +101,9 @@ export async function createSnapshot({ db, config, challenges }) {
         "SELECT user,challenge,hint,cost FROM purchased_hints ORDER BY user,challenge,hint",
       )
       .bind(),
+    db.prepare("SELECT id,name,name_key,hash,salt FROM teams ORDER BY name").bind(),
+    db.prepare("SELECT user,team FROM team_members ORDER BY user").bind(),
+    db.prepare("SELECT max_members FROM team_settings WHERE id='active'").bind(),
   ]);
   const records = [];
   for (const row of users.results) {
@@ -155,6 +164,7 @@ export async function createSnapshot({ db, config, challenges }) {
     accounts: records,
     solved: solved.results,
     purchasedHints: hints.results,
+    teams:teams.results,teamMembers:members.results,teamMaxMembers:teamSettings.results[0]?.max_members??config.teams?.maxMembers??4,
   });
 }
 export async function exportFullBackup(state, assets = {}) {
