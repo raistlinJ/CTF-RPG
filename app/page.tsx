@@ -450,6 +450,8 @@ export default function Game() {
     [challenges, setChallenges] = useState<Challenge[]>([]),
     [solved, setSolved] = useState<string[]>([]),
     [score, setScore] = useState(0),
+    [startingMap, setStartingMap] = useState(""),
+    [hasStarted, setHasStarted] = useState(false),
     [place, setPlace] = useState<Place>({ map: "town", pos: { x: 18, y: 20 } }),
     [active, setActive] = useState<Challenge | null>(null),
     [answer, setAnswer] = useState(""),
@@ -503,6 +505,8 @@ export default function Game() {
           pos: { ...mapInfo(settings.theme.world.startMap)!.spawn },
         });
         setConfig(settings);
+        setStartingMap(settings.theme.world.startMap);
+        setHasStarted(false);
         setHero(settings.characters[0].id);
         setMode(settings.allowRegistration ? "register" : "login");
         setCanAdmin(!!d.admin);
@@ -625,9 +629,15 @@ export default function Game() {
       );
   }
   useEffect(() => {
-    if (!user || (!canAdmin && !team)) return;
+    if (!user || !hasStarted || (!canAdmin && !team)) return;
     const handler = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).matches("input,textarea") || active) return;
+      if (
+        (e.target as HTMLElement).closest(
+          "input,textarea,select,[contenteditable=true]",
+        ) ||
+        active
+      )
+        return;
       const dirs: Record<string, number[]> = {
         ArrowUp: [0, -1],
         w: [0, -1],
@@ -650,7 +660,7 @@ export default function Game() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [user, active, map, pos, challenges, solved, canAdmin, team]);
+  }, [user, active, map, pos, challenges, solved, canAdmin, team, hasStarted]);
   async function login(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -673,10 +683,10 @@ export default function Game() {
       setUser(d.user);
       setCanAdmin((d as typeof d & { admin?: boolean }).admin || false);
       setPassword("");
-      setPlace({
-        map: activeWorld.startMap,
-        pos: { ...mapInfo(activeWorld.startMap)!.spawn },
-      });
+      const start = mapInfo(startingMap) || mapInfo(activeWorld.startMap)!;
+      setPlace({ map: start.id, pos: { ...start.spawn } });
+      setHasStarted(true);
+      setActive(null);
       await loadGame();
     } catch (e) {
       setError((e as Error).message);
@@ -784,6 +794,7 @@ export default function Game() {
               throw Error("Expected an empty object");
             return {
               signedIn: !!user,
+              started: hasStarted,
               map,
               position: pos,
               score,
@@ -795,7 +806,7 @@ export default function Game() {
       ),
     ).catch(() => {});
     return () => controller.abort();
-  }, [user, map, pos, score, solved]);
+  }, [user, map, pos, score, solved, hasStarted]);
   const chosen = heroes.find((h) => h.id === (user?.hero || hero)) || heroes[0];
   return (
     <main>
@@ -841,6 +852,8 @@ export default function Game() {
                   const r = await fetch("/api/auth", { method: "DELETE" });
                   if (!r.ok) throw Error();
                   setUser(null);
+                  setHasStarted(false);
+                  setActive(null);
                   setTeam(null);
                   setCanAdmin(false);
                   setPlace({
@@ -921,6 +934,22 @@ export default function Game() {
                 ))}
               </div>
             }
+            <label className="starting-map-field">
+              Starting map
+              <select
+                aria-label="Starting map"
+                value={startingMap}
+                onChange={(e) => setStartingMap(e.target.value)}
+                disabled={loading || busy || !config}
+              >
+                {config?.theme.world.maps.map((m) => (
+                  <option value={m.id} key={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              <small>Your explorer starts at this map’s spawn.</small>
+            </label>
             <div className="account-fields">
               <label>
                 Explorer username
@@ -976,6 +1005,53 @@ export default function Game() {
             </span>
             <span>Built for curious minds</span>
           </footer>
+        </section>
+      ) : !hasStarted && (canAdmin || team) && config ? (
+        <section className="expedition-entry">
+          <div className="expedition-entry-copy">
+            <span className="eyebrow">YOUR EXPEDITION</span>
+            <h1>Where would you like to start?</h1>
+            <p>Choose a map, then enter the world as {chosen.name}.</p>
+            <label>
+              Starting map
+              <select
+                aria-label="Starting map"
+                value={startingMap}
+                onChange={(e) => setStartingMap(e.target.value)}
+              >
+                {config.theme.world.maps.map((m) => (
+                  <option value={m.id} key={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="primary"
+              onClick={() => {
+                const start =
+                  mapInfo(startingMap) || mapInfo(activeWorld.startMap)!;
+                setPlace({ map: start.id, pos: { ...start.spawn } });
+                setActive(null);
+                setHasStarted(true);
+              }}
+            >
+              Begin expedition
+            </button>
+          </div>
+          <div className="expedition-entry-preview">
+            {mapInfo(startingMap)?.background ? (
+              <img
+                src={mapInfo(startingMap)!.background!}
+                alt={mapName(startingMap) + " map preview"}
+              />
+            ) : (
+              <div className="entry-empty-preview">
+                <Compass size={48} />
+              </div>
+            )}
+            <span>{mapName(startingMap)}</span>
+          </div>
         </section>
       ) : canAdmin || team ? (
         <section className="game-layout">

@@ -176,3 +176,7 @@ world:
 ```
 
 The destination and return positions follow map spawn settings automatically. **Undo last save** restores the map and the transport links edited in that save.
+
+### Student starting-map choice
+
+Students choose **Starting map** when signing in or registering. Returning signed-in users see a map chooser with a preview before entering an expedition. The selected map's spawn is the starting position; team creation/joining still happens before play. This choice applies to the current expedition and can be chosen again after signing out or reloading. The theme's main map remains the default choice; selecting an entry map does not change building layouts, entrances, saved heroes, scores, or responses.
