@@ -1,0 +1,15 @@
+services:
+  quest:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+    volumes:
+      - quest-data:/app/data
+      - ./content:/app/content:ro
+      - ./public:/app/public:ro
+    restart: unless-stopped
+volumes:
+  quest-data:

@@ -1,0 +1,28 @@
+# Server-only configuration. Never put this file in public/.
+characters:
+  - id: web
+    name: Web Ranger
+    subtitle: Quick feet. Curious mind.
+    sprite: null # e.g. /sprites/web.png (a transparent, single-frame image)
+    fallback: web
+  - id: thunder
+    name: Thunder Knight
+    subtitle: A storm of determination.
+    sprite: null
+    fallback: thunder
+  - id: shield
+    name: Shield Sentinel
+    subtitle: Bravery in every step.
+    sprite: null
+    fallback: shield
+accounts:
+  allowRegistration: true # Set false to allow only the users listed below.
+  users: []
+  # users:
+  #   - username: student01
+  #     password: replace-with-a-unique-password
+  #     hero: thunder # Optional. Omit to let the student choose on first sign-in.
+audio:
+  midi: /audio/north-pole.mid # Replace with your own MIDI in public/audio/.
+  loop: true
+  volume: 0.15

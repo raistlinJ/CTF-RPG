@@ -1,0 +1,189 @@
+import { createServer } from "node:http";
+import { DatabaseSync } from "node:sqlite";
+import {
+  readFileSync,
+  existsSync,
+  mkdirSync,
+  statSync,
+  createReadStream,
+  realpathSync,
+} from "node:fs";
+import { resolve, dirname, extname, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parseGame, parseChallenges } from "../lib/config-schema.mjs";
+import { createApi } from "./api.mjs";
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const config = parseGame(
+  readFileSync(
+    resolve(process.env.GAME_CONFIG || resolve(root, "content/game.yaml")),
+    "utf8",
+  ),
+);
+const challenges = parseChallenges(
+  readFileSync(
+    resolve(
+      process.env.CHALLENGES_CONFIG || resolve(root, "content/challenges.yaml"),
+    ),
+    "utf8",
+  ),
+);
+const output = resolve(root, "selfhost/dist");
+if (!existsSync(resolve(output, "index.html")))
+  throw Error("Run npm run build:selfhost first.");
+const databasePath = resolve(
+  process.env.DATABASE_PATH || resolve(root, "data/quest.sqlite"),
+);
+mkdirSync(dirname(databasePath), { recursive: true });
+const sqlite = new DatabaseSync(databasePath);
+sqlite.exec("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;");
+sqlite.exec(`CREATE TABLE IF NOT EXISTS students(id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE,hash TEXT NOT NULL,salt TEXT NOT NULL,hero TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));`);
+const db = {
+  prepare(sql) {
+    const statement = sqlite.prepare(sql);
+    return {
+      bind(...args) {
+        return {
+          async first() {
+            return statement.get(...args) || null;
+          },
+          async all() {
+            return { results: statement.all(...args) };
+          },
+          async run() {
+            return statement.run(...args);
+          },
+        };
+      },
+    };
+  },
+};
+const secure = process.env.SECURE_COOKIES === "true";
+const api = createApi({ db, config, challenges, secureCookies: secure });
+const origin = process.env.PUBLIC_ORIGIN;
+if (origin && new URL(origin).origin !== origin)
+  throw Error(
+    "PUBLIC_ORIGIN must be an origin, for example https://quest.school.org",
+  );
+const types = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript",
+  ".css": "text/css",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".jpg": "image/jpeg",
+  ".mid": "audio/midi",
+  ".midi": "audio/midi",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+};
+const limiters = new Map();
+function rateLimited(ip) {
+  const now = Date.now(),
+    entry = limiters.get(ip);
+  if (limiters.size > 10000)
+    for (const [key, e] of limiters) if (e.until < now) limiters.delete(key);
+  if (!entry || entry.until < now) {
+    limiters.set(ip, { count: 1, until: now + 60000 });
+    return false;
+  }
+  return ++entry.count > 20;
+}
+const server = createServer(async (req, res) => {
+  try {
+    const requestOrigin = origin || `http://${req.headers.host}`;
+    const url = new URL(req.url, requestOrigin);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "same-origin");
+    if (url.pathname.startsWith("/api/")) {
+      if (
+        url.pathname === "/api/auth" &&
+        req.method === "POST" &&
+        rateLimited(req.socket.remoteAddress)
+      ) {
+        res.writeHead(429, {
+          "Content-Type": "application/json",
+          "Retry-After": "60",
+        });
+        return res.end(
+          JSON.stringify({
+            error: "Too many sign-in attempts. Try again in a minute.",
+          }),
+        );
+      }
+      let body = "";
+      for await (const chunk of req) {
+        body += chunk;
+        if (Buffer.byteLength(body) > 16384) {
+          res.writeHead(413);
+          return res.end();
+        }
+      }
+      const headers = new Headers();
+      for (const [key, value] of Object.entries(req.headers))
+        if (value)
+          headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+      const response = await api(
+        new Request(url, {
+          method: req.method,
+          headers,
+          body: ["GET", "HEAD"].includes(req.method)
+            ? undefined
+            : body || undefined,
+        }),
+      );
+      res.writeHead(response.status, Object.fromEntries(response.headers));
+      return res.end(Buffer.from(await response.arrayBuffer()));
+    }
+    if (!["GET", "HEAD"].includes(req.method)) {
+      res.writeHead(405);
+      return res.end();
+    }
+    const path = decodeURIComponent(url.pathname);
+    // Only expose public assets and built client files. YAML and SQLite are outside both roots.
+    let file = null;
+    for (const directory of [resolve(root, "public"), output]) {
+      const candidate = resolve(directory, "." + path);
+      if (
+        candidate.startsWith(directory + sep) &&
+        existsSync(candidate) &&
+        statSync(candidate).isFile()
+      ) {
+        const real = realpathSync(candidate);
+        if (real.startsWith(realpathSync(directory) + sep)) {
+          file = candidate;
+          break;
+        }
+      }
+    }
+    if (!file && path === "/") file = resolve(output, "index.html");
+    if (!file) {
+      res.writeHead(404);
+      return res.end("Not found");
+    }
+    res.writeHead(200, {
+      "Content-Type": types[extname(file)] || "application/octet-stream",
+      "Cache-Control": "no-cache",
+    });
+    if (req.method === "HEAD") return res.end();
+    createReadStream(file).pipe(res);
+  } catch {
+    res.writeHead(400);
+    res.end("Invalid request");
+  }
+});
+const host = process.env.HOST || "0.0.0.0",
+  port = Number(process.env.PORT || 3000);
+server.listen(port, host, () =>
+  console.log(`North Pole Quest listening on http://${host}:${port}`),
+);
+for (const signal of ["SIGINT", "SIGTERM"])
+  process.on(signal, () =>
+    server.close(() => {
+      sqlite.close();
+      process.exit(0);
+    }),
+  );

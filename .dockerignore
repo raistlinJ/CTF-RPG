@@ -1,0 +1,12 @@
+node_modules
+.git
+.wrangler
+.sites-runtime
+dist
+selfhost/dist
+data
+.env*
+*.tar.gz
+tests
+
+content/game.local.yaml
