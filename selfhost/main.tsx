@@ -1,3 +1,5 @@
+// CTF-RPG — Copyright (c) 2026 Jaime C Acosta
+import AppFooter from "../components/app-footer";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import Game from "../app/page";
@@ -9,19 +11,22 @@ import Scoreboard from "../app/scoreboard/page";
 import Admin from "../app/admin/editor";
 import "../app/globals.css";
 createRoot(document.getElementById("root")!).render(
-  window.location.pathname.startsWith("/admin/review") ? (
-    <Review />
-  ) : window.location.pathname.startsWith("/admin/packs") ? (
-    <PacksAdmin />
-  ) : window.location.pathname.startsWith("/admin/teams") ? (
-    <TeamsAdmin />
-  ) : window.location.pathname.startsWith("/admin/users") ? (
-    <UsersPage />
-  ) : window.location.pathname.startsWith("/admin") ? (
-    <Admin />
-  ) : window.location.pathname.startsWith("/scoreboard") ? (
-    <Scoreboard />
-  ) : (
-    <Game />
-  ),
+  <>
+    {window.location.pathname.startsWith("/admin/review") ? (
+      <Review />
+    ) : window.location.pathname.startsWith("/admin/packs") ? (
+      <PacksAdmin />
+    ) : window.location.pathname.startsWith("/admin/teams") ? (
+      <TeamsAdmin />
+    ) : window.location.pathname.startsWith("/admin/users") ? (
+      <UsersPage />
+    ) : window.location.pathname.startsWith("/admin") ? (
+      <Admin />
+    ) : window.location.pathname.startsWith("/scoreboard") ? (
+      <Scoreboard />
+    ) : (
+      <Game />
+    )}
+    <AppFooter />
+  </>,
 );

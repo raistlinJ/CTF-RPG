@@ -1,3 +1,4 @@
+// CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { handleTeamSocial } from "./team-social.mjs";
 import { handlePresence } from "./presence.mjs";
 import { spawnSchema, canSpawn, resolveSpawn } from "../lib/spawn.mjs";

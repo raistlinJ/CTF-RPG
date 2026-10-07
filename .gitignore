@@ -50,3 +50,6 @@ next-env.d.ts
 /content/game.local.yaml
 
 /server/recreation-kit.mjs
+
+# Never package TLS certificates or private keys.
+nginx/ssl/

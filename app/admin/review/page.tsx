@@ -114,7 +114,7 @@ export default function Review() {
     <main className="admin-studio">
       <header>
         <a className="brand" href="/">
-          QUEST <b>STUDIO</b>
+          CTF-RPG <b>STUDIO</b>
         </a>
         <nav className="admin-header-links">
           <a href="/admin/teams">Manage</a>

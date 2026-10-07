@@ -1,0 +1,22 @@
+# CTF-RPG — Copyright (c) 2026 Jaime C Acosta
+server {
+    listen 80;
+    server_name _;
+    return 308 ${PUBLIC_ORIGIN}$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name _;
+    ssl_certificate /etc/nginx/ssl/fullchain.pem;
+    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 32m;
+    location / {
+        proxy_pass http://ctf-rpg:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 90s;
+    }
+}

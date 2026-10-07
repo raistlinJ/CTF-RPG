@@ -170,7 +170,7 @@ export default function UsersPage() {
           <span className="brand-icon">
             <Snowflake size={24} />
           </span>
-          QUEST <b>STUDIO</b>
+          CTF-RPG <b>STUDIO</b>
         </a>
         <div className="admin-header-links">
           <a href="/admin/packs">Themes &amp; content</a>

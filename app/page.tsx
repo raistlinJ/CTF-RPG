@@ -1,4 +1,5 @@
 "use client";
+// CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
 import { usePlayerPresence, type NearbyPlayer } from "./use-player-presence";
 import TeamSetup, { type Team } from "./team-setup";
@@ -991,7 +992,9 @@ export default function Game() {
               <Compass size={24} />
             )}
           </span>{" "}
-          {config?.theme.title || "North Pole Quest"}
+          <span className="ctf-brand-name">
+            CTF-RPG<small>{config?.theme.title || "North Pole Quest"}</small>
+          </span>
         </a>
         <div className="header-right">
           <span className="edition">{config?.theme.description}</span>

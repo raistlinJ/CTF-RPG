@@ -274,7 +274,7 @@ export default function Admin() {
           <span className="brand-icon">
             <Snowflake size={24} />
           </span>
-          QUEST <b>STUDIO</b>
+          CTF-RPG <b>STUDIO</b>
         </a>
         <div className="header-right">
           <span className="edition">ADMIN STUDIO</span>

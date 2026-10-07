@@ -1,5 +1,5 @@
 {
-  "name": "site-creator-vinext-starter",
+  "name": "ctf-rpg",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -75,5 +75,7 @@
     "miniflare": {
       "sharp": "0.35.4"
     }
-  }
+  },
+  "author": "Jaime C Acosta",
+  "description": "CTF-RPG: a reusable classroom capture-the-flag role-playing game."
 }

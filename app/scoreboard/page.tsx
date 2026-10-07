@@ -64,7 +64,9 @@ export default function Scoreboard() {
               <Compass size={24} />
             )}
           </span>
-          {title}
+          <span className="ctf-brand-name">
+            CTF-RPG<small>{title}</small>
+          </span>
         </a>
         <a className="admin-link" href="/">
           Back to game

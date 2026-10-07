@@ -1,3 +1,4 @@
+// CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { teamFeatures } from "./team-social.mjs";
 import { presenceSettings } from "./presence.mjs";
 import { spawnSchema } from "../lib/spawn.mjs";
@@ -364,7 +365,7 @@ export async function exportFullBackup(state, assets = {}) {
     JSON.stringify({ d1: "DB", r2: "QUEST_FILES" }, null, 2),
   );
   entries["RESTORE.md"] = strToU8(
-    `North Pole Quest complete backup\n\n1. Extract this ZIP into a new directory.\n2. Install Node.js 24 and run npm ci.\n3. Run npm run restore -- backup.json.\n4. Run npm run start:selfhost and open http://localhost:3000.\n\nThe ready-built frontend is included. You can also modify the included source and run npm run build:selfhost.\nAccounts retain their passwords through salted hashes. Active sessions are excluded.\nIf the original site used only platform-owner administration, promote a restored player with npm run restore -- backup.json --admin USERNAME on the initial restore, or add a new role: admin account to content/game.yaml before starting.\nLocal assets are included; external file URLs continue to depend on their external hosts.\nKeep this ZIP private: it contains password hashes, flags, and student progress.\nSee BACKUPS.md and ADMIN_GUIDE.md for details.\n`,
+    `CTF-RPG complete backup\n\n1. Extract this ZIP into a new directory.\n2. Install Node.js 24 and run npm ci.\n3. Run npm run restore -- backup.json.\n4. Run npm run start:selfhost and open http://localhost:3000.\n\nThe ready-built frontend is included. You can also modify the included source and run npm run build:selfhost.\nAccounts retain their passwords through salted hashes. Active sessions are excluded.\nIf the original site used only platform-owner administration, promote a restored player with npm run restore -- backup.json --admin USERNAME on the initial restore, or add a new role: admin account to content/game.yaml before starting.\nLocal assets are included; external file URLs continue to depend on their external hosts.\nKeep this ZIP private: it contains password hashes, flags, and student progress.\nSee BACKUPS.md and ADMIN_GUIDE.md for details.\n`,
   );
   const size = Object.values(entries).reduce((s, b) => s + b.length, 0);
   if (size > 32 * 1024 * 1024)
@@ -373,7 +374,7 @@ export async function exportFullBackup(state, assets = {}) {
   return new Response(archive, {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="north-pole-backup-${snapshot.createdAt.slice(0, 10)}.zip"`,
+      "Content-Disposition": `attachment; filename="ctf-rpg-backup-${snapshot.createdAt.slice(0, 10)}.zip"`,
       "Cache-Control": "no-store",
     },
   });

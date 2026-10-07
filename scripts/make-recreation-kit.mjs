@@ -1,3 +1,4 @@
+// CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import {
   readFileSync,
   writeFileSync,
@@ -20,6 +21,7 @@ function add(path) {
   if (
     name === "server/recreation-kit.mjs" ||
     name === "content/game.local.yaml" ||
+    name.startsWith("nginx/ssl/") ||
     name.endsWith(".tsbuildinfo")
   )
     return;
@@ -40,6 +42,7 @@ for (const dir of [
   "selfhost",
   "tests",
   "themes",
+  "nginx",
 ])
   if (existsSync(resolve(root, dir))) add(resolve(root, dir));
 for (const name of [
@@ -57,6 +60,8 @@ for (const name of [
   "cloudflare-env.d.ts",
   "Dockerfile",
   "compose.yaml",
+  "compose.https.yaml",
+  "NOTICE",
   ".dockerignore",
   ".gitignore",
   "README.md",

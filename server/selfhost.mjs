@@ -1,3 +1,4 @@
+// CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import {
@@ -245,7 +246,7 @@ const host = process.env.HOST || "0.0.0.0",
   port = Number(process.env.PORT || 3000);
 server.listen(port, host, () =>
   console.log(
-    `North Pole Quest listening on http://${host}:${server.address().port}`,
+    `CTF-RPG listening on http://${host}:${server.address().port}`,
   ),
 );
 for (const signal of ["SIGINT", "SIGTERM"])

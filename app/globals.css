@@ -1896,3 +1896,9 @@ input::placeholder {
 .transport-list>div>span { flex:1 1 200px; flex-wrap:wrap; }
 .transport-list small { display:block;flex-basis:100%;color:#a9b4c7; }
 .selected-transport { outline:1px solid #c4adff; border-radius:5px; }
+
+.ctf-app-shell, .ctf-app-shell>#root { min-height:100svh;display:flex;flex-direction:column; }
+.ctf-app-shell>#root { flex:1; }
+.app-copyright { margin-top:auto; padding:22px 16px; text-align:center; border-top:1px solid #304754;color:#a8bdc7;background:#10232f;font-size:12px; }
+.ctf-brand-name { display:grid;gap:3px; }
+.ctf-brand-name small { font-size:9px;letter-spacing:1px;color:#9db7c5; }

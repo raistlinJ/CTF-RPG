@@ -1,4 +1,4 @@
-# Run North Pole Quest on your own server
+# Run CTF-RPG on your own server
 
 The standalone version needs no Cloudflare account, ChatGPT account, or external database. Use Node.js 24 LTS (recommended; minimum 22.13 for built-in SQLite). The same game UI and API rules are used by both hosting modes. A fresh self-hosted installation has its own scores and accounts; it does not import the hosted site's database.
 
@@ -98,13 +98,53 @@ GAME_CONFIG=./content/game.local.yaml npm run start:selfhost
 
 Proxy the whole domain to the Node server, including `/api/`; serving only `selfhost/dist` omits authentication and score storage. Don't expose the project directory through a generic static web server. The standalone server serves only `public/` and built frontend files. Authentication requests have a limit of 20 per minute per direct connection IP; a reverse proxy shares that bucket unless it enforces its own per-student limit. The app intentionally does not trust forwarded IP headers.
 
-## Docker
+## Docker Compose
+
+From the project directory, start the app over HTTP:
 
 ```sh
 docker compose up --build -d
 ```
 
-The included Compose file mounts `content/` and `public/` read-only, and keeps SQLite in the `quest-data` volume. Replace the account list in your mounted config, then run `docker compose restart quest`. Sprite/MIDI file replacements are read directly without rebuilds. To use `game.local.yaml`, add `GAME_CONFIG: /app/content/game.local.yaml` under `environment` in Compose. For HTTPS, set `PUBLIC_ORIGIN` and `SECURE_COOKIES=true` in the environment used by Compose. Never run `docker compose down -v` when you want to preserve scores.
+Open `http://localhost:3000`. The default port binds to loopback. For direct HTTP access from other computers, use `APP_BIND=0.0.0.0 docker compose up --build -d`; set `APP_PORT` to change port 3000. Configure your accounts in `content/game.yaml` before starting. To use the ignored private config, copy the example to `content/game.local.yaml` and set `GAME_CONFIG=/app/content/game.local.yaml` in a local `.env` file. Use your own admin password.
+
+The `ctf-rpg` service mounts `content/` and `public/` read-only. SQLite and uploaded pack assets persist in the `quest-data` volume; the legacy volume name is retained for compatibility. After changing YAML, run `docker compose restart ctf-rpg`. Sprite/MIDI files are read directly. Do not run `docker compose down -v` on your installation when you want to preserve accounts and scores. When upgrading from the old `quest` service, stop the old Compose stack without `-v`, keep the same directory/project name, then start this configuration so it reuses the existing data volume.
+
+### Optional Nginx HTTPS frontend
+
+```sh
+docker compose -f compose.yaml -f compose.https.yaml up --build -d
+```
+
+Open `https://localhost`. The HTTPS overlay adds Nginx, redirects port 80 to HTTPS, and enables secure session cookies. The app's port 3000 remains bound to loopback. Nginx waits for the app health check and proxies both pages and `/api/`. This optional overlay follows [Docker's multiple-file Compose workflow](https://docs.docker.com/compose/how-tos/multiple-compose-files/merge/).
+
+For a real hostname, place the following in your ignored `.env` before starting:
+
+```dotenv
+PUBLIC_ORIGIN=https://ctf.example.org
+```
+
+`PUBLIC_ORIGIN` must match the browser's exact HTTPS origin, without a trailing slash. If using another public port, include it (for example `https://localhost:8443`) and set `HTTPS_PORT=8443`. `HTTP_PORT` changes the redirect listener's default port 80. When specifying nondefault ports in shell variables, pass them for every Compose command or store them in `.env`.
+
+Mount certificates using the project's **`./nginx/ssl`** directory:
+
+- `fullchain.pem`: your certificate plus any intermediate chain.
+- `privkey.pem`: the matching, unencrypted private key.
+
+When neither file exists, the Nginx startup script generates a 365-day self-signed pair for the hostname/IP in `PUBLIC_ORIGIN`. An optional `TLS_SERVER_NAME` overrides the generated certificate hostname. Certificates are persisted in that mount and reused on restart; existing pairs are never replaced. If only one file exists or is empty, startup stops with an explanation instead of overwriting it. Generated certificates include SANs for the chosen host, localhost, and 127.0.0.1. Self-signed certificates display a browser trust warning until you trust them; use your own trusted certificate pair for public hosting. After replacing certificates, restart the proxy:
+
+```sh
+docker compose -f compose.yaml -f compose.https.yaml restart nginx
+```
+
+TLS keys and certificates are excluded from Git, both Docker build contexts, and application recreation exports. Keep them separately on your server. The certificate mount must be writable for automatic generation. The HTTPS overlay implements Nginx's [certificate and key configuration](https://nginx.org/en/docs/http/configuring_https_servers.html).
+
+Inspect logs or stop the HTTPS stack with the same pair of files:
+
+```sh
+docker compose -f compose.yaml -f compose.https.yaml logs --tail=100
+docker compose -f compose.yaml -f compose.https.yaml down
+```
 
 ## Backups and verification
 
