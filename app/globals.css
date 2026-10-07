@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 /* Connect the shared UI utility classes to the quest palette. */
 @theme inline {
+  --font-sans: var(--app-font);
+  --font-serif: var(--app-font);
+  --font-mono: var(--app-font);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -22,6 +25,7 @@
   --color-ring: var(--ring);
 }
 :root {
+  --app-font: Arial, Helvetica, sans-serif;
   --background: #10212d;
   --foreground: #e7f1ee;
   --card: #152e3b;
@@ -50,11 +54,13 @@ body {
   margin: 0;
   background: #10212d;
   color: #e7f1ee;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--app-font);
   font-size: 16px;
 }
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 button,
@@ -85,7 +91,7 @@ header {
   display: flex;
   gap: 10px;
   align-items: center;
-  font-family: monospace;
+  font-family: var(--app-font);
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 2px;
@@ -108,7 +114,7 @@ header {
 }
 .edition,
 .eyebrow {
-  font: 12px monospace;
+  font: 12px var(--app-font);
   letter-spacing: 2px;
   color: #8faab5;
 }
@@ -134,7 +140,7 @@ header {
   margin-bottom: 24px;
 }
 h1 {
-  font-family: Georgia, serif;
+  font-family: var(--app-font);
   font-weight: 400;
   font-size: 38px;
   letter-spacing: -1px;
@@ -173,7 +179,7 @@ h1 {
   padding: 11px 14px;
   border: 1px solid #73918f66;
   border-radius: 5px;
-  font: 12px monospace;
+  font: 12px var(--app-font);
   letter-spacing: 1px;
   display: flex;
   align-items: center;
@@ -206,7 +212,7 @@ h1 {
   background: #173b43e8;
   padding: 8px;
   color: #dceee9;
-  font: 12px monospace;
+  font: 12px var(--app-font);
   border-radius: 4px;
 }
 .map-bottom button {
@@ -226,7 +232,7 @@ kbd {
   border: 1px solid #526873;
   border-bottom: 2px solid #526873;
   border-radius: 4px;
-  font: 12px monospace;
+  font: 12px var(--app-font);
   color: #d9e6e6;
   background: #243943;
 }
@@ -301,7 +307,7 @@ aside {
   margin: 0 0 10px;
 }
 .small-pill {
-  font: 10px monospace;
+  font: 10px var(--app-font);
   color: #9ed5c4;
   letter-spacing: 0.5px;
 }
@@ -327,8 +333,7 @@ aside {
 .score-panel strong {
   display: block;
   font:
-    44px Georgia,
-    serif;
+    44px var(--app-font);
   margin: 10px 0;
   color: #e6eacc;
 }
@@ -346,7 +351,7 @@ aside {
   margin: 0;
 }
 .journal-title > span {
-  font: 12px monospace;
+  font: 12px var(--app-font);
   color: #9fb9c1;
 }
 .progress {
@@ -382,7 +387,7 @@ aside {
   border: 1px dashed #48616d;
   color: #829daa;
   border-radius: 6px;
-  font: 12px monospace;
+  font: 12px var(--app-font);
 }
 .journal-item div {
   flex: 1;
@@ -399,7 +404,7 @@ aside {
   color: #819da9;
 }
 .journal-item > span:last-child {
-  font: 11px monospace;
+  font: 11px var(--app-font);
   color: #bfa97d;
 }
 .found .item-icon {
@@ -518,7 +523,7 @@ aside {
   color: #9db6bf;
 }
 .hero-card b {
-  font: 10px monospace;
+  font: 10px var(--app-font);
   letter-spacing: 1px;
   color: #a3e7ca;
   margin-top: 9px;
@@ -588,7 +593,7 @@ input::placeholder {
   display: flex;
   gap: 8px;
   align-items: center;
-  font: 11px monospace;
+  font: 11px var(--app-font);
   letter-spacing: 1px;
 }
 .challenge-modal {
@@ -601,14 +606,13 @@ input::placeholder {
 }
 .challenge-modal h2 {
   font:
-    32px Georgia,
-    serif;
+    32px var(--app-font);
 }
 .challenge-meta {
   display: flex;
   justify-content: space-between;
   color: #a1bcc3;
-  font: 13px monospace;
+  font: 13px var(--app-font);
 }
 .challenge-meta span:last-child {
   color: #e3ca86;
@@ -1139,8 +1143,7 @@ input::placeholder {
   border: 1px solid #3f5967;
   border-radius: 5px;
   font:
-    16px/1.6 Arial,
-    sans-serif;
+    16px/1.6 var(--app-font);
   padding: 12px;
 }
 .admin-editor textarea:focus {
@@ -1373,16 +1376,14 @@ input::placeholder {
 }
 .scoreboard-row strong {
   font:
-    32px Georgia,
-    serif;
+    32px var(--app-font);
   color: #e5ce8c;
   text-align: right;
 }
 .scoreboard-row strong > small {
   display: block;
   font:
-    12px Arial,
-    sans-serif;
+    12px var(--app-font);
   color: #9eb7c3;
   margin-top: 5px;
 }
@@ -1390,7 +1391,7 @@ input::placeholder {
   display: grid;
   place-items: center;
   width: 40px;
-  font: 20px monospace;
+  font: 20px var(--app-font);
   color: #b7cbd3;
 }
 .rank small {
@@ -1491,7 +1492,7 @@ input::placeholder {
   background: #2d4d59;
   color: #c9ddd4;
   border-radius: 7px;
-  font: 14px monospace;
+  font: 14px var(--app-font);
 }
 .admin-header-links {
   display: flex;
@@ -1791,7 +1792,7 @@ input::placeholder {
 .map-legend > span { display: inline-flex; gap: 5px; align-items: center; }
 .map-legend i { display: inline-block; width: 7px; height: 7px; border-radius: 2px; }
 .legend-walkable { background: #60bf96; }.legend-disconnected { background: #dca450; }.legend-blocked { background: #929a9f; }.legend-star { color: #ecd596; }
-.map-tile-readout { font-family: monospace; white-space: nowrap; }
+.map-tile-readout { font-family: var(--app-font); white-space: nowrap; }
 .map-edit-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid #355563; }
 .map-edit-footer > div { display: flex; align-items: center; gap: 12px; }
 .map-edit-footer .text-button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
