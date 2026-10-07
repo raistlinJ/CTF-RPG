@@ -1902,3 +1902,6 @@ input::placeholder {
 .app-copyright { margin-top:auto; padding:22px 16px; text-align:center; border-top:1px solid #304754;color:#a8bdc7;background:#10232f;font-size:12px; }
 .ctf-brand-name { display:grid;gap:3px; }
 .ctf-brand-name small { font-size:9px;letter-spacing:1px;color:#9db7c5; }
+
+.team-message-form button:disabled { cursor: default; }
+.team-message-form button[aria-busy="true"] { cursor: wait; }

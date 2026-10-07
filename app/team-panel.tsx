@@ -322,6 +322,7 @@ export default function TeamPanel({
                             </small>
                             <button
                               className="primary"
+                              aria-busy={busy}
                               disabled={busy || !text.trim()}
                             >
                               <Send size={16} />
