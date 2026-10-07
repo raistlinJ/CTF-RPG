@@ -22,7 +22,7 @@ export async function presenceSettings(db, config) {
 }
 export async function handlePresence(
   req,
-  { db, config, user, platformAdmin, theme, themeRevision },
+  { db, config, user, platformAdmin, theme, themeRevision, catalog },
 ) {
   const u = await user(req),
     admin = platformAdmin || u?.role === "admin",
@@ -96,7 +96,14 @@ export async function handlePresence(
     best > 0 &&
     scores.get(team) === best &&
     teamPolicy(features, admin || own).scores;
+  const counts = (await db.prepare("SELECT challenge,COUNT(*) AS count FROM solved GROUP BY challenge").bind().all()).results;
+  const currentCatalog = catalog ? (await catalog()).challenges : [];
+  const challengeSolves = currentCatalog.map((c) => ({
+    id: c.id, map: c.map, x: c.location.x, y: c.location.y,
+    count: counts.find((r) => r.challenge === c.id)?.count || 0,
+  }));
   const social = {
+    challengeSolves,
     self: { teammate: !!member, crowned: crowned(member?.team, true) },
     teamFeatures: features,
     ...(await messageStats(db, features, member?.team, u.id, admin)),

@@ -335,3 +335,29 @@ test("scoreboard access and mode are admin-controlled, private APIs deny student
     sqlite.close();
   }
 });
+
+test("challenge solve totals reach every player's map feed, including visibility off, and repeated answers count once", async () => {
+  const { sqlite, challenges, client } = setup();
+  try {
+    const a = client(), b = client();
+    await login(a, "alice"); await login(b, "bobby");
+    for (const [c, name] of [[a, "A"], [b, "B"]])
+      assert.equal((await c("/api/teams", {mode:"create",name,password:"team-password"})).status, 200);
+    const challenge = challenges.find(c => c.grading !== "manual");
+    const initial = await b("/api/presence", position);
+    assert.equal(initial.data.challengeSolves.find(c => c.id === challenge.id).count, 0);
+    const answer = challenge.flags[0];
+    assert.equal((await a("/api/game", {id:challenge.id, answer})).data.correct, true);
+    await a("/api/game", {id:challenge.id, answer});
+    const state = await b("/api/game");
+    assert.equal(state.data.challenges.find(c => c.id === challenge.id).solveCount, 1);
+    assert.equal(state.data.solved.includes(challenge.id), false);
+    sqlite.prepare("INSERT INTO presence_settings(id,visibility,revision) VALUES('active','off',1)").run();
+    const feed = await b("/api/presence", position);
+    assert.equal(feed.status, 200);
+    assert.equal(feed.data.players.length, 0);
+    assert.deepEqual(feed.data.challengeSolves.find(c => c.id === challenge.id), {id:challenge.id,map:challenge.map,x:challenge.location.x,y:challenge.location.y,count:1});
+    assert.equal((await b("/api/game", {id:challenge.id, answer})).data.correct, true);
+    assert.equal((await a("/api/presence", position)).data.challengeSolves.find(c => c.id === challenge.id).count, 2);
+  } finally { sqlite.close(); }
+});

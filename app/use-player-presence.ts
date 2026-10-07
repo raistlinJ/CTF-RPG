@@ -1,6 +1,8 @@
 "use client";
 import type { TeamFeatures } from "./team-panel";
 import { useEffect, useRef, useState } from "react";
+export type ChallengeSolve = { id: string; map: string; x: number; y: number; count: number };
+export type SolveShine = ChallengeSolve & { key: string };
 export type NearbyPlayer = {
   username: string;
   hero: string;
@@ -18,6 +20,8 @@ export function usePlayerPresence(
   pos: { x: number; y: number },
   themeRevision: number | undefined,
 ) {
+  const [challengeSolves, setChallengeSolves] = useState<ChallengeSolve[]>([]);
+  const [solveShines, setSolveShines] = useState<SolveShine[]>([]);
   const [messageCount, setMessageCount] = useState(0);
   const [scoreboard, setScoreboard] = useState<{
     visibility: "admins" | "all";
@@ -45,6 +49,10 @@ export function usePlayerPresence(
     setStatus("");
     setSelf({ teammate: false, crowned: false });
     if (!username || !enabled || themeRevision === undefined) return;
+    let previousSolves: Map<string, number> | undefined;
+    let shineTimer: ReturnType<typeof setTimeout> | undefined;
+    setSolveShines([]);
+    setChallengeSolves([]);
     let previousCount: number | undefined;
     let badgeTimer: ReturnType<typeof setTimeout> | undefined;
     setMessageCount(0);
@@ -76,6 +84,7 @@ export function usePlayerPresence(
           signal: controller.signal,
         });
         const d = (await r.json()) as {
+          challengeSolves: ChallengeSolve[];
           players: NearbyPlayer[];
           visibility: string;
           truncated: boolean;
@@ -87,6 +96,15 @@ export function usePlayerPresence(
         };
         if (!r.ok) throw Error();
         if (live && !document.hidden && current.current.map === sent.map) {
+          const counts = d.challengeSolves || [];
+          setChallengeSolves(counts);
+          const fresh = counts.filter((c) => previousSolves && previousSolves.has(c.id) && c.count > previousSolves.get(c.id)! && c.map === sent.map);
+          previousSolves = new Map(counts.map((c) => [c.id, c.count]));
+          if (fresh.length) {
+            setSolveShines((old) => [...old, ...fresh.map((c) => ({ ...c, key: `${c.id}:${c.count}` }))]);
+            clearTimeout(shineTimer);
+            shineTimer = setTimeout(() => { if (live) setSolveShines([]); }, 2400);
+          }
           setSnapshot({ map: sent.map, players: d.players });
           setVisibility(d.visibility);
           setSelf(d.self);
@@ -131,6 +149,7 @@ export function usePlayerPresence(
       live = false;
       clearInterval(timer);
       clearTimeout(badgeTimer);
+      clearTimeout(shineTimer);
       controller?.abort();
       document.removeEventListener("visibilitychange", visibilityChanged);
       window.removeEventListener("pagehide", leave);
@@ -144,6 +163,8 @@ export function usePlayerPresence(
     features,
     latestMessageAt,
     messageCount,
+    challengeSolves,
+    solveShines: solveShines.filter((c) => c.map === map),
     scoreboard,
     status,
   };

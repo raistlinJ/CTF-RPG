@@ -1907,3 +1907,9 @@ input::placeholder {
 .team-message-form button[aria-busy="true"] { cursor: wait; }
 
 .avatar-message-badge { position:absolute;transform:translate(-50%,calc(-100% - 30px));min-width:23px;padding:3px 6px;border-radius:12px;background:#f2cc68;color:#18283a;border:2px solid #172d3d;font-size:12px;font-weight:bold;text-align:center;z-index:5;pointer-events:none; }
+
+/* CTF-RPG solve celebrations — Copyright (c) 2026 Jaime C Acosta */
+.challenge-solve-shine { position: absolute; z-index: 15; pointer-events: none; color: #fff8b5; font-size: clamp(16px, 3vw, 36px); line-height: 1; text-shadow: 0 0 8px #fff, 0 0 18px #ffc84a; animation: challenge-solve-shine 2.4s ease-out forwards; }
+@keyframes challenge-solve-shine { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.2); } 20% { opacity: 1; transform: translate(-50%, -50%) scale(1.3); } 65% { opacity: .8; } 100% { opacity: 0; transform: translate(-50%, -90%) scale(.5); } }
+@media (prefers-reduced-motion: reduce) { .challenge-solve-shine { animation-name: challenge-solve-fade; } }
+@keyframes challenge-solve-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }

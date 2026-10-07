@@ -127,6 +127,7 @@ function createRequestApi({
       .prepare("SELECT challenge,points FROM solved WHERE user=?")
       .bind(userId)
       .all();
+    const solveCounts = (await db.prepare("SELECT challenge,COUNT(*) AS count FROM solved GROUP BY challenge").bind().all()).results;
     const purchases = await db
       .prepare("SELECT challenge,hint,cost FROM purchased_hints WHERE user=?")
       .bind(userId)
@@ -145,6 +146,7 @@ function createRequestApi({
         const response = responses.find((r) => r.challenge === c.id);
         return {
           id: c.id,
+          solveCount: solveCounts.find((r) => r.challenge === c.id)?.count || 0,
           grading: response ? "manual" : c.grading || "automatic",
           submission: response
             ? {
@@ -212,6 +214,7 @@ function createRequestApi({
         platformAdmin,
         theme,
         themeRevision,
+        catalog,
       });
     if (["/api/team-social", "/api/admin/team-social"].includes(path))
       return handleTeamSocial(req, { db, config, user, platformAdmin });

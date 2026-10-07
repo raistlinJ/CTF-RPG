@@ -1,7 +1,7 @@
 "use client";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
-import { usePlayerPresence, type NearbyPlayer } from "./use-player-presence";
+import { usePlayerPresence, type NearbyPlayer, type SolveShine } from "./use-player-presence";
 import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -64,6 +64,7 @@ type GameConfig = {
   scoreboard: { visibility: "admins" | "all"; mode: string };
 };
 type Challenge = {
+  solveCount?: number;
   id: string;
   map: string;
   object: string;
@@ -270,6 +271,7 @@ export function World({
   onPlayerSelect,
   selfPlayer,
   messageCount = 0,
+  solveShines = [],
   selfMarkers = { teammate: false, crowned: false },
 }: {
   hero: Character;
@@ -287,6 +289,7 @@ export function World({
   onPlayerSelect?: (x: number, y: number) => void;
   selfPlayer?: NearbyPlayer;
   messageCount?: number;
+  solveShines?: SolveShine[];
   selfMarkers?: { teammate: boolean; crowned: boolean };
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -449,6 +452,9 @@ export function World({
               : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
           }
         />
+        {!onSelect && solveShines.map((shine) => (
+          <div key={shine.key} className="challenge-solve-shine" role="status" aria-label="A challenge was solved" style={{ left: `${((shine.x + 0.5) / 40) * 100}%`, top: `${((shine.y + 0.5) / 28) * 100}%` }}>✦</div>
+        ))}
         {!onSelect && selfPlayer && (
           <div className="nearby-player-layer" aria-label="Players on this map">
             {messageCount > 0 && (
@@ -793,6 +799,7 @@ export default function Game() {
         })
         .catch((e) => setNotice(e.message));
       setActive(q);
+      void loadGame().catch((e) => setNotice(e.message));
       setAnswer(q.submission?.answer || "");
       setFeedback("");
       setHintMessage("");
@@ -1271,6 +1278,7 @@ export default function Game() {
               players={presence.players}
               selfMarkers={presence.self}
               messageCount={presence.messageCount}
+              solveShines={presence.solveShines}
               selfPlayer={selfPlayer}
               onPlayerSelect={(x, y) => setPlayerTile({ map, x, y })}
               characters={heroes}
@@ -1434,6 +1442,7 @@ export default function Game() {
           <DialogTitle>{active?.object}</DialogTitle>
           <div className="challenge-meta">
             <span>{active?.region}</span>
+            <span>{presence.challengeSolves.find((c) => c.id === active?.id)?.count ?? active?.solveCount ?? 0} solves</span>
             <span>
               +{active?.awardedPoints ?? active?.remainingPoints} points
             </span>
