@@ -98,6 +98,20 @@ export default function Admin() {
     [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [firstHero, setFirstHero] = useState("web");
+  const [challengeQuery, setChallengeQuery] = useState("");
+  const [useRegex, setUseRegex] = useState(false);
+  const [searchAllMaps, setSearchAllMaps] = useState(false);
+  let filterError = "";
+  let pattern: RegExp | null = null;
+  if (useRegex && challengeQuery) {
+    try { pattern = new RegExp(challengeQuery, "i"); }
+    catch { filterError = "Invalid regular expression. Check the pattern or use string matching."; }
+  }
+  const scopedChallenges = catalog.filter(c => searchAllMaps || c.map === draft?.map);
+  const matchingChallenges = filterError ? [] : scopedChallenges.filter(c => {
+    const fields = [c.id, c.object, c.text, c.region, c.map, mapName(c.map)];
+    return !challengeQuery || fields.some(value => pattern ? pattern.test(value) : value.toLocaleLowerCase().includes(challengeQuery.toLocaleLowerCase()));
+  });
   const dirty =
     !!draft &&
     Boolean(
@@ -458,14 +472,24 @@ export default function Admin() {
                   <div className="admin-list-heading">
                     <h2>Saved discoveries</h2>
                     <span>
-                      {catalog.filter((c) => c.map === draft.map).length} on
-                      this map
+                      {matchingChallenges.length} of {scopedChallenges.length} {searchAllMaps ? "across all maps" : "on this map"}
                     </span>
                   </div>
+                  <div className="challenge-list-filter">
+                    <label className="challenge-search-label">
+                      Filter challenges
+                      <input type="search" aria-label="Filter challenges" value={challengeQuery} maxLength={200} placeholder="Name, ID, text, location or map…" onChange={e => setChallengeQuery(e.target.value)} aria-invalid={!!filterError} aria-describedby="challenge-filter-help" />
+                    </label>
+                    <div className="challenge-filter-options">
+                      <label><input type="checkbox" checked={useRegex} onChange={e => setUseRegex(e.target.checked)} />Regular expression</label>
+                      <label><input type="checkbox" checked={searchAllMaps} onChange={e => setSearchAllMaps(e.target.checked)} />All maps</label>
+                      {challengeQuery && <button type="button" className="text-button" onClick={() => setChallengeQuery("")}>Clear</button>}
+                    </div>
+                    <small id="challenge-filter-help">Case-insensitive matching. Regex example: compass|lantern</small>
+                    {filterError && <p className="error" role="alert">{filterError}</p>}
+                  </div>
                   <div className="admin-challenge-list">
-                    {catalog
-                      .filter((c) => c.map === draft.map)
-                      .map((c) => (
+                    {matchingChallenges.map((c) => (
                         <button
                           className={c.id === editingId ? "active" : ""}
                           key={c.id}
@@ -481,10 +505,8 @@ export default function Admin() {
                           <strong>{c.points} pts</strong>
                         </button>
                       ))}
-                    {!catalog.some((c) => c.map === draft.map) && (
-                      <p>
-                        No challenges here yet. Pick a tile to add the first.
-                      </p>
+                    {!filterError && !matchingChallenges.length && (
+                      <p>{scopedChallenges.length ? "No challenges match this filter." : "No challenges here yet. Pick a tile to add the first."}</p>
                     )}
                   </div>
                 </div>

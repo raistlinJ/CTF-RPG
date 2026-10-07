@@ -1952,3 +1952,11 @@ input::placeholder {
 .submission-status.incorrect { color:#ffb7b7; }
 .submission-status.pending,.submission-status.partial { color:#e3ca86; }
 .submissions-list button>div { min-width:0; overflow-wrap:anywhere; }
+
+.challenge-list-filter { margin:12px 0 16px; }
+.challenge-search-label { display:flex; flex-direction:column; gap:6px; color:#aac3cc; font-size:13px; }
+.challenge-search-label input { width:100%; border:1px solid #41616e; border-radius:5px; padding:12px; background:#102532; color:#edf7fb; }
+.challenge-filter-options { display:flex; flex-wrap:wrap; align-items:center; gap:16px; margin:10px 0 6px; font-size:13px; }
+.challenge-filter-options label { display:flex; align-items:center; gap:6px; color:#c8ded8; }
+.challenge-filter-options input { accent-color:#a3e7ca; }
+.challenge-list-filter small { color:#93aeb9; font-size:12px; }
