@@ -3,6 +3,7 @@ import AppFooter from "../components/app-footer";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import Game from "../app/page";
+import NotificationsAdmin from "../app/admin/notifications/page";
 import Submissions from "../app/admin/challenges/submissions/page";
 import Review from "../app/admin/review/page";
 import PacksAdmin from "../app/admin/theme/import-export/page";
@@ -14,7 +15,9 @@ import Admin from "../app/admin/editor";
 import "../app/globals.css";
 createRoot(document.getElementById("root")!).render(
   <>
-    {window.location.pathname.startsWith("/admin/challenges/submissions") ? (
+    {window.location.pathname.startsWith("/admin/notifications") ? (
+      <NotificationsAdmin/>
+    ) : window.location.pathname.startsWith("/admin/challenges/submissions") ? (
       <Submissions />
     ) : window.location.pathname.startsWith("/admin/review") ? (
       <Review />

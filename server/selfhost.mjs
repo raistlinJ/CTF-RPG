@@ -159,7 +159,7 @@ const server = createServer(async (req, res) => {
       const chunks = [];
       let length = 0;
       const bodyLimit =
-        url.pathname === "/api/admin/packs" ? 17 * 1024 * 1024 : url.pathname === "/api/admin/theme-audio" ? 9 * 1024 * 1024 : 524288;
+        url.pathname === "/api/admin/ctfd-import" ? 65 * 1024 * 1024 : url.pathname === "/api/admin/packs" ? 17 * 1024 * 1024 : url.pathname === "/api/admin/theme-audio" ? 9 * 1024 * 1024 : 524288;
       for await (const chunk of req) {
         length += chunk.length;
         chunks.push(chunk);
@@ -216,6 +216,8 @@ const server = createServer(async (req, res) => {
         "/admin/",
         "/admin/challenges/submissions",
         "/admin/challenges/submissions/",
+        "/admin/notifications",
+        "/admin/notifications/",
         "/admin/review",
         "/admin/review/",
         "/admin/packs",

@@ -157,3 +157,32 @@ Open **Challenges → Submissions** to inspect automatic attempts and each user'
 For written responses, full marks before hint deductions count as Correct, zero marks as Incorrect, intermediate grades as Partial credit, and ungraded answers as Pending. Use **Review written answers** to grade them. The team name is captured when an answer is submitted and remains visible if a team is later renamed or disbanded. Full backups include attempt history and recorded submission teams; older backups remain supported.
 
 The saved challenge list in **Challenges → Manage challenges** has a **Filter challenges** search. It matches challenge names, IDs, question text, location labels, and map names without case sensitivity. Enable **Regular expression** for patterns such as `compass|lantern`; invalid patterns show an error. **All maps** searches the complete catalog instead of the selected map. Clearing the search restores the list. Filtering does not change saved definitions or the map artwork.
+
+### Notifications
+Open **Manage → Notifications** (or the Notifications link in Challenge studio). Send a title and message to **Everyone**, **Selected teams**, or **Selected users**. Team notifications capture the active members at send time; future members do not inherit private notifications. Everyone announcements are visible to any signed-in user, including accounts that sign in later. Notifications work independently of chat permissions and mute status.
+
+Players see an unread count on the bell in the game header, with a brief indication when a new notice arrives. Open the inbox to read announcements, mark individual notices read, or mark all read. Read status belongs to each account. Notification history and read status travel with full backups, while theme/content packs exclude announcements.
+
+### Importing CTFd exports
+Under **Theme → Import / Export → Import CTFd content**, select a standard CTFd export ZIP and choose whether to include users and teams. The importer reads `db/*.json` tables and `uploads/` files, as used by CTFd 3.8.7 and newer exports with the same layout. Preview the placements, username/team name mappings, and compatibility notes before applying. Imported content is added to the current catalog; existing accounts, progress, and theme are retained. The same ZIP cannot be applied twice.
+
+Challenges receive unique IDs and randomly distributed reachable positions on the current theme. If the maps run out of free tiles, the preview lists unplaced challenges and requires an explicit choice to skip them; alternatively expand the map and preview again. If imported memberships exceed the current team limit, an explicit checkbox allows raising that limit (up to 100). Users are assigned the current theme's first avatar and can be reassigned through Accounts. Banned users and members of banned teams are disabled. Imported CTFd admins are students until you promote them in Accounts.
+
+Standard static flags preserve each flag's own case rule and exact string comparison. Points (including zero), descriptions, categories, connection information, attribution, tags, hint contents/costs, HTTPS links, and bundled challenge files are retained. The challenge editor exposes original CTFd details, including source flags, hints, solutions, scoring fields, and compatibility notes; these private source details are excluded from player APIs and remain in content exports and full backups.
+
+Compatibility differences are shown in the preview:
+
+- Regex/plugin flag types and unsupported grading need manual review. These challenges import as hidden; unsupported flags remain in private source details.
+- Dynamic challenges use their current exported value as a fixed point count. Live decay is not reproduced.
+- Prerequisites, multi-flag logic, plugin behavior, and attempt limits are not executed. Affected challenges stay hidden until reviewed.
+- Hint costs remain exact, but CTF-RPG deducts costs from that challenge's reward and clamps awards at zero. CTFd charges hints against the overall scoreboard balance.
+- Markdown source and links are preserved. Embedded HTML and plugin interfaces are not executed. Runtime containers/services must be hosted separately.
+- Prior solves/fails, awards, pages, CTFd notifications, ratings, and custom account fields are not migrated as live game state. Historical solutions remain private source details. Hidden-account/team scoreboard state has no direct equivalent.
+
+CTFd passwords use different hashes and cannot be reused by this importer. On success, **Download temporary credentials CSV** provides new user and team passwords. Download it before leaving the page; plaintext credentials are not stored on the server. Account password resets are available through Accounts if the download is lost. CTFd names are normalized or suffixed where necessary; the preview, credentials CSV, and import history retain the original-to-new mappings.
+
+Upload limit: 64 MB compressed / 128 MB expanded, with at most 10,000 ZIP entries. Challenge files remain subject to the native content-pack limits of 4 MB per file and 8 MB total referenced attachments. Oversized or unsupported data is reported before database changes. Full backups preserve imported accounts, memberships, source challenge data, attached assets, and import history.
+
+Format reference: [CTFd 3.8.7 export implementation](https://github.com/CTFd/CTFd/blob/3.8.7/CTFd/utils/exports/__init__.py). Password reference: [CTFd password hashing](https://github.com/CTFd/CTFd/blob/3.8.7/CTFd/utils/crypto/__init__.py).
+
+Notification API: `GET/POST /api/admin/notifications` lists/sends notices. Sending accepts `{id, title, body, scope, targets}`; `scope` is `all`, `teams`, or `users`, and `targets` contains team IDs or usernames (empty for Everyone). `GET /api/notifications` reads a user's inbox; `?summary=true` returns only unread counts. `POST /api/notifications` accepts `{action: "read", id}` or `{action: "readAll"}`. CTFd preview/apply uses `POST /api/admin/ctfd-import` with multipart `file`, `users`, `teams`, and `action`; applying also includes the preview's theme/content revisions and fingerprint, plus explicit overflow/team-limit decisions. These APIs use the existing authenticated session and same-origin write checks.

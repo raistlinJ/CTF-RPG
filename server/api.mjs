@@ -1,3 +1,5 @@
+import {handleCtfdImport} from "./ctfd-import.mjs";
+import {handleNotifications} from "./notifications.mjs";
 import { handleSubmissions } from "./submissions.mjs";
 import { handleThemeAudio } from "./theme-audio.mjs";
 import { challengeSettings, visibleChallenges, handleChallengeSettings } from "./challenge-visibility.mjs";
@@ -169,6 +171,7 @@ function createRequestApi({
           location: c.location,
           region: c.region,
           text: response?.question || c.text,
+          answerRules: c.flagRules?.length ? "Per-flag case rules" : null,
           caseSensitive: c.caseSensitive,
           points: response?.max_points ?? c.points,
           remainingPoints: Math.max(
@@ -273,6 +276,8 @@ function createRequestApi({
         );
       }
     }
+    if (path === "/api/admin/ctfd-import") return handleCtfdImport(req,{db,config,user,platformAdmin,assetStore,readBaseAsset,theme,themeRevision,catalog});
+    if (["/api/notifications","/api/admin/notifications"].includes(path)) return handleNotifications(req,{db,config,user,platformAdmin});
     if (path === "/api/admin/submissions") return handleSubmissions(req,{db,user,platformAdmin});
     if (path === "/api/admin/theme-audio") return handleThemeAudio(req,{db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset});
     if (path === "/api/admin/packs") {
@@ -1003,7 +1008,7 @@ function createRequestApi({
         }
         if (typeof answer !== "string" || answer.length > 500)
           return json({ error: "Invalid answer." }, 400);
-        const correct = c.flags.some(flag=>normalize(flag,c.caseSensitive)===normalize(answer,c.caseSensitive));
+        const correct = c.flagRules?.length ? c.flagRules.some(rule=>rule.caseSensitive ? answer === rule.value : answer.toLowerCase() === rule.value.toLowerCase()) : c.flags.some(flag=>normalize(flag,c.caseSensitive)===normalize(answer,c.caseSensitive));
         const attempt = db.prepare(`INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at)
           SELECT ?,?,?,?,?,?,?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),?`)
           .bind(crypto.randomUUID(),u.id,c.id,answer,c.text,c.object,+correct,u.id,Date.now());

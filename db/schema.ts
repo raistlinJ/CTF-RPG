@@ -224,3 +224,8 @@ export const challengeSettings = sqliteTable("challenge_settings", {
 export const answerAttempts = sqliteTable("answer_attempts", {
  id:text("id").primaryKey(), user:text("user").notNull().references(()=>students.id), challenge:text("challenge").notNull(), answer:text("answer").notNull(), question:text("question").notNull(), object:text("object").notNull(), correct:integer("correct").notNull(), submittedTeam:text("submitted_team").notNull(), submittedAt:integer("submitted_at").notNull(),
 }, t=>[index("idx_answer_attempts_submitted").on(t.submittedAt),index("idx_answer_attempts_correct_submitted").on(t.correct,t.submittedAt)]);
+
+export const notifications = sqliteTable("notifications", {id:text("id").primaryKey(),title:text("title").notNull(),body:text("body").notNull(),author:text("author").notNull(),scope:text("scope").notNull(),targets:text("targets").notNull(),createdAt:integer("created_at").notNull()});
+export const notificationRecipients = sqliteTable("notification_recipients", {notification:text("notification").notNull().references(()=>notifications.id),username:text("username").notNull()},t=>[primaryKey({columns:[t.notification,t.username]}),index("idx_notification_recipient_username").on(t.username)]);
+export const notificationReads = sqliteTable("notification_reads", {notification:text("notification").notNull().references(()=>notifications.id),user:text("user").notNull().references(()=>students.id),readAt:integer("read_at").notNull()},t=>[primaryKey({columns:[t.notification,t.user]})]);
+export const ctfdImports = sqliteTable("ctfd_imports", {id:text("id").primaryKey(),digest:text("digest").notNull().unique(),createdAt:integer("created_at").notNull(),report:text("report").notNull()});

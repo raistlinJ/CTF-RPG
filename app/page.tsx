@@ -5,6 +5,7 @@ import { usePlayerPresence, type NearbyPlayer, type SolveShine } from "./use-pla
 import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import NotificationsInbox from "./notifications-inbox";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
 import {
   Crown,
@@ -82,6 +83,7 @@ type Challenge = {
     submittedAt: number;
     gradedAt: number | null;
   } | null;
+  answerRules?: string | null;
   caseSensitive: boolean;
   remainingPoints: number;
   awardedPoints: number | null;
@@ -833,6 +835,7 @@ export default function Game() {
           "input,textarea,select,[contenteditable=true]",
         ) ||
         active ||
+        document.querySelector('[role="dialog"]') ||
         teamPanelOpen ||
         playerTile
       )
@@ -1047,6 +1050,7 @@ export default function Game() {
           </span>
         </a>
         <div className="header-right">
+          {user && <NotificationsInbox key={user.username} username={user.username}/>}
           <span className="edition">{config?.theme.description}</span>
           {user && (canAdmin || team) && (
             <button
@@ -1456,9 +1460,9 @@ export default function Game() {
           <p className="reward-details">
             {active?.grading === "manual"
               ? "Written response · admin review"
-              : active?.caseSensitive
+              : active?.answerRules || (active?.caseSensitive
                 ? "Case-sensitive flag"
-                : "Case-insensitive flag"}
+                : "Case-insensitive flag")}
             {active && active.hintCost > 0
               ? ` · ${active.hintCost} points spent on hints`
               : ""}

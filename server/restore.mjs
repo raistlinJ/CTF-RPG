@@ -44,6 +44,10 @@ try {
   sqlite.exec("BEGIN IMMEDIATE");
   try {
     for (const table of [
+      "notification_reads",
+      "notification_recipients",
+      "notifications",
+      "ctfd_imports",
       "instructor_messages",
       "answer_attempts",
       "scoreboard_settings",
@@ -179,6 +183,10 @@ try {
           r.reviewer,
           r.gradedAt,
         );
+    for(const n of snapshot.notifications)sqlite.prepare("INSERT INTO notifications(id,title,body,author,scope,targets,created_at) VALUES(?,?,?,?,?,?,?)").run(n.id,n.title,n.body,n.author,n.scope,n.targets,n.created_at);
+    for(const n of snapshot.notificationRecipients)sqlite.prepare("INSERT INTO notification_recipients(notification,username) VALUES(?,?)").run(n.notification,n.username);
+    for(const n of snapshot.notificationReads)sqlite.prepare("INSERT INTO notification_reads(notification,user,read_at) VALUES(?,?,?)").run(n.notification,n.user,n.read_at);
+    for(const n of snapshot.ctfdImports)sqlite.prepare("INSERT INTO ctfd_imports(id,digest,created_at,report) VALUES(?,?,?,?)").run(n.id,n.digest,n.created_at,n.report);
     const attempts = sqlite.prepare("INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at) VALUES(?,?,?,?,?,?,?,?,?)");
     for (const a of snapshot.answerAttempts) attempts.run(a.id,a.user,a.challenge,a.answer,a.question,a.object,a.correct,a.submitted_team,a.submitted_at);
     const hints = sqlite.prepare(

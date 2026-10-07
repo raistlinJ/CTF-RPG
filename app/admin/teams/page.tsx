@@ -163,6 +163,7 @@ export default function TeamsAdmin() {
         </a>
         <nav className="admin-header-links">
           <a href="/admin/theme">Theme</a>
+          <a href="/admin/notifications">Notifications</a>
           <a href="/admin/review">Review answers</a>
           <a href="/admin">Challenges</a>
           <a href="/admin/users">Accounts</a>

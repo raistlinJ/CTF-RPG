@@ -1960,3 +1960,28 @@ input::placeholder {
 .challenge-filter-options label { display:flex; align-items:center; gap:6px; color:#c8ded8; }
 .challenge-filter-options input { accent-color:#a3e7ca; }
 .challenge-list-filter small { color:#93aeb9; font-size:12px; }
+
+.notification-bell { display:inline-flex; align-items:center; gap:5px; background:transparent; color:#c8ded8; border:0; padding:8px; }
+.notification-count { border-radius:12px; background:#a3e7ca; color:#17362e; min-width:19px; padding:2px 5px; font-size:11px; }
+.notification-toast { position:fixed; top:95px; right:20px; z-index:60; padding:12px 18px; border:1px solid #a3e7ca; border-radius:8px; background:#183440; color:#edf7fb; font-size:14px; }
+.notifications-modal { max-width:650px!important; }
+.notification-actions { display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:13px; }
+.notification-list { max-height:55vh; overflow:auto; }
+.notification-list article,.notification-history { padding:12px 0; border-bottom:1px solid #304652; }
+.notification-list article.unread { border-left:3px solid #a3e7ca; padding-left:12px; }
+.notification-body { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.6; }
+.notification-recipient-picker { max-height:220px; overflow:auto; margin:12px 0; }
+.notification-recipient-picker label,.import-checks label,.import-check { display:flex!important; flex-direction:row!important; align-items:center; gap:8px; }
+.notification-recipient-picker input,.import-checks input,.import-check input { width:auto!important; accent-color:#a3e7ca; }
+.admin-editor fieldset { min-width:0; border:0; padding:0; margin:0; }
+.ctfd-importer { margin:24px 0; max-width:980px; }
+.import-checks { display:flex; gap:20px; flex-wrap:wrap; margin:16px 0; }
+.ctfd-preview { margin-top:20px; }
+.ctfd-preview details,.ctfd-warnings { margin:16px 0; }
+.ctfd-preview details ul,.ctfd-warnings { max-height:250px; overflow:auto; }
+.ctfd-preview li { margin-bottom:8px; overflow-wrap:anywhere; }
+.ctfd-warnings { border:1px solid #64553a; border-radius:6px; padding:14px; color:#e3ca86; background:#252b2b; }
+.import-check { margin:14px 0; }
+.import-source-details pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:300px; overflow:auto; font-size:12px; }
+.admin-editor select { width:100%; padding:10px 12px; border:1px solid #41616e; border-radius:5px; background:#102532; color:#edf7fb; }
+.admin-editor select option { background:#102532; color:#edf7fb; }

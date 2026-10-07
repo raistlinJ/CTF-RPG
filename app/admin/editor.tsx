@@ -38,6 +38,8 @@ type Definition = {
   region: string;
   text: string;
   flags: string[];
+  flagRules?: {value:string;caseSensitive:boolean}[];
+  ctfd?: Record<string,unknown>;
   visibility: "hidden" | "visible";
   grading: "automatic" | "manual";
   caseSensitive: boolean;
@@ -250,6 +252,7 @@ export default function Admin() {
     setMessage("");
     try {
       const { flagsText, ...definition } = draft;
+      if (definition.flagRules && (flagsText !== (catalog.find(c=>c.id===editingId)?.flags||[]).join("\n") || definition.caseSensitive !== catalog.find(c=>c.id===editingId)?.caseSensitive)) delete definition.flagRules;
       const challenge = {
         ...definition,
         flags:
@@ -300,6 +303,7 @@ export default function Admin() {
           <a className="admin-link" href="/admin/review">
             Review answers
           </a>
+          <a className="admin-link" href="/admin/notifications">Notifications</a>
           <a className="admin-link" href="/admin/theme">
             Theme
           </a>
@@ -585,7 +589,7 @@ export default function Admin() {
                     Points
                     <input
                       type="number"
-                      min={1}
+                      min={0}
                       max={10000}
                       required
                       value={draft.points}
@@ -637,6 +641,8 @@ export default function Admin() {
                     </SelectContent>
                   </Select>
                 </label>
+                {draft.flagRules && <p className="save-note">Imported flags preserve per-flag case rules. Editing accepted flags or the case-sensitive setting replaces those rules with this editor’s setting.</p>}
+                {draft.ctfd && <details className="import-source-details"><summary>CTFd source details and compatibility notes</summary><pre>{JSON.stringify(draft.ctfd,null,2)}</pre></details>}
                 {draft.grading === "automatic" ? (
                   <>
                     <label>

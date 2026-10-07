@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import CtfdImporter from "./ctfd-importer";
 import ThemeNav from "../theme-nav";
 import {
   AlertDialog,
@@ -165,6 +166,7 @@ export default function PacksAdmin() {
             </a>
           )}
         </div>
+        {state && <CtfdImporter onImported={load}/>}
         {error && (
           <p role="alert" className="error">
             {error}

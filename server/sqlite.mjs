@@ -68,6 +68,11 @@ CREATE TABLE IF NOT EXISTS scoreboard_settings(id TEXT PRIMARY KEY,visibility TE
 CREATE TABLE IF NOT EXISTS instructor_messages(id TEXT PRIMARY KEY,sender_user TEXT NOT NULL REFERENCES students(id),team TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,sender TEXT NOT NULL,text TEXT NOT NULL,created_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_instructor_messages_team_created ON instructor_messages(team,created_at);
 CREATE INDEX IF NOT EXISTS idx_instructor_messages_sender_created ON instructor_messages(sender_user,created_at);
+CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY,title TEXT NOT NULL,body TEXT NOT NULL,author TEXT NOT NULL,scope TEXT NOT NULL,targets TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS notification_recipients(notification TEXT NOT NULL REFERENCES notifications(id),username TEXT NOT NULL,PRIMARY KEY(notification,username));
+CREATE INDEX IF NOT EXISTS idx_notification_recipient_username ON notification_recipients(username);
+CREATE TABLE IF NOT EXISTS notification_reads(notification TEXT NOT NULL REFERENCES notifications(id),user TEXT NOT NULL REFERENCES students(id),read_at INTEGER NOT NULL,PRIMARY KEY(notification,user));
+CREATE TABLE IF NOT EXISTS ctfd_imports(id TEXT PRIMARY KEY,digest TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,report TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS discovered_challenges(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));

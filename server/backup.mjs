@@ -135,6 +135,10 @@ export function validateSnapshot(input) {
         .default([]),
       solved: z.array(completion).max(1000000),
       purchasedHints: z.array(purchase).max(1000000),
+      notifications: z.array(z.object({id:z.string(),title:z.string().min(1).max(120),body:z.string().min(1).max(5000),author:z.string(),scope:z.enum(["all","users","teams"]),targets:z.string(),created_at:z.number().int().min(0)}).strict()).max(100000).default([]),
+      notificationRecipients: z.array(z.object({notification:z.string(),username:z.string()}).strict()).max(1000000).default([]),
+      notificationReads: z.array(z.object({notification:z.string(),user:z.string(),read_at:z.number().int().min(0)}).strict()).max(1000000).default([]),
+      ctfdImports: z.array(z.object({id:z.string(),digest:z.string().regex(/^[a-f0-9]{64}$/),created_at:z.number().int().min(0),report:z.string().max(4000000)}).strict()).max(10000).default([]),
       answerAttempts: z.array(z.object({id:z.string().min(1).max(128),user:z.string(),challenge:z.string(),answer:z.string().max(500),question:z.string().min(1).max(20000),object:z.string(),correct:z.number().int().min(0).max(1),submitted_team:z.string().max(128),submitted_at:z.number().int().min(0)}).strict()).max(1000000).default([]),
       writtenResponses: z
         .array(
@@ -145,7 +149,7 @@ export function validateSnapshot(input) {
               answer: z.string().min(1).max(20000),
               question: z.string().min(1).max(20000),
               object: z.string(),
-              maxPoints: z.number().int().min(1).max(10000),
+              maxPoints: z.number().int().min(0).max(10000),
               hintCost: z.number().int().min(0).max(10000),
               submittedTeam: z.string().max(128).nullable().default(null),
               submittedAt: z.number().int().min(0),
@@ -170,6 +174,11 @@ export function validateSnapshot(input) {
   );
   if (new Set(snapshot.answerAttempts.map(a=>a.id)).size!==snapshot.answerAttempts.length) throw Error("Backup contains duplicate answer attempts.");
   const ids = new Set(snapshot.accounts.map((a) => a.id));
+  const noticeIds=new Set(snapshot.notifications.map(n=>n.id));
+  if(noticeIds.size!==snapshot.notifications.length||snapshot.notificationRecipients.some(r=>!noticeIds.has(r.notification))||snapshot.notificationReads.some(r=>!noticeIds.has(r.notification)||!ids.has(r.user))||new Set(snapshot.notificationRecipients.map(r=>r.notification+'\0'+r.username)).size!==snapshot.notificationRecipients.length||new Set(snapshot.notificationReads.map(r=>r.notification+'\0'+r.user)).size!==snapshot.notificationReads.length)throw Error('Invalid notification history in backup.');
+  for(const n of snapshot.notifications)if(!Array.isArray(JSON.parse(n.targets)))throw Error('Invalid notification recipients.');
+  if(new Set(snapshot.ctfdImports.map(r=>r.digest)).size!==snapshot.ctfdImports.length||new Set(snapshot.ctfdImports.map(r=>r.id)).size!==snapshot.ctfdImports.length)throw Error('Duplicate CTFd import history.');
+  for(const r of snapshot.ctfdImports)JSON.parse(r.report);
   if (
     ids.size !== snapshot.accounts.length ||
     new Set(snapshot.accounts.map((a) => a.username)).size !==
@@ -374,6 +383,10 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     solved: solved.results,
     purchasedHints: hints.results,
     writtenResponses: responses.results,
+    notifications: (await db.prepare("SELECT * FROM notifications ORDER BY created_at,id").bind().all()).results,
+    notificationRecipients: (await db.prepare("SELECT * FROM notification_recipients ORDER BY notification,username").bind().all()).results,
+    notificationReads: (await db.prepare("SELECT * FROM notification_reads ORDER BY notification,user").bind().all()).results,
+    ctfdImports: (await db.prepare("SELECT * FROM ctfd_imports ORDER BY created_at,id").bind().all()).results,
     answerAttempts: (await db.prepare("SELECT * FROM answer_attempts ORDER BY submitted_at,id").bind().all()).results,
     teams: teams.results,
     teamMembers: members.results,
