@@ -942,3 +942,86 @@ test("admin transports persist, reserve challenge tiles, export/import and resto
   );
   sqlite.close();
 });
+test("predefined theme transport edits are source-map scoped, preserve defaults, export, and undo", async () => {
+  const { sqlite, config, client } = setup();
+  const admin = client();
+  await admin("/api/auth", {
+    mode: "login",
+    username: "teacher",
+    password: "teacher-password",
+    hero: "web",
+  });
+  let state = (await admin("/api/admin/packs")).data;
+  await admin(
+    "/api/admin/packs?kind=theme",
+    form(themeZip(custom(config)), state, contentZip(content)),
+  );
+  state = (await admin("/api/admin/packs")).data;
+  const original = structuredClone(state.theme.world.maps[0]);
+  const engine = createWorld(state.theme.world);
+  const ground = [];
+  for (let y = 0; y < 28; y++)
+    for (let x = 0; x < 40; x++)
+      if (!engine.blocked(original.id, x, y)) ground.push([x, y]);
+  const make = (overrides) => {
+    const f = new FormData();
+    f.set(
+      "map",
+      JSON.stringify({
+        id: original.id,
+        name: original.name,
+        bounds: original.bounds,
+        spawn: original.spawn,
+        ground,
+      }),
+    );
+    f.set("themeRevision", String(state.themeRevision));
+    f.set("contentRevision", String(state.contentRevision));
+    f.set("portalOverrides", JSON.stringify(overrides));
+    return f;
+  };
+  const before = state.themeRevision;
+  assert.equal(
+    (
+      await admin(
+        "/api/admin/maps",
+        make([{ id: "exit-lodge", location: { x: 19, y: 22 }, to: "island" }]),
+      )
+    ).status,
+    400,
+  );
+  assert.equal((await admin("/api/admin/packs")).data.themeRevision, before);
+  assert.equal(
+    (
+      await admin(
+        "/api/admin/maps",
+        make([
+          { id: "entrance-lodge", location: { x: 19, y: 20 }, to: "lodge" },
+        ]),
+      )
+    ).status,
+    400,
+  );
+  const override = {
+    id: "entrance-lodge",
+    location: { x: 18, y: 21 },
+    to: "lodge",
+  };
+  const saved = await admin("/api/admin/maps", make([override]));
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  state = (await admin("/api/admin/packs")).data;
+  assert.deepEqual(state.theme.world.portalOverrides, [override]);
+  assert.deepEqual(state.theme.world.buildings, engine.world.buildings);
+  const exported = await admin("/api/admin/packs?kind=theme");
+  assert.deepEqual(
+    parse(strFromU8(unzipSync(exported.bytes)["theme.yaml"])).world
+      .portalOverrides,
+    [override],
+  );
+  assert.equal((await admin("/api/admin/maps", make([]))).status, 200);
+  assert.deepEqual(
+    (await admin("/api/admin/packs")).data.theme.world.portalOverrides,
+    [],
+  );
+  sqlite.close();
+});

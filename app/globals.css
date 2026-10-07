@@ -1890,3 +1890,9 @@ input::placeholder {
 .player-card p { margin:5px 0;color:#d8e2e8;font-size:14px; }
 .admin-player-label { display:block;color:#d6b7ff;margin-top:3px; }
 .player-message { margin-top:9px;padding:8px 12px;border:1px solid #9ed9c8;border-radius:6px;background:#244c48;color:#e7fff7;font-size:13px;cursor:pointer; }
+
+.transport-edit-actions { display:flex; flex-wrap:wrap;gap:14px; }
+.transport-list>div { flex-wrap:wrap;gap:8px; }
+.transport-list>div>span { flex:1 1 200px; flex-wrap:wrap; }
+.transport-list small { display:block;flex-basis:100%;color:#a9b4c7; }
+.selected-transport { outline:1px solid #c4adff; border-radius:5px; }

@@ -1,6 +1,6 @@
 import { unzipSync, zipSync, strToU8 } from "fflate";
 import { z } from "zod";
-import { createWorld } from "../lib/world-data.mjs";
+import { createWorld, themePortals } from "../lib/world-data.mjs";
 import { stringify } from "yaml";
 import { parseTheme, themeAssetPaths } from "../lib/theme-schema.mjs";
 import { exportPack, importPacks, assertAsset, readAsset } from "./packs.mjs";
@@ -93,6 +93,35 @@ export async function updateMap(req, state) {
     )
       throw Error("Edit transport tiles from their source map.");
     next.world.transports = requested;
+  }
+  if (form.has("portalOverrides")) {
+    const requested = z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            location: z.object({ x: z.number(), y: z.number() }).strict(),
+            to: z.string(),
+          })
+          .strict(),
+      )
+      .max(58)
+      .parse(JSON.parse(String(form.get("portalOverrides"))));
+    const defaults = themePortals({
+      ...state.theme.world,
+      portalOverrides: [],
+    });
+    const belongs = (o) =>
+      defaults.find((p) => p.id === o.id)?.map === patch.id;
+    if (
+      requested.some((o) => !defaults.some((p) => p.id === o.id)) ||
+      JSON.stringify(requested.filter((o) => !belongs(o))) !==
+        JSON.stringify(
+          (state.theme.world.portalOverrides || []).filter((o) => !belongs(o)),
+        )
+    )
+      throw Error("Edit predefined transports from their source map.");
+    next.world.portalOverrides = requested;
   }
   const image = form.get("image");
   let imageBytes, imagePath;

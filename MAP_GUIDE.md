@@ -50,3 +50,13 @@ Cottage floors cover x 10–29, y 6–24; castle floors cover x 6–33, y 4–25
 Town examples (8,8), (11,19), (29,8), and (32,20) remain reachable. Avoid doors and exits for treasures; use accessible floor or a point within two walkable tiles. The player's current coordinates appear in the map's bottom-left corner. Labels and the journal are clues, not separate map IDs.
 
 `lib/world-data.mjs` owns map IDs, building footprints, door locations, furniture collision rectangles, and movement transitions. `lib/interior-renderer.ts` renders the rooms. `tests/world.test.mjs` checks door reachability, safe entry/exit, and every included YAML treasure. Restart your Node server after YAML changes; rebuild the frontend to change buildings, graphics, or collision rules. Hosted Sites changes require publication.
+
+## Edit theme transports
+
+In **Manage → Challenges → Map artwork & reachable ground → Transport**, the list includes predefined theme entrances and exits as well as added transports. Each predefined entry is labeled **Theme predefined**, and all transport tiles have purple arrows in the map preview.
+
+Click **Edit** (or click an existing transport tile), change **Destination map**, or click a free reachable tile to move the selected transport. Use **Add new transport** to leave editing mode. A moved entrance keeps its interior link, with the matching exit returning to the tile below the new entrance. Changing a predefined destination sends the player to that destination's spawn; edit the exit separately if you want a different return route. Keep the arrival tile reachable.
+
+**Undo transport edit** reverses unsaved transport operations. **Reset to theme** restores a predefined entrance or exit's original location and destination; save the map to persist the reset. The footer's **Reset** discards all unsaved map edits, and **Undo last save** restores the prior saved map and its transports while the editor remains open. Invalid tiles, overlapping links, and challenges on transport tiles prevent saving.
+
+Theme packs and full backups retain edits through `world.portalOverrides`, while original `world.buildings[].door` and `world.maps[].exit` locations remain available for reset. IDs are `entrance-<building-id>` and `exit-<building-id>`, with each override containing `id`, `location: { x, y }`, and `to: <map-id>`. An empty override list restores all original theme entrances and exits. Existing theme packs continue to work unchanged.

@@ -22,9 +22,15 @@ type Transport = {
   location: { x: number; y: number };
   to: string;
 };
+type PortalOverride = {
+  id: string;
+  location: { x: number; y: number };
+  to: string;
+};
 type WorldData = Omit<typeof activeWorld, "maps"> & {
   maps: MapData[];
   transports?: Transport[];
+  portalOverrides?: PortalOverride[];
 };
 type Placement = {
   id: string;
@@ -66,8 +72,16 @@ export default function MapSettings({
     [previousSave, setPreviousSave] = useState<{
       map: MapData;
       transports: Transport[];
+      portalOverrides: PortalOverride[];
     } | null>(null),
     [transports, setTransports] = useState<Transport[]>(world.transports || []),
+    [portalOverrides, setPortalOverrides] = useState<PortalOverride[]>(
+      world.portalOverrides || [],
+    ),
+    [selectedTransport, setSelectedTransport] = useState(""),
+    [transportUndo, setTransportUndo] = useState<
+      { transports: Transport[]; portalOverrides: PortalOverride[] }[]
+    >([]),
     [destination, setDestination] = useState(
       world.maps.find((m) => m.id !== mapId)?.id || "",
     ),
@@ -91,6 +105,9 @@ export default function MapSettings({
     setCursor({ ...original.spawn });
     setMode("allow");
     setTransports(structuredClone(world.transports || []));
+    setPortalOverrides(structuredClone(world.portalOverrides || []));
+    setSelectedTransport("");
+    setTransportUndo([]);
     setDestination(world.maps.find((m) => m.id !== mapId)?.id || "");
     setError("");
     setMoves({});
@@ -122,11 +139,12 @@ export default function MapSettings({
     () => ({
       ...world,
       transports,
+      portalOverrides,
       maps: world.maps.map((m) =>
         m.id === mapId ? { ...map, obstacles: [], ground } : m,
       ),
     }),
-    [world, mapId, map, ground, transports],
+    [world, mapId, map, ground, transports, portalOverrides],
   );
   const engine = useMemo(() => createWorld(preview), [preview]);
   const placements = useMemo(
@@ -146,37 +164,89 @@ export default function MapSettings({
         d.location.y === c.location.y,
     ),
   );
-  const transportProblems = transports.flatMap((t) => {
-    const source = preview.maps.find((m) => m.id === t.map),
-      target = preview.maps.find((m) => m.id === t.to);
-    if (
-      !source ||
-      !target ||
-      !engine.reachable(t.map, t.location.x, t.location.y) ||
-      (source.spawn.x === t.location.x && source.spawn.y === t.location.y)
+  const portalProblems = engine.portals.flatMap((p) =>
+    !engine.reachable(p.map, p.location.x, p.location.y) ||
+    !engine.canSpawn(p.to, p.arrival.x, p.arrival.y) ||
+    engine.portals.some(
+      (q) =>
+        q.id !== p.id &&
+        q.map === p.map &&
+        q.location.x === p.location.x &&
+        q.location.y === p.location.y,
+    ) ||
+    transports.some(
+      (t) =>
+        t.map === p.map &&
+        t.location.x === p.location.x &&
+        t.location.y === p.location.y,
     )
-      return [
-        `Transport at ${t.location.x}, ${t.location.y} needs reachable ground away from spawn.`,
-      ];
-    if (
-      ![
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-      ].some(([dx, dy]) =>
-        engine.canPlaceChallenge(
-          t.to,
-          target.spawn.x + dx,
-          target.spawn.y + dy,
+      ? [
+          `Theme transport ${p.name} needs separate reachable source and arrival tiles.`,
+        ]
+      : [],
+  );
+  function rememberTransport() {
+    setTransportUndo((history) => [
+      ...history.slice(-29),
+      {
+        transports: structuredClone(transports),
+        portalOverrides: structuredClone(portalOverrides),
+      },
+    ]);
+  }
+  function editDestination(to: string) {
+    if (!to && selectedTransport) return;
+    setDestination(to);
+    if (!selectedTransport) return;
+    rememberTransport();
+    if (selectedTransport.startsWith("portal:")) {
+      const id = selectedTransport.slice(7),
+        p = engine.portals.find((p) => p.id === id)!;
+      setPortalOverrides((os) => [
+        ...os.filter((o) => o.id !== id),
+        { id, location: { ...p.location }, to },
+      ]);
+    } else
+      setTransports((ts) =>
+        ts.map((t) =>
+          t.id === selectedTransport.slice(10) ? { ...t, to } : t,
         ),
+      );
+  }
+  const transportProblems = [
+    ...portalProblems,
+    ...transports.flatMap((t) => {
+      const source = preview.maps.find((m) => m.id === t.map),
+        target = preview.maps.find((m) => m.id === t.to);
+      if (
+        !source ||
+        !target ||
+        !engine.reachable(t.map, t.location.x, t.location.y) ||
+        (source.spawn.x === t.location.x && source.spawn.y === t.location.y)
       )
-    )
-      return [
-        `${target.name} needs an open tile beside its spawn for the return trip.`,
-      ];
-    return [];
-  });
+        return [
+          `Transport at ${t.location.x}, ${t.location.y} needs reachable ground away from spawn.`,
+        ];
+      if (
+        ![
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ].some(([dx, dy]) =>
+          engine.canPlaceChallenge(
+            t.to,
+            target.spawn.x + dx,
+            target.spawn.y + dy,
+          ),
+        )
+      )
+        return [
+          `${target.name} needs an open tile beside its spawn for the return trip.`,
+        ];
+      return [];
+    }),
+  ];
   useEffect(() => {
     let cancelled = false;
     const draw = (img?: HTMLImageElement) => {
@@ -213,7 +283,10 @@ export default function MapSettings({
           ctx.strokeRect(c.location.x * 24 + 1, c.location.y * 24 + 1, 22, 22);
         }
       }
-      for (const p of engine.transportTiles(mapId)) {
+      for (const p of [
+        ...engine.transportTiles(mapId),
+        ...engine.portals.filter((p) => p.map === mapId).map((p) => p.location),
+      ]) {
         ctx.fillStyle = "#9b8bff66";
         ctx.fillRect(p.x * 24 + 2, p.y * 24 + 2, 20, 20);
         ctx.strokeStyle = "#c4adff";
@@ -229,16 +302,6 @@ export default function MapSettings({
       ctx.strokeRect(cursor.x * 24 + 1, cursor.y * 24 + 1, 22, 22);
       ctx.fillStyle = "#fff4a6";
       ctx.fillRect(map.spawn.x * 24 + 5, map.spawn.y * 24 + 5, 14, 14);
-      ctx.strokeStyle = "#85f4ea";
-      ctx.lineWidth = 3;
-      const portals =
-        mapId === world.startMap
-          ? world.buildings.map((b) => b.door)
-          : map.exit
-            ? [map.exit]
-            : [];
-      for (const p of portals)
-        ctx.strokeRect(p.x * 24 + 2, p.y * 24 + 2, 20, 20);
     };
     const src = imageUrl || map.background;
     if (src) {
@@ -276,13 +339,22 @@ export default function MapSettings({
         setError("Choose a destination map first.");
         return;
       }
+      const existingPortal = engine.portals.find(
+        (p) => p.map === mapId && p.location.x === x && p.location.y === y,
+      );
       const existing = transports.find(
         (t) => t.map === mapId && t.location.x === x && t.location.y === y,
       );
-      if (existing) {
-        setDestination(existing.to);
+      if (existingPortal || existing) {
+        setSelectedTransport(
+          existingPortal
+            ? `portal:${existingPortal.id}`
+            : `transport:${existing!.id}`,
+        );
+        setDestination((existingPortal || existing)!.to);
+        setError("");
         setMessage(
-          "This transport is already placed. Remove it from the list to choose a new tile.",
+          "Transport selected. Change its destination or click a free tile to move it.",
         );
         return;
       }
@@ -319,15 +391,31 @@ export default function MapSettings({
         );
         return;
       }
-      setTransports((ts) => [
-        ...ts,
-        {
-          id: "transport-" + crypto.randomUUID(),
-          map: mapId,
-          location: { x, y },
-          to: destination,
-        },
-      ]);
+      rememberTransport();
+      if (selectedTransport.startsWith("portal:")) {
+        const id = selectedTransport.slice(7);
+        setPortalOverrides((os) => [
+          ...os.filter((o) => o.id !== id),
+          { id, location: { x, y }, to: destination },
+        ]);
+      } else if (selectedTransport.startsWith("transport:")) {
+        setTransports((ts) =>
+          ts.map((t) =>
+            t.id === selectedTransport.slice(10)
+              ? { ...t, location: { x, y }, to: destination }
+              : t,
+          ),
+        );
+      } else
+        setTransports((ts) => [
+          ...ts,
+          {
+            id: "transport-" + crypto.randomUUID(),
+            map: mapId,
+            location: { x, y },
+            to: destination,
+          },
+        ]);
       setError("");
       setMessage("");
       return;
@@ -399,7 +487,11 @@ export default function MapSettings({
       true,
     );
   }
-  async function save(restore?: { map: MapData; transports: Transport[] }) {
+  async function save(restore?: {
+    map: MapData;
+    transports: Transport[];
+    portalOverrides: PortalOverride[];
+  }) {
     setBusy(true);
     setError("");
     setMessage("");
@@ -423,6 +515,10 @@ export default function MapSettings({
       form.set("contentRevision", String(contentRevision));
       if (restore) form.set("action", "restore");
       form.set("transports", JSON.stringify(restore?.transports || transports));
+      form.set(
+        "portalOverrides",
+        JSON.stringify(restore?.portalOverrides || portalOverrides),
+      );
       if (image && !restore) form.set("image", image);
       form.set(
         "moves",
@@ -440,6 +536,7 @@ export default function MapSettings({
           : {
               map: structuredClone(original),
               transports: structuredClone(world.transports || []),
+              portalOverrides: structuredClone(world.portalOverrides || []),
             },
       );
       await onSaved();
@@ -571,7 +668,7 @@ export default function MapSettings({
               <select
                 aria-label="Destination map"
                 value={destination}
-                onChange={(e) => setDestination(e.target.value)}
+                onChange={(e) => editDestination(e.target.value)}
               >
                 <option value="">Choose a map</option>
                 {world.maps
@@ -584,11 +681,105 @@ export default function MapSettings({
               </select>
             </label>
             <p id="transport-tool-help" className="map-tool-help">
-              Choose a destination and click a free tile. Students arrive at
-              that map’s spawn; step off and back onto its purple return tile to
-              come back.
+              Select a transport to edit its destination, then click a free tile
+              to move it. Theme entrances and exits keep their original return
+              behavior. New transports arrive at the destination spawn and
+              return when students step off and back onto its purple tile.
             </p>
+            <div className="transport-edit-actions">
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setSelectedTransport("");
+                  setMessage(
+                    "Choose a destination and click a free tile to add a transport.",
+                  );
+                }}
+              >
+                Add new transport
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                disabled={!transportUndo.length || busy}
+                onClick={() => {
+                  const last = transportUndo.at(-1)!;
+                  setTransports(last.transports);
+                  setPortalOverrides(last.portalOverrides);
+                  setTransportUndo((h) => h.slice(0, -1));
+                  setSelectedTransport("");
+                  setError("");
+                  setMessage("Last transport edit undone.");
+                }}
+              >
+                Undo transport edit
+              </button>
+            </div>
+            {selectedTransport && (
+              <p className="map-tool-help">
+                Editing{" "}
+                {selectedTransport.startsWith("portal:")
+                  ? engine.portals.find(
+                      (p) => p.id === selectedTransport.slice(7),
+                    )?.name
+                  : "transport"}
+                . Destination changes apply immediately to the draft. Click a
+                free tile to move it.
+              </p>
+            )}
             <div className="transport-list">
+              {engine.portals
+                .filter((p) => p.map === mapId)
+                .map((p) => (
+                  <div
+                    key={p.id}
+                    className={
+                      selectedTransport === `portal:${p.id}`
+                        ? "selected-transport"
+                        : ""
+                    }
+                  >
+                    <span>
+                      <ArrowLeftRight size={15} />
+                      {p.name} · {p.location.x}, {p.location.y} →{" "}
+                      {world.maps.find((m) => m.id === p.to)?.name}
+                      <small>Theme predefined</small>
+                    </span>
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        setSelectedTransport(`portal:${p.id}`);
+                        setDestination(p.to);
+                        setCursor({ ...p.location });
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-button"
+                      disabled={
+                        !portalOverrides.some((o) => o.id === p.id) || busy
+                      }
+                      onClick={() => {
+                        rememberTransport();
+                        setPortalOverrides((os) =>
+                          os.filter((o) => o.id !== p.id),
+                        );
+                        setSelectedTransport("");
+                        setError("");
+                        setMessage(
+                          "Theme transport reset to its original location and destination. Save map to keep it.",
+                        );
+                      }}
+                    >
+                      Reset to theme
+                    </button>
+                  </div>
+                ))}
+
               {transports
                 .filter((t) => t.map === mapId)
                 .map((t) => (
@@ -601,18 +792,32 @@ export default function MapSettings({
                     <button
                       type="button"
                       className="text-button"
+                      onClick={() => {
+                        setSelectedTransport(`transport:${t.id}`);
+                        setDestination(t.to);
+                        setCursor({ ...t.location });
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-button"
                       aria-label={`Remove transport at ${t.location.x}, ${t.location.y}`}
-                      onClick={() =>
-                        setTransports((ts) => ts.filter((v) => v.id !== t.id))
-                      }
+                      onClick={() => {
+                        rememberTransport();
+                        setTransports((ts) => ts.filter((v) => v.id !== t.id));
+                        setSelectedTransport("");
+                      }}
                     >
                       Remove
                     </button>
                   </div>
                 ))}
-              {!transports.some((t) => t.map === mapId) && (
-                <small>No outgoing transports on this map yet.</small>
-              )}
+              {!transports.some((t) => t.map === mapId) &&
+                !engine.portals.some((p) => p.map === mapId) && (
+                  <small>No outgoing transports on this map yet.</small>
+                )}
             </div>
             {transports.some((t) => t.to === mapId) && (
               <small>

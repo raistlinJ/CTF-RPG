@@ -95,3 +95,82 @@ test("reachability does not walk through a transport to reach floor beyond it", 
   assert.equal(w.reachable("a", 2, 1), true);
   assert.equal(w.canPlaceChallenge("a", 3, 1), false);
 });
+test("predefined theme entrances and exits support exported overrides and reset to defaults", () => {
+  const t = structuredClone(circuit);
+  const original = createWorld(t.world).portals.find(
+    (p) => p.id === "entrance-castle",
+  );
+  t.world.portalOverrides = [
+    { id: original.id, location: { x: 18, y: 21 }, to: "castle" },
+  ];
+  let parsed = parseTheme(t),
+    w = createWorld(parsed.world);
+  assert.equal(
+    w.step({ map: "town", pos: { x: 18, y: 20 } }, 0, 1).map,
+    "castle",
+  );
+  assert.equal(
+    w.step(
+      {
+        map: "town",
+        pos: { x: original.location.x, y: original.location.y + 1 },
+      },
+      0,
+      -1,
+    ).map,
+    "town",
+  );
+  assert.equal(w.canPlaceChallenge("town", 18, 21), false);
+  const room = w.mapInfo("castle");
+  const back = w.step(
+    { map: "castle", pos: { x: room.exit.x, y: room.exit.y - 1 } },
+    0,
+    1,
+  );
+  assert.equal(back.map, "town");
+  assert.deepEqual(back.pos, { x: 18, y: 22 });
+  assert.deepEqual(
+    parseTheme(JSON.parse(JSON.stringify(parsed))).world.portalOverrides,
+    t.world.portalOverrides,
+  );
+  t.world.portalOverrides.push({
+    id: "exit-castle",
+    location: { x: 19, y: 23 },
+    to: "toy-workshop",
+  });
+  w = createWorld(parseTheme(t).world);
+  const exit = w.step({ map: "castle", pos: { x: 20, y: 23 } }, -1, 0);
+  assert.equal(exit.map, "toy-workshop");
+  assert.deepEqual(exit.pos, w.mapInfo("toy-workshop").spawn);
+  t.world.portalOverrides = [];
+  w = createWorld(parseTheme(t).world);
+  assert.equal(
+    w.step(
+      {
+        map: "town",
+        pos: { x: original.location.x, y: original.location.y + 1 },
+      },
+      0,
+      -1,
+    ).map,
+    "castle",
+  );
+});
+test("predefined transport overrides reject unknown IDs, blocked tiles, duplicate sources and invalid destinations", () => {
+  for (const override of [
+    { id: "missing", location: { x: 18, y: 21 }, to: "castle" },
+    { id: "entrance-castle", location: { x: 0, y: 0 }, to: "castle" },
+    { id: "entrance-castle", location: { x: 18, y: 20 }, to: "castle" },
+    { id: "entrance-castle", location: { x: 18, y: 21 }, to: "town" },
+    { id: "entrance-castle", location: { x: 18, y: 21 }, to: "missing" },
+    {
+      id: "entrance-castle",
+      location: { ...circuit.world.buildings[1].door },
+      to: "castle",
+    },
+  ]) {
+    const t = structuredClone(circuit);
+    t.world.portalOverrides = [override];
+    assert.throws(() => parseTheme(t));
+  }
+});

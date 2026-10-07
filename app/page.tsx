@@ -27,6 +27,7 @@ import {
   configureWorld,
   canPlaceChallenge,
   transportTiles,
+  portalTiles,
 } from "@/lib/world-data.mjs";
 
 type Place = {
@@ -326,14 +327,7 @@ export function World({
           if (!(selectionAllowed || canPlaceChallenge)(map, x, y))
             ctx.fillRect(x * t, y * t, t, t);
     }
-    const portals =
-      map === activeWorld.startMap
-        ? buildings.map((b) => b.door)
-        : info?.exit
-          ? [info.exit]
-          : [];
-    ctx.strokeStyle = "#85f4ea";
-    ctx.lineWidth = 2;
+    const portals = portalTiles(map).map((p) => p.location);
     for (const p of portals) {
       ctx.strokeRect(p.x * t + 2, p.y * t + 2, t - 4, t - 4);
     }
