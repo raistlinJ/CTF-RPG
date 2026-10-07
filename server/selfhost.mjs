@@ -214,6 +214,8 @@ const server = createServer(async (req, res) => {
         "/",
         "/admin",
         "/admin/",
+        "/admin/challenges/submissions",
+        "/admin/challenges/submissions/",
         "/admin/review",
         "/admin/review/",
         "/admin/packs",

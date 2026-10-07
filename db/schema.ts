@@ -100,6 +100,7 @@ export const writtenResponses = sqliteTable(
     maxPoints: integer("max_points").notNull(),
     hintCost: integer("hint_cost").notNull(),
     submittedAt: integer("submitted_at").notNull(),
+    submittedTeam: text("submitted_team"),
     revision: integer("revision").notNull().default(1),
     grade: integer("grade"),
     feedback: text("feedback").notNull().default(""),
@@ -219,3 +220,7 @@ export const discoveredChallenges = sqliteTable(
 export const challengeSettings = sqliteTable("challenge_settings", {
   id: text("id").primaryKey(), visibility: text("visibility").notNull(), revision: integer("revision").notNull(),
 });
+
+export const answerAttempts = sqliteTable("answer_attempts", {
+ id:text("id").primaryKey(), user:text("user").notNull().references(()=>students.id), challenge:text("challenge").notNull(), answer:text("answer").notNull(), question:text("question").notNull(), object:text("object").notNull(), correct:integer("correct").notNull(), submittedTeam:text("submitted_team").notNull(), submittedAt:integer("submitted_at").notNull(),
+}, t=>[index("idx_answer_attempts_submitted").on(t.submittedAt),index("idx_answer_attempts_correct_submitted").on(t.correct,t.submittedAt)]);

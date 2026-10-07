@@ -1,3 +1,4 @@
+import {createSQLiteAdapter} from "../server/sqlite.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -28,26 +29,7 @@ function setup(platformAdmin = false) {
     .filter((name) => /^\d+.*\.sql$/.test(name))
     .sort())
     sqlite.exec(readFileSync(`drizzle/${file}`, "utf8"));
-  const db = {
-    prepare(sql) {
-      const stmt = sqlite.prepare(sql);
-      return {
-        bind(...args) {
-          return {
-            async first() {
-              return stmt.get(...args) || null;
-            },
-            async all() {
-              return { results: stmt.all(...args) };
-            },
-            async run() {
-              return stmt.run(...args);
-            },
-          };
-        },
-      };
-    },
-  };
+  const db = createSQLiteAdapter(sqlite);
   const api = createApi({
     db,
     config: fixture,

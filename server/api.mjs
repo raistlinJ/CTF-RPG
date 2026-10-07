@@ -1,3 +1,4 @@
+import { handleSubmissions } from "./submissions.mjs";
 import { handleThemeAudio } from "./theme-audio.mjs";
 import { challengeSettings, visibleChallenges, handleChallengeSettings } from "./challenge-visibility.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
@@ -272,6 +273,7 @@ function createRequestApi({
         );
       }
     }
+    if (path === "/api/admin/submissions") return handleSubmissions(req,{db,user,platformAdmin});
     if (path === "/api/admin/theme-audio") return handleThemeAudio(req,{db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset});
     if (path === "/api/admin/packs") {
       const u = await user(req);
@@ -966,9 +968,9 @@ function createRequestApi({
             );
           const r = await db
             .prepare(
-              `INSERT INTO written_responses(user,challenge,answer,question,object,max_points,hint_cost,submitted_at,revision)
-            SELECT ?,?,?,?,?,?,COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0),?,1 WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND COALESCE((SELECT revision FROM written_responses WHERE user=? AND challenge=?),0)=?
-            ON CONFLICT(user,challenge) DO UPDATE SET answer=excluded.answer,submitted_at=excluded.submitted_at,revision=written_responses.revision+1 WHERE written_responses.grade IS NULL AND written_responses.revision=?`,
+              `INSERT INTO written_responses(user,challenge,answer,question,object,max_points,hint_cost,submitted_at,submitted_team,revision)
+            SELECT ?,?,?,?,?,?,COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0),?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),1 WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND COALESCE((SELECT revision FROM written_responses WHERE user=? AND challenge=?),0)=?
+            ON CONFLICT(user,challenge) DO UPDATE SET answer=excluded.answer,submitted_at=excluded.submitted_at,submitted_team=excluded.submitted_team,revision=written_responses.revision+1 WHERE written_responses.grade IS NULL AND written_responses.revision=?`,
             )
             .bind(
               u.id,
@@ -980,6 +982,7 @@ function createRequestApi({
               u.id,
               c.id,
               Date.now(),
+              u.id,
               u.id,
               c.id,
               u.id,
@@ -1000,22 +1003,15 @@ function createRequestApi({
         }
         if (typeof answer !== "string" || answer.length > 500)
           return json({ error: "Invalid answer." }, 400);
-        if (
-          !c.flags.some(
-            (flag) =>
-              normalize(flag, c.caseSensitive) ===
-              normalize(answer, c.caseSensitive),
-          )
-        )
-          return json({ correct: false });
-        // Read hint costs within the insert, so the awarded amount is consistent even under concurrent requests.
-        await db
-          .prepare(
-            `INSERT OR IGNORE INTO solved(user,challenge,points)
-          SELECT ?,?,MAX(0,?-COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0))`,
-          )
-          .bind(u.id, c.id, c.points, u.id, c.id)
-          .run();
+        const correct = c.flags.some(flag=>normalize(flag,c.caseSensitive)===normalize(answer,c.caseSensitive));
+        const attempt = db.prepare(`INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at)
+          SELECT ?,?,?,?,?,?,?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),?`)
+          .bind(crypto.randomUUID(),u.id,c.id,answer,c.text,c.object,+correct,u.id,Date.now());
+        if (!correct) { await attempt.run(); return json({correct:false}); }
+        // Record the attempt and award points together; duplicate solves still award once.
+        await db.batch([attempt, db.prepare(`INSERT OR IGNORE INTO solved(user,challenge,points)
+          SELECT ?,?,MAX(0,?-COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0))`)
+          .bind(u.id,c.id,c.points,u.id,c.id)]);
         const award = await db
           .prepare("SELECT points FROM solved WHERE user=? AND challenge=?")
           .bind(u.id, c.id)

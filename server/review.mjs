@@ -85,6 +85,7 @@ export async function handleReview(req, { db, user, platformAdmin }) {
       responses: rows.map((r) => ({
         user: r.user,
         username: r.username,
+        team: r.submitted_team,
         challenge: r.challenge,
         answer: r.answer,
         question: r.question,

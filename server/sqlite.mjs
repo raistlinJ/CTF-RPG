@@ -72,9 +72,13 @@ CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL RE
 CREATE TABLE IF NOT EXISTS discovered_challenges(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,hint TEXT NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(user,challenge,hint));
-CREATE TABLE IF NOT EXISTS written_responses(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,answer TEXT NOT NULL,question TEXT NOT NULL,object TEXT NOT NULL,max_points INTEGER NOT NULL,hint_cost INTEGER NOT NULL,submitted_at INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 1,grade INTEGER,feedback TEXT NOT NULL DEFAULT '',reviewer TEXT,graded_at INTEGER,PRIMARY KEY(user,challenge));
+CREATE TABLE IF NOT EXISTS answer_attempts(id TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,answer TEXT NOT NULL,question TEXT NOT NULL,object TEXT NOT NULL,correct INTEGER NOT NULL,submitted_team TEXT NOT NULL,submitted_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_answer_attempts_submitted ON answer_attempts(submitted_at);
+CREATE INDEX IF NOT EXISTS idx_answer_attempts_correct_submitted ON answer_attempts(correct,submitted_at);
+CREATE TABLE IF NOT EXISTS written_responses(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,answer TEXT NOT NULL,question TEXT NOT NULL,object TEXT NOT NULL,max_points INTEGER NOT NULL,hint_cost INTEGER NOT NULL,submitted_at INTEGER NOT NULL,submitted_team TEXT,revision INTEGER NOT NULL DEFAULT 1,grade INTEGER,feedback TEXT NOT NULL DEFAULT '',reviewer TEXT,graded_at INTEGER,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS theme_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);`);
+  if (!sqlite.prepare("PRAGMA table_info(written_responses)").all().some(c=>c.name==="submitted_team")) sqlite.exec("ALTER TABLE written_responses ADD COLUMN submitted_team TEXT");
   const socialColumns = sqlite
     .prepare("PRAGMA table_info(team_social_settings)")
     .all()

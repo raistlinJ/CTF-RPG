@@ -10,6 +10,7 @@ import {
 type Response = {
   user: string;
   username: string;
+  team: string | null;
   challenge: string;
   object: string;
   question: string;
@@ -194,6 +195,7 @@ export default function Review() {
                   >
                     <div>
                       <b>{r.username}</b>
+                      <small>Team: {r.team === null ? "Not recorded" : r.team || "No team"}</small>
                       <small>
                         {r.object} · {r.challenge}
                       </small>
@@ -227,6 +229,7 @@ export default function Review() {
                 <h2>
                   {selected.username} · {selected.object}
                 </h2>
+                <p>Team: {selected.team === null ? "Not recorded" : selected.team || "No team"}</p>
                 <p className="review-question">{selected.question}</p>
                 <section>
                   <h3>Written response</h3>

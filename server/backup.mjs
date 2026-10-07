@@ -135,6 +135,7 @@ export function validateSnapshot(input) {
         .default([]),
       solved: z.array(completion).max(1000000),
       purchasedHints: z.array(purchase).max(1000000),
+      answerAttempts: z.array(z.object({id:z.string().min(1).max(128),user:z.string(),challenge:z.string(),answer:z.string().max(500),question:z.string().min(1).max(20000),object:z.string(),correct:z.number().int().min(0).max(1),submitted_team:z.string().max(128),submitted_at:z.number().int().min(0)}).strict()).max(1000000).default([]),
       writtenResponses: z
         .array(
           z
@@ -146,6 +147,7 @@ export function validateSnapshot(input) {
               object: z.string(),
               maxPoints: z.number().int().min(1).max(10000),
               hintCost: z.number().int().min(0).max(10000),
+              submittedTeam: z.string().max(128).nullable().default(null),
               submittedAt: z.number().int().min(0),
               revision: z.number().int().min(1),
               grade: z.number().int().min(0).max(10000).nullable(),
@@ -166,6 +168,7 @@ export function validateSnapshot(input) {
     stringify({ challenges: snapshot.challenges }),
     snapshot.theme?.world.maps.map((m) => m.id),
   );
+  if (new Set(snapshot.answerAttempts.map(a=>a.id)).size!==snapshot.answerAttempts.length) throw Error("Backup contains duplicate answer attempts.");
   const ids = new Set(snapshot.accounts.map((a) => a.id));
   if (
     ids.size !== snapshot.accounts.length ||
@@ -180,6 +183,7 @@ export function validateSnapshot(input) {
     snapshot.solved,
     snapshot.purchasedHints,
     snapshot.writtenResponses,
+    snapshot.answerAttempts,
   ])
     for (const r of records)
       if (!ids.has(r.user))
@@ -293,7 +297,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       .bind(),
     db
       .prepare(
-        "SELECT user,challenge,answer,question,object,max_points AS maxPoints,hint_cost AS hintCost,submitted_at AS submittedAt,revision,grade,feedback,reviewer,graded_at AS gradedAt FROM written_responses ORDER BY user,challenge",
+        "SELECT user,challenge,answer,question,object,max_points AS maxPoints,hint_cost AS hintCost,submitted_at AS submittedAt,submitted_team AS submittedTeam,revision,grade,feedback,reviewer,graded_at AS gradedAt FROM written_responses ORDER BY user,challenge",
       )
       .bind(),
   ]);
@@ -370,6 +374,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     solved: solved.results,
     purchasedHints: hints.results,
     writtenResponses: responses.results,
+    answerAttempts: (await db.prepare("SELECT * FROM answer_attempts ORDER BY submitted_at,id").bind().all()).results,
     teams: teams.results,
     teamMembers: members.results,
     teamFeatures: (({ revision, ...flags }) => flags)(

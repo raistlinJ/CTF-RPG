@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { World } from "../page";
 import MapSettings from "./map-settings";
+import ChallengeNav from "./challenges/challenge-nav";
 import ChallengeVisibilityControls from "./challenge-visibility-controls";
 import {
   MAP_IDS,
@@ -344,6 +345,7 @@ export default function Admin() {
       ) : (
         draft && (
           <section className="admin-workspace">
+            <ChallengeNav active="manage"/>
             <div className="admin-heading">
               <div>
                 <span className="eyebrow">BUILD THE TREASURE HUNT</span>

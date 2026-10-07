@@ -1942,3 +1942,13 @@ input::placeholder {
 .theme-audio-form input[type="checkbox"] { width:auto; }
 @media(max-width:600px) { .audio-track-list li { flex-wrap:wrap; } }
 .theme-audio-form .check-row { display:flex; flex-direction:row; align-items:center; gap:10px; margin:14px 0; }
+
+.submission-filter { display:flex; flex-direction:column; gap:6px; color:#aac3cc; font-size:14px; }
+.submission-filter select { min-width:180px; padding:12px 16px; border:1px solid #41616e; border-radius:5px; background:#183440; color:#edf7fb; }
+.submission-filter option { background:#183440; color:#edf7fb; }
+.submission-note { color:#93aeb9; font-size:13px; line-height:1.6; max-width:900px; margin:14px 0 24px; }
+.submission-status { white-space:nowrap; font-size:13px; }
+.submission-status.correct { color:#a3e7ca; }
+.submission-status.incorrect { color:#ffb7b7; }
+.submission-status.pending,.submission-status.partial { color:#e3ca86; }
+.submissions-list button>div { min-width:0; overflow-wrap:anywhere; }

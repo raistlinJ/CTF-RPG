@@ -150,3 +150,8 @@ audio:
 ```
 
 Supply the MIDI files in the server's public directory when configuring paths in YAML. A nonempty playlist takes precedence over `audio.midi`. Admin uploads accept up to 20 tracks, 5 MB per file; the complete theme pack must remain within the existing 8 MB asset limit.
+
+### Challenge submissions
+Open **Challenges → Submissions** to inspect automatic attempts and each user's latest written response. Filter by **All**, **Correct**, **Incorrect**, **Pending**, or **Partial credit**; select an entry to see the submitted answer, challenge text, user, team, and submission time. Automatic attempts are recorded from this update onward; earlier incorrect attempts were not stored. Existing written responses appear, with **Not recorded** for missing historical team information.
+
+For written responses, full marks before hint deductions count as Correct, zero marks as Incorrect, intermediate grades as Partial credit, and ungraded answers as Pending. Use **Review written answers** to grade them. The team name is captured when an answer is submitted and remains visible if a team is later renamed or disbanded. Full backups include attempt history and recorded submission teams; older backups remain supported.

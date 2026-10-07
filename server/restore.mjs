@@ -45,6 +45,7 @@ try {
   try {
     for (const table of [
       "instructor_messages",
+      "answer_attempts",
       "scoreboard_settings",
       "challenge_settings",
       "team_messages",
@@ -160,7 +161,7 @@ try {
     for (const r of snapshot.writtenResponses)
       sqlite
         .prepare(
-          "INSERT INTO written_responses(user,challenge,answer,question,object,max_points,hint_cost,submitted_at,revision,grade,feedback,reviewer,graded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+          "INSERT INTO written_responses(user,challenge,answer,question,object,max_points,hint_cost,submitted_at,submitted_team,revision,grade,feedback,reviewer,graded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         )
         .run(
           r.user,
@@ -171,12 +172,15 @@ try {
           r.maxPoints,
           r.hintCost,
           r.submittedAt,
+          r.submittedTeam ?? null,
           r.revision,
           r.grade,
           r.feedback,
           r.reviewer,
           r.gradedAt,
         );
+    const attempts = sqlite.prepare("INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at) VALUES(?,?,?,?,?,?,?,?,?)");
+    for (const a of snapshot.answerAttempts) attempts.run(a.id,a.user,a.challenge,a.answer,a.question,a.object,a.correct,a.submitted_team,a.submitted_at);
     const hints = sqlite.prepare(
       "INSERT INTO purchased_hints(user,challenge,hint,cost) VALUES(?,?,?,?)",
     );

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
 import { parseChallenges, normalize } from "../lib/config-schema.mjs";
+import {createSQLiteAdapter} from "../server/sqlite.mjs";
 import { createApi } from "../server/api.mjs";
 const raw = `challenges:
   - id: flag-case
@@ -48,26 +49,7 @@ function database() {
     sqlite.exec(readFileSync(`drizzle/${file}`, "utf8"));
   return {
     sqlite,
-    db: {
-      prepare(sql) {
-        const stmt = sqlite.prepare(sql);
-        return {
-          bind(...args) {
-            return {
-              async first() {
-                return stmt.get(...args) || null;
-              },
-              async all() {
-                return { results: stmt.all(...args) };
-              },
-              async run() {
-                return stmt.run(...args);
-              },
-            };
-          },
-        };
-      },
-    },
+    db: createSQLiteAdapter(sqlite),
   };
 }
 async function setup(challenges = parseChallenges(raw)) {
