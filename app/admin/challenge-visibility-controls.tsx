@@ -47,8 +47,8 @@ export default function ChallengeVisibilityControls() {
   return (
     <div className="challenge-availability">
       <label>
-        <span>Challenge Availability</span>
-        <select aria-label="Challenge availability" value={settings?.visibility || "all"}
+        <span>Challenges Availability</span>
+        <select aria-label="Challenges Availability" value={settings?.visibility || "all"}
           disabled={!settings || busy}
           title="All makes Visible challenges available to students. Admins-only restricts all challenges to admins."
           onChange={(e) => void save(e.target.value as Settings["visibility"])}>
