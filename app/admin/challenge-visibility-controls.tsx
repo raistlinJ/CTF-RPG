@@ -1,82 +1,63 @@
 "use client";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { useEffect, useState } from "react";
-type Settings = {
-  visibility: "admins" | "all";
-  revision: number;
-};
+type Settings = { visibility: "admins" | "all"; revision: number };
 export default function ChallengeVisibilityControls() {
-  const [settings, setSettings] = useState<Settings | null>(null),
-    [error, setError] = useState(""),
-    [saved, setSaved] = useState(false),
-    [busy, setBusy] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     let live = true;
     void fetch("/api/admin/challenge-visibility")
       .then(async (r) => {
-        const d = (await r.json()) as Settings & { error?: string };
-        if (!r.ok)
-          throw Error(d.error || "Could not load challenge visibility settings.");
+        const d = await r.json() as Settings & {error?: string};
+        if (!r.ok) throw Error(d.error || "Could not load challenge availability.");
         if (live) setSettings(d);
       })
-      .catch((e) => {
-        if (live) setError(e.message);
-      });
-    return () => {
-      live = false;
-    };
+      .catch((e) => { if (live) setError(e.message); });
+    return () => { live = false; };
   }, []);
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
+  async function save(visibility: Settings["visibility"]) {
+    if (!settings || busy || settings.visibility === visibility) return;
     setBusy(true);
     setError("");
-    setSaved(false);
+    setStatus("Saving…");
     try {
       const r = await fetch("/api/admin/challenge-visibility", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ ...settings, visibility }),
       });
-      const d = (await r.json()) as Settings & { error?: string };
-      if (!r.ok) throw Error(d.error || "Could not save challenge visibility settings.");
+      const d = await r.json() as Settings & {error?: string};
+      if (!r.ok) {
+        if (r.status === 409) {
+          const latest = await fetch("/api/admin/challenge-visibility");
+          if (latest.ok) setSettings(await latest.json() as Settings);
+        }
+        throw Error(d.error || "Could not save challenge availability.");
+      }
       setSettings(d);
-      setSaved(true);
+      setStatus("Saved");
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
+      setStatus("");
+    } finally { setBusy(false); }
   }
   return (
-    <form className="team-limit admin-editor" onSubmit={save}>
-      <h2>Challenge visibility</h2>
-      <p>Admins-only hides every challenge from students. All shows challenges marked Visible; admins can always see and test hidden challenges.</p>
-      {settings && (
-        <>
-          <label>
-            Who can see challenges
-            <select
-              aria-label="Global challenge visibility"
-              value={settings.visibility}
-              onChange={(e) => {
-                setSettings({
-                  ...settings,
-                  visibility: e.target.value as Settings["visibility"],
-                });
-                setSaved(false);
-              }}
-            >
-              <option value="all">All</option>
-              <option value="admins">Admins-only</option>
-            </select>
-          </label>
-          <button className="primary" disabled={busy}>
-            {busy ? "Saving…" : "Save challenge visibility settings"}
-          </button>
-        </>
-      )}
-      {error && <p role="alert">{error}</p>}
-      {saved && <p role="status">Challenge visibility settings saved.</p>}
-    </form>
+    <div className="challenge-availability">
+      <label>
+        <span>Challenge availability</span>
+        <select aria-label="Challenge availability" value={settings?.visibility || "all"}
+          disabled={!settings || busy}
+          title="All makes Visible challenges available to students. Admins-only restricts all challenges to admins."
+          onChange={(e) => void save(e.target.value as Settings["visibility"])}>
+          <option value="all">All</option>
+          <option value="admins">Admins-only</option>
+        </select>
+      </label>
+      {status && <small role="status">{status}</small>}
+      {error && <small role="alert">{error}</small>}
+    </div>
   );
 }

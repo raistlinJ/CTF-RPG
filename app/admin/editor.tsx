@@ -344,7 +344,6 @@ export default function Admin() {
       ) : (
         draft && (
           <section className="admin-workspace">
-            <ChallengeVisibilityControls />
             <div className="admin-heading">
               <div>
                 <span className="eyebrow">BUILD THE TREASURE HUNT</span>
@@ -374,6 +373,7 @@ export default function Admin() {
                   <Plus size={17} />
                   New challenge
                 </button>
+                <ChallengeVisibilityControls />
               </div>
             </div>
             <div className="admin-columns">
