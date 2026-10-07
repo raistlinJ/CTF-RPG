@@ -1,4 +1,5 @@
 "use client";
+import { clientUuid } from "@/lib/client-uuid.mjs";
 import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
@@ -121,34 +122,42 @@ export default function TeamPanel({
   }, [selected, data?.messages?.at(-1)?.id]);
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    if (!selected || !text.trim()) return;
+    if (busy || !selected || !text.trim()) return;
     setBusy(true);
     sendFailed.current = false;
     setError("");
     const target = selected,
       body = text.trim(),
       version = generation.current;
-    if (request.current.team !== target || request.current.text !== body)
-      request.current = { id: crypto.randomUUID(), team: target, text: body };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
+      if (request.current.team !== target || request.current.text !== body)
+        request.current = { id: clientUuid(), team: target, text: body };
       const r = await fetch("/api/team-social", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(request.current),
+          signal: controller.signal,
         }),
         d = (await r.json()) as { error?: string };
       if (!r.ok) throw Error(d.error || "Could not send message.");
       if (version === generation.current) {
         setText("");
         request.current = { id: "", text: "", team: "" };
-        await load(true);
+        void load(true);
       }
     } catch (e) {
       if (version === generation.current) {
         sendFailed.current = true;
-        setError((e as Error).message);
+        setError(
+          controller.signal.aborted
+            ? "Sending timed out. Your text is preserved; retry to safely check or send this message."
+            : (e as Error).message,
+        );
       }
     } finally {
+      clearTimeout(timeout);
       setBusy(false);
     }
   }

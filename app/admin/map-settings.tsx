@@ -11,6 +11,7 @@ import {
   RotateCcw,
   ArrowLeftRight,
 } from "lucide-react";
+import { clientUuid } from "@/lib/client-uuid.mjs";
 import { paintStroke } from "@/lib/paint-stroke.mjs";
 import { createWorld, activeWorld } from "@/lib/world-data.mjs";
 type MapData = (typeof activeWorld.maps)[number] & {
@@ -410,7 +411,7 @@ export default function MapSettings({
         setTransports((ts) => [
           ...ts,
           {
-            id: "transport-" + crypto.randomUUID(),
+            id: "transport-" + clientUuid(),
             map: mapId,
             location: { x, y },
             to: destination,
