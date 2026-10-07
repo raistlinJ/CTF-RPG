@@ -72,3 +72,7 @@ Every challenge supports `grading: automatic` (the default) or `grading: manual`
 Admins use `/admin/review` (**Manage → Review answers**) to award a whole-number grade from 0 to the submission's saved maximum and provide feedback. Recorded hint costs are subtracted, with a minimum final award of 0. Regrading updates the existing award and scoreboard. Response revisions prevent stale edits or grades from overwriting newer work. Full backups retain responses/grades/feedback; theme and content packs exclude them. Use new IDs for new tests; grading mode cannot be changed after responses or awards exist.
 
 The built-in **Agentic Circuit** theme is available under **Themes & content**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
+
+## Included theme packs
+
+The repository includes both [North Pole](themes/north-pole/README.md) and [Agentic Circuit](themes/agentic-circuit/README.md), with ready-to-import ZIPs in [theme-packs](theme-packs/README.md). Rebuild both with `npm run themes:build`.
