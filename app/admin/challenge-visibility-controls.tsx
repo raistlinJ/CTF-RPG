@@ -47,7 +47,7 @@ export default function ChallengeVisibilityControls() {
   return (
     <div className="challenge-availability">
       <label>
-        <span>Challenge availability</span>
+        <span>Challenge Availability</span>
         <select aria-label="Challenge availability" value={settings?.visibility || "all"}
           disabled={!settings || busy}
           title="All makes Visible challenges available to students. Admins-only restricts all challenges to admins."

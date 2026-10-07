@@ -1915,9 +1915,11 @@ input::placeholder {
 @media (prefers-reduced-motion: reduce) { .challenge-solve-shine { animation-name: challenge-solve-fade; } }
 @keyframes challenge-solve-fade { 0%, 75% { opacity: 1; } 100% { opacity: 0; } }
 
-.challenge-availability { position: relative; flex-shrink: 0; align-self: center; }
-.challenge-availability label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #aac3cc; }
-.challenge-availability select { width: auto; min-width: 108px; height: 34px; padding: 5px 8px; border: 1px solid #41616e; border-radius: 6px; color: #edf7fb; background: #183440; font: inherit; }
+.admin-heading .admin-actions { align-items: flex-end; }
+.admin-heading .admin-actions > .primary, .admin-heading .admin-actions > .secondary-button { height: 50px; }
+.challenge-availability { position: relative; flex-shrink: 0; align-self: flex-end; }
+.challenge-availability label { display: flex; flex-direction: column; align-items: stretch; gap: 6px; font-size: 12px; color: #aac3cc; }
+.challenge-availability select { width: 156px; height: 50px; padding: 12px 16px; border: 1px solid #41616e; border-radius: 6px; color: #edf7fb; background: #183440; font: 14px var(--app-font); }
 .challenge-availability select option { background: #183440; color: #edf7fb; }
 .challenge-availability select:focus-visible { outline: 2px solid #a7e8cf; outline-offset: 2px; }
 .challenge-availability small { display: block; position: absolute; top: 100%; right: 0; margin-top: 3px; font-size: 11px; color: #a7e8cf; max-width: 270px; }
