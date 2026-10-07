@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
 import {
+  Crown,
   Compass,
   Cpu,
   Snowflake,
@@ -229,6 +230,7 @@ export function World({
   players = [],
   characters = [],
   onTeamSelect,
+  selfMarkers = { teammate: false, crowned: false },
 }: {
   hero: Character;
   map: string;
@@ -243,6 +245,7 @@ export function World({
   players?: NearbyPlayer[];
   characters?: Character[];
   onTeamSelect?: (team: string) => void;
+  selfMarkers?: { teammate: boolean; crowned: boolean };
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const image = useSprite(hero.sprite);
@@ -411,30 +414,72 @@ export function World({
               : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
           }
         />
-        {!onSelect && players.length > 0 && (
-          <div className="nearby-player-layer" aria-label="Players on this map">
-            {players.map((p) => {
-              const character = characters.find((c) => c.id === p.hero);
-              return (
-                <button
-                  type="button"
-                  disabled={!p.team || !onTeamSelect}
-                  aria-label={`View team for ${p.username}`}
-                  onClick={() => p.team && onTeamSelect?.(p.team)}
-                  key={p.username}
-                  className={"nearby-player " + (p.teammate ? "teammate" : "")}
+        {!onSelect &&
+          (players.length > 0 ||
+            selfMarkers.teammate ||
+            selfMarkers.crowned) && (
+            <div
+              className="nearby-player-layer"
+              aria-label="Players on this map"
+            >
+              {(selfMarkers.teammate || selfMarkers.crowned) && (
+                <div
+                  className={
+                    "self-player-markers " +
+                    (selfMarkers.teammate ? "teammate " : "") +
+                    (selfMarkers.crowned ? "crowned" : "")
+                  }
                   style={{
-                    left: `${((p.x + 0.5) / 40) * 100}%`,
-                    top: `${((p.y + 0.5) / 28) * 100}%`,
+                    left: `${((pos.x + 0.5) / 40) * 100}%`,
+                    top: `${((pos.y + 0.5) / 28) * 100}%`,
                   }}
+                  aria-label={
+                    "Your explorer" +
+                    (selfMarkers.teammate ? ", teammate halo" : "") +
+                    (selfMarkers.crowned ? ", top-scoring team" : "")
+                  }
                 >
-                  {character && <Portrait hero={character} />}
-                  <span>{p.username}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+                  {selfMarkers.teammate && (
+                    <i className="team-halo" aria-hidden="true" />
+                  )}
+                  {selfMarkers.crowned && (
+                    <Crown className="team-crown" aria-hidden="true" />
+                  )}
+                </div>
+              )}
+
+              {players.map((p) => {
+                const character = characters.find((c) => c.id === p.hero);
+                return (
+                  <button
+                    type="button"
+                    disabled={!p.team || !onTeamSelect}
+                    aria-label={`View team for ${p.username}${p.teammate ? ", teammate" : ""}${p.crowned ? ", top-scoring team" : ""}`}
+                    onClick={() => p.team && onTeamSelect?.(p.team)}
+                    key={p.username}
+                    className={
+                      "nearby-player " +
+                      (p.teammate ? "teammate " : "") +
+                      (p.crowned ? "crowned" : "")
+                    }
+                    style={{
+                      left: `${((p.x + 0.5) / 40) * 100}%`,
+                      top: `${((p.y + 0.5) / 28) * 100}%`,
+                    }}
+                  >
+                    {p.teammate && (
+                      <i className="team-halo" aria-hidden="true" />
+                    )}
+                    {character && <Portrait hero={character} />}
+                    {p.crowned && (
+                      <Crown className="team-crown" aria-hidden="true" />
+                    )}
+                    <span>{p.username}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
       </div>
       <div className="map-label">
         <span className="live-dot" /> {mapName(map).toUpperCase()}{" "}
@@ -1112,6 +1157,7 @@ export default function Game() {
             <World
               hero={chosen}
               players={presence.players}
+              selfMarkers={presence.self}
               onTeamSelect={openTeam}
               characters={heroes}
               map={map}
@@ -1121,6 +1167,16 @@ export default function Game() {
               onMove={move}
               onSearch={search}
             />
+            <div className="avatar-marker-legend">
+              <span>
+                <i className="halo-key" aria-hidden="true" />
+                Teammate
+              </span>
+              <span>
+                <Crown size={16} aria-hidden="true" />
+                Leading team
+              </span>
+            </div>
             <p className="presence-note" role="status">
               {presence.status ||
                 (presence.visibility === "off"

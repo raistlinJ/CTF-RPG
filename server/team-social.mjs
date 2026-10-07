@@ -52,6 +52,26 @@ export async function teamInbox(db, features, team) {
   );
 }
 
+export async function teamScores(db, config) {
+  const scores = new Map();
+  const rows = (
+    await db
+      .prepare(
+        `SELECT m.team,s.username,s.role,s.managed,s.provisioned,COALESCE(SUM(solved.points),0) AS score FROM team_members m JOIN students s ON s.id=m.user LEFT JOIN solved ON solved.user=s.id WHERE s.disabled=0 GROUP BY s.id,m.team`,
+      )
+      .bind()
+      .all()
+  ).results;
+  for (const r of rows) {
+    const cfg = config.accounts.users.find((a) => a.username === r.username);
+    if (
+      (r.managed ? r.role : cfg?.role || "student") === "student" &&
+      (config.accounts.allowRegistration || cfg || r.provisioned)
+    )
+      scores.set(r.team, (scores.get(r.team) || 0) + r.score);
+  }
+  return scores;
+}
 export async function handleTeamSocial(
   req,
   { db, config, user, platformAdmin },
@@ -253,25 +273,10 @@ export async function handleTeamSocial(
       .bind()
       .all()
   ).results;
-  const scores = new Map();
-  if (features.scores || features.everyone.scores) {
-    const rows = (
-      await db
-        .prepare(
-          `SELECT m.team,s.username,s.role,s.managed,s.provisioned,COALESCE(SUM(solved.points),0) AS score FROM team_members m JOIN students s ON s.id=m.user LEFT JOIN solved ON solved.user=s.id WHERE s.disabled=0 GROUP BY s.id,m.team`,
-        )
-        .bind()
-        .all()
-    ).results;
-    for (const r of rows) {
-      const cfg = config.accounts.users.find((a) => a.username === r.username);
-      if (
-        (r.managed ? r.role : cfg?.role || "student") === "student" &&
-        (config.accounts.allowRegistration || cfg || r.provisioned)
-      )
-        scores.set(r.team, (scores.get(r.team) || 0) + r.score);
-    }
-  }
+  const scores =
+    features.scores || features.everyone.scores
+      ? await teamScores(db, config)
+      : new Map();
   const summary = (t) => {
     const policy = teamPolicy(features, admin || t.id === own);
     return {

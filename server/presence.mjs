@@ -1,4 +1,9 @@
-import { teamFeatures, teamInbox } from "./team-social.mjs";
+import {
+  teamFeatures,
+  teamInbox,
+  teamScores,
+  teamPolicy,
+} from "./team-social.mjs";
 import { createWorld } from "../lib/world-data.mjs";
 const modes = ["off", "team", "all"];
 const reply = (data, status = 200) =>
@@ -79,11 +84,22 @@ export async function handlePresence(
   const setting = await presenceSettings(db, config),
     now = Date.now(),
     fallback = config.presence?.visibility || "team";
-  const features = await teamFeatures(db, config),
-    social = {
-      teamFeatures: features,
-      latestMessageAt: await teamInbox(db, features, member?.team),
-    };
+  const features = await teamFeatures(db, config);
+  const scores =
+    features.scores || features.everyone.scores
+      ? await teamScores(db, config)
+      : new Map();
+  const best = Math.max(0, ...scores.values());
+  const crowned = (team, own) =>
+    !!team &&
+    best > 0 &&
+    scores.get(team) === best &&
+    teamPolicy(features, admin || own).scores;
+  const social = {
+    self: { teammate: !!member, crowned: crowned(member?.team, true) },
+    teamFeatures: features,
+    latestMessageAt: await teamInbox(db, features, member?.team),
+  };
   if (setting.visibility === "off")
     return reply({
       visibility: "off",
@@ -147,6 +163,7 @@ export async function handlePresence(
         y: r.y,
         teammate: !!member && r.team === member.team,
         team: r.team || null,
+        crowned: crowned(r.team, !!member && r.team === member.team),
       };
     });
   return reply({

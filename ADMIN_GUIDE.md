@@ -107,3 +107,7 @@ teams:
 ```
 
 Saved admin settings take priority over YAML. Older saved settings and YAML without `everyone` initially apply their existing switches to both scopes; saving the new controls makes the scopes independent. Full backups include these switches and private messages; theme/content packs exclude them. Disbanding a team removes conversations involving it and preserves account progress.
+
+## Teammate halos and leading-team crowns
+
+A green halo marks your explorer and visible teammates, distinguishing them from other players in **All players** mode. A gold crown appears above each visible avatar in the highest-scoring team, including your own explorer when applicable. Tied leading teams share the crown; no crowns appear while all teams have zero points. Rankings use the same earned net points and active-student rules as team cards, including players who are offline. They update with the existing three-second position refresh. Crowns follow the corresponding own-team or other-team score-visibility control, so a hidden team score also hides that team's crown.

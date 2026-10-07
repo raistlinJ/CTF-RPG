@@ -212,6 +212,7 @@ test("presence isolates teams, allows admin-controlled all/off, expires ghosts, 
       false,
     );
     assert.deepEqual(Object.keys(result.data.players[0]).sort(), [
+      "crowned",
       "hero",
       "team",
       "teammate",
@@ -253,6 +254,119 @@ test("presence isolates teams, allows admin-controlled all/off, expires ghosts, 
         .map((r) => r.detail)
         .join(" "),
       /idx_player_presence/,
+    );
+  } finally {
+    sqlite.close();
+  }
+});
+
+test("team crowns use global net team scores, share positive ties, update after awards and respect score visibility", async () => {
+  const { sqlite, client } = setup();
+  try {
+    const admin = client(),
+      a = client(),
+      mate = client(),
+      other = client();
+    await auth(admin, "teacher", "login");
+    for (const [f, n] of [
+      [a, "alice"],
+      [mate, "annika"],
+      [other, "bobby"],
+    ])
+      await auth(f, n);
+    const team = (
+      await a("/api/teams", {
+        mode: "create",
+        name: "Alpha",
+        password: "team-password",
+      })
+    ).data.team;
+    await mate("/api/teams", {
+      mode: "join",
+      id: team.id,
+      password: "team-password",
+    });
+    await other("/api/teams", {
+      mode: "create",
+      name: "Beta",
+      password: "team-password",
+    });
+    await admin("/api/admin/presence", { visibility: "all", revision: 0 });
+    const pos = { map: "town", x: 18, y: 20, themeRevision: 0 };
+    await mate("/api/presence", pos);
+    await other("/api/presence", pos);
+    let state = (await a("/api/presence", pos)).data;
+    assert.equal(state.self.teammate, true);
+    assert.equal(state.self.crowned, false);
+    assert.ok(state.players.every((p) => !p.crowned));
+    await a("/api/game", { id: "lantern", answer: "24" });
+    state = (await a("/api/presence", pos)).data;
+    assert.equal(state.self.crowned, true);
+    assert.equal(
+      state.players.find((p) => p.username === "annika").crowned,
+      true,
+    );
+    assert.equal(
+      state.players.find((p) => p.username === "bobby").crowned,
+      false,
+    );
+    await other("/api/game", { id: "lantern", answer: "24" });
+    state = (await a("/api/presence", pos)).data;
+    assert.ok(state.players.every((p) => p.crowned));
+    await mate("/api/game", {
+      id: "lantern",
+      action: "hint",
+      hintId: "multiply",
+    });
+    await mate("/api/game", { id: "lantern", answer: "24" });
+    await a("/api/presence", undefined, "DELETE");
+    state = (await other("/api/presence", pos)).data;
+    assert.equal(state.self.crowned, false);
+    assert.ok(
+      state.players.filter((p) => p.teammate === false).every((p) => p.crowned),
+    );
+    let settings = (await admin("/api/admin/team-social")).data;
+    settings = (
+      await admin("/api/admin/team-social", {
+        ...settings,
+        scores: false,
+        everyone: { ...settings.everyone, scores: false },
+      })
+    ).data;
+    state = (await a("/api/presence", pos)).data;
+    assert.equal(state.self.crowned, false);
+    assert.ok(state.players.every((p) => !p.crowned));
+    settings = (
+      await admin("/api/admin/team-social", { ...settings, scores: true })
+    ).data;
+    state = (await a("/api/presence", pos)).data;
+    assert.equal(state.self.crowned, true);
+    assert.equal(
+      state.players.find((p) => p.username === "annika").crowned,
+      true,
+    );
+    state = (await other("/api/presence", pos)).data;
+    assert.ok(state.players.every((p) => !p.crowned));
+    // The leader's offline members still contribute; disabled accounts do not.
+    sqlite
+      .prepare("UPDATE students SET disabled=1 WHERE username='alice'")
+      .run();
+    state = (await mate("/api/presence", pos)).data;
+    assert.equal(state.self.crowned, false);
+    assert.equal(
+      state.players.find((p) => p.username === "bobby").crowned,
+      false,
+    ); // other team's score is hidden
+    settings = (
+      await admin("/api/admin/team-social", {
+        ...settings,
+        everyone: { ...settings.everyone, scores: true },
+      })
+    ).data;
+    state = (await mate("/api/presence", pos)).data;
+    assert.equal(
+      state.players.find((p) => p.username === "bobby").crowned,
+      true,
     );
   } finally {
     sqlite.close();

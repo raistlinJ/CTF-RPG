@@ -8,6 +8,7 @@ export type NearbyPlayer = {
   y: number;
   teammate: boolean;
   team: string | null;
+  crowned: boolean;
 };
 export function usePlayerPresence(
   username: string | undefined,
@@ -20,6 +21,7 @@ export function usePlayerPresence(
       map: string;
       players: NearbyPlayer[];
     }>({ map, players: [] }),
+    [self, setSelf] = useState({ teammate: false, crowned: false }),
     [visibility, setVisibility] = useState("team"),
     [features, setFeatures] = useState<TeamFeatures>({
       names: true,
@@ -35,6 +37,7 @@ export function usePlayerPresence(
   useEffect(() => {
     setSnapshot({ map: current.current.map, players: [] });
     setStatus("");
+    setSelf({ teammate: false, crowned: false });
     if (!username || !enabled || themeRevision === undefined) return;
     let live = true,
       timer: ReturnType<typeof setInterval> | undefined,
@@ -69,11 +72,13 @@ export function usePlayerPresence(
           truncated: boolean;
           teamFeatures: TeamFeatures;
           latestMessageAt: number;
+          self: { teammate: boolean; crowned: boolean };
         };
         if (!r.ok) throw Error();
         if (live && !document.hidden && current.current.map === sent.map) {
           setSnapshot({ map: sent.map, players: d.players });
           setVisibility(d.visibility);
+          setSelf(d.self);
           setFeatures(d.teamFeatures);
           setLatestMessageAt(d.latestMessageAt);
           setStatus(
@@ -83,6 +88,7 @@ export function usePlayerPresence(
       } catch {
         if (live && !document.hidden) {
           setSnapshot({ map: current.current.map, players: [] });
+          setSelf((previous) => ({ ...previous, crowned: false }));
           setStatus("Player visibility is reconnecting…");
         }
       } finally {
@@ -112,6 +118,7 @@ export function usePlayerPresence(
   return {
     players: snapshot.map === map ? snapshot.players : [],
     visibility,
+    self,
     features,
     latestMessageAt,
     status,
