@@ -158,6 +158,8 @@ export async function handlePresence(
       const cfg = config.accounts.users.find((a) => a.username === r.username);
       return {
         username: r.username,
+        role:
+          (r.managed ? r.role : cfg?.role) === "admin" ? "admin" : "student",
         hero: r.managed ? r.hero : cfg?.hero || r.hero,
         x: r.x,
         y: r.y,

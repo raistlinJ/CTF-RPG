@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 export type NearbyPlayer = {
   username: string;
   hero: string;
+  role: "admin" | "student";
   x: number;
   y: number;
   teammate: boolean;

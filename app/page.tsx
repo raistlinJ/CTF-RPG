@@ -38,6 +38,7 @@ type Hero = string;
 type User = {
   username: string;
   hero: Hero;
+  role?: "admin" | "student";
   spawn: { map: string; location: { x: number; y: number } };
 };
 type Character = {
@@ -150,6 +151,13 @@ function visibleSprite(image: HTMLImageElement) {
   spriteBounds.set(image, bounds);
   return bounds;
 }
+const adminAvatar: Character = {
+  id: "quest-admin",
+  name: "Administrator",
+  subtitle: "Game master",
+  sprite: null,
+  fallback: "shield",
+};
 function drawCharacter(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -158,7 +166,29 @@ function drawCharacter(
   image: HTMLImageElement | null,
   size: number,
 ) {
-  if (image) {
+  if (character === adminAvatar) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(size / 32, size / 32);
+    const r = (c: string, a: number, b: number, w: number, h: number) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(a, b, w, h);
+    };
+    r("#1d203f", -9, 12, 18, 3);
+    r("#ede5ff", -6, -15, 12, 4);
+    r("#eac6a2", -5, -11, 10, 8);
+    r("#413568", -5, -7, 10, 2);
+    r("#805dcc", -8, -2, 16, 14);
+    r("#eee5ff", -2, -2, 4, 14);
+    r("#e9c970", -8, 9, 16, 3);
+    r("#34334e", -6, 12, 5, 3);
+    r("#34334e", 1, 12, 5, 3);
+    r("#e9c970", 10, -10, 2, 24);
+    r("#8ae6ff", 8, -15, 6, 6);
+    r("#d5e8ff", -12, 0, 5, 7);
+    r("#4b587c", -11, 1, 3, 5);
+    ctx.restore();
+  } else if (image) {
     const bounds = visibleSprite(image);
     const ratio = bounds.w / bounds.h;
     const h = size,
@@ -229,7 +259,8 @@ export function World({
   selectionLabel,
   players = [],
   characters = [],
-  onTeamSelect,
+  onPlayerSelect,
+  selfPlayer,
   selfMarkers = { teammate: false, crowned: false },
 }: {
   hero: Character;
@@ -244,7 +275,8 @@ export function World({
   selectionLabel?: string;
   players?: NearbyPlayer[];
   characters?: Character[];
-  onTeamSelect?: (team: string) => void;
+  onPlayerSelect?: (x: number, y: number) => void;
+  selfPlayer?: NearbyPlayer;
   selfMarkers?: { teammate: boolean; crowned: boolean };
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -414,30 +446,17 @@ export function World({
               : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
           }
         />
-        {!onSelect &&
-          (players.length > 0 ||
-            selfMarkers.teammate ||
-            selfMarkers.crowned) && (
-            <div
-              className="nearby-player-layer"
-              aria-label="Players on this map"
-            >
-              {(selfMarkers.teammate || selfMarkers.crowned) && (
+        {!onSelect && selfPlayer && (
+          <div className="nearby-player-layer" aria-label="Players on this map">
+            {players.some((p) => p.x === pos.x && p.y === pos.y) &&
+              (selfMarkers.teammate || selfMarkers.crowned) && (
                 <div
-                  className={
-                    "self-player-markers " +
-                    (selfMarkers.teammate ? "teammate " : "") +
-                    (selfMarkers.crowned ? "crowned" : "")
-                  }
+                  className="self-player-markers"
                   style={{
                     left: `${((pos.x + 0.5) / 40) * 100}%`,
                     top: `${((pos.y + 0.5) / 28) * 100}%`,
                   }}
-                  aria-label={
-                    "Your explorer" +
-                    (selfMarkers.teammate ? ", teammate halo" : "") +
-                    (selfMarkers.crowned ? ", top-scoring team" : "")
-                  }
+                  aria-label="Your explorer markers"
                 >
                   {selfMarkers.teammate && (
                     <i className="team-halo" aria-hidden="true" />
@@ -448,38 +467,55 @@ export function World({
                 </div>
               )}
 
-              {players.map((p) => {
-                const character = characters.find((c) => c.id === p.hero);
-                return (
-                  <button
-                    type="button"
-                    disabled={!p.team || !onTeamSelect}
-                    aria-label={`View team for ${p.username}${p.teammate ? ", teammate" : ""}${p.crowned ? ", top-scoring team" : ""}`}
-                    onClick={() => p.team && onTeamSelect?.(p.team)}
-                    key={p.username}
-                    className={
-                      "nearby-player " +
-                      (p.teammate ? "teammate " : "") +
-                      (p.crowned ? "crowned" : "")
-                    }
-                    style={{
-                      left: `${((p.x + 0.5) / 40) * 100}%`,
-                      top: `${((p.y + 0.5) / 28) * 100}%`,
-                    }}
-                  >
-                    {p.teammate && (
-                      <i className="team-halo" aria-hidden="true" />
-                    )}
-                    {character && <Portrait hero={character} />}
-                    {p.crowned && (
-                      <Crown className="team-crown" aria-hidden="true" />
-                    )}
-                    <span>{p.username}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+            {Array.from(
+              new Map(
+                [...players, selfPlayer].map((p) => [
+                  `${p.x},${p.y}`,
+                  { x: p.x, y: p.y },
+                ]),
+              ).values(),
+            ).map((tile) => {
+              const occupants = [...players, selfPlayer].filter(
+                (p) => p.x === tile.x && p.y === tile.y,
+              );
+              const p =
+                occupants.find((p) => p.username !== selfPlayer.username) ||
+                selfPlayer;
+              const own = p.username === selfPlayer.username;
+              const character =
+                p.role === "admin"
+                  ? adminAvatar
+                  : characters.find((c) => c.id === p.hero);
+              return (
+                <button
+                  type="button"
+                  key={`${tile.x},${tile.y}`}
+                  className={
+                    "nearby-player " +
+                    (p.teammate ? "teammate " : "") +
+                    (p.crowned ? "crowned" : "")
+                  }
+                  style={{
+                    left: `${((tile.x + 0.5) / 40) * 100}%`,
+                    top: `${((tile.y + 0.5) / 28) * 100}%`,
+                  }}
+                  aria-label={`View players: ${occupants.map((p) => p.username).join(", ")}`}
+                  onClick={() => onPlayerSelect?.(tile.x, tile.y)}
+                >
+                  {p.teammate && <i className="team-halo" aria-hidden="true" />}
+                  {!own && character && <Portrait hero={character} />}
+                  {p.crowned && (
+                    <Crown className="team-crown" aria-hidden="true" />
+                  )}
+                  {!own && <span>{p.username}</span>}
+                  {occupants.length > 1 && (
+                    <b className="player-count">{occupants.length}</b>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
       <div className="map-label">
         <span className="live-dot" /> {mapName(map).toUpperCase()}{" "}
@@ -564,6 +600,11 @@ export default function Game() {
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
   const [team, setTeam] = useState<Team | null>(null);
+  const [playerTile, setPlayerTile] = useState<{
+    map: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [teamPanelOpen, setTeamPanelOpen] = useState(false),
     [selectedTeam, setSelectedTeam] = useState<string | null>(null),
     [readMessagesAt, setReadMessagesAt] = useState(0);
@@ -747,7 +788,8 @@ export default function Game() {
           "input,textarea,select,[contenteditable=true]",
         ) ||
         active ||
-        teamPanelOpen
+        teamPanelOpen ||
+        playerTile
       )
         return;
       const dirs: Record<string, number[]> = {
@@ -782,6 +824,7 @@ export default function Game() {
     canAdmin,
     team,
     teamPanelOpen,
+    playerTile,
   ]);
   async function login(e: React.FormEvent) {
     e.preventDefault();
@@ -926,7 +969,21 @@ export default function Game() {
     ).catch(() => {});
     return () => controller.abort();
   }, [user, map, pos, score, solved]);
-  const chosen = heroes.find((h) => h.id === (user?.hero || hero)) || heroes[0];
+  const chosen =
+    user && canAdmin
+      ? adminAvatar
+      : heroes.find((h) => h.id === (user?.hero || hero)) || heroes[0];
+  const selfPlayer: NearbyPlayer | undefined = user
+    ? {
+        username: user.username,
+        hero: user.hero,
+        role: canAdmin ? "admin" : "student",
+        x: pos.x,
+        y: pos.y,
+        team: team?.id || null,
+        ...presence.self,
+      }
+    : undefined;
   return (
     <main>
       <header>
@@ -990,6 +1047,7 @@ export default function Game() {
                   if (!r.ok) throw Error();
                   setUser(null);
                   setTeamPanelOpen(false);
+                  setPlayerTile(null);
                   setReadMessagesAt(0);
                   setActive(null);
                   setTeam(null);
@@ -1009,6 +1067,23 @@ export default function Game() {
           )}
         </div>
       </header>
+      <PlayerPopup
+        tile={playerTile}
+        onClose={() => setPlayerTile(null)}
+        players={
+          playerTile?.map === map
+            ? [...presence.players, ...(selfPlayer ? [selfPlayer] : [])].filter(
+                (p) => p.x === playerTile.x && p.y === playerTile.y,
+              )
+            : []
+        }
+        characters={heroes}
+        featureRevision={presence.features.revision}
+        onMessage={(id) => {
+          setPlayerTile(null);
+          openTeam(id);
+        }}
+      />
       <TeamPanel
         open={teamPanelOpen}
         onOpenChange={setTeamPanelOpen}
@@ -1158,7 +1233,8 @@ export default function Game() {
               hero={chosen}
               players={presence.players}
               selfMarkers={presence.self}
-              onTeamSelect={openTeam}
+              selfPlayer={selfPlayer}
+              onPlayerSelect={(x, y) => setPlayerTile({ map, x, y })}
               characters={heroes}
               map={map}
               pos={pos}
@@ -1471,5 +1547,132 @@ export default function Game() {
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+function PlayerPopup({
+  tile,
+  onClose,
+  players,
+  characters,
+  onMessage,
+  featureRevision,
+}: {
+  tile: { map: string; x: number; y: number } | null;
+  onClose: () => void;
+  players: NearbyPlayer[];
+  characters: Character[];
+  onMessage: (id: string) => void;
+  featureRevision: number;
+}) {
+  const [teams, setTeams] = useState<
+    { id: string; label: string; score?: number; canMessage: boolean }[] | null
+  >(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!tile) return;
+    let live = true;
+    const controller = new AbortController();
+    async function load(reset = false) {
+      if (!live) return;
+      if (reset) {
+        setTeams(null);
+        setError("");
+      }
+      try {
+        const r = await fetch("/api/team-social", {
+          signal: controller.signal,
+        });
+        const d = (await r.json()) as {
+          error?: string;
+          teams: {
+            id: string;
+            label: string;
+            score?: number;
+            canMessage: boolean;
+          }[];
+        };
+        if (!r.ok) throw Error(d.error || "Could not load team details.");
+        if (live) {
+          setTeams(d.teams);
+          setError("");
+        }
+      } catch (e) {
+        if (live) {
+          setTeams(null);
+          setError((e as Error).message);
+        }
+      }
+    }
+    void Promise.resolve().then(() => load(true));
+    const timer = setInterval(() => void load(), 5000);
+    return () => {
+      live = false;
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, [tile, featureRevision]);
+  return (
+    <Dialog
+      open={!!tile}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="player-dialog">
+        <DialogTitle>Players at this location</DialogTitle>
+        <p className="player-popup-note">
+          {players.length} {players.length === 1 ? "player" : "players"} · Tile{" "}
+          {tile?.x}, {tile?.y}
+        </p>
+        {error && <p role="alert">{error}</p>}
+        <div className="player-card-list">
+          {!players.length && <p>These players have moved or left the map.</p>}
+          {players.map((p) => {
+            const t = teams?.find((t) => t.id === p.team);
+            const character =
+              p.role === "admin"
+                ? adminAvatar
+                : characters.find((c) => c.id === p.hero);
+            return (
+              <article className="player-card" key={p.username}>
+                {character && <Portrait hero={character} />}
+                <div>
+                  <strong>{p.username}</strong>
+                  {p.role === "admin" && (
+                    <small className="admin-player-label">Administrator</small>
+                  )}
+                  <p>
+                    Team:{" "}
+                    {p.team
+                      ? t?.label || (teams ? "Unavailable" : "Loading…")
+                      : "No team"}
+                  </p>
+                  {p.team && (
+                    <p>
+                      Team score:{" "}
+                      {t?.score !== undefined
+                        ? t.score
+                        : teams
+                          ? "Hidden by admin"
+                          : "Loading…"}
+                    </p>
+                  )}
+                  {t?.canMessage && (
+                    <button
+                      type="button"
+                      className="player-message"
+                      onClick={() => onMessage(t.id)}
+                    >
+                      Send message to team
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

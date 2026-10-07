@@ -214,12 +214,21 @@ test("presence isolates teams, allows admin-controlled all/off, expires ghosts, 
     assert.deepEqual(Object.keys(result.data.players[0]).sort(), [
       "crowned",
       "hero",
+      "role",
       "team",
       "teammate",
       "username",
       "x",
       "y",
     ]);
+    assert.ok(result.data.players.every((p) => p.role === "student"));
+    await admin("/api/presence", position);
+    const instructor = (await a("/api/presence", position)).data.players.find(
+      (p) => p.username === "teacher",
+    );
+    assert.equal(instructor.role, "admin");
+    assert.equal(instructor.team, null);
+    await admin("/api/presence", undefined, "DELETE");
     await b("/api/presence", { map: "castle", x: 20, y: 23, themeRevision: 0 });
     assert.deepEqual(
       (await a("/api/presence", position)).data.players.map((p) => p.username),
