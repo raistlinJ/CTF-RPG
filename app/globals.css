@@ -1925,3 +1925,20 @@ input::placeholder {
 .challenge-availability small { display: block; position: absolute; top: 100%; right: 0; margin-top: 3px; font-size: 11px; color: #a7e8cf; max-width: 270px; }
 .challenge-availability small[role="alert"] { position: static; color: #ffb7b7; }
 @media (max-width: 650px) { .challenge-availability { margin-left: auto; } }
+
+.theme-subnav { display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-bottom:24px; border-bottom:1px solid #304652; padding-bottom:14px; }
+.theme-subnav strong { margin-right:auto; }
+.theme-subnav a { color:#a3e7ca; text-decoration:none; padding:6px 0; }
+.theme-subnav a[aria-current="page"] { border-bottom:2px solid #a3e7ca; font-weight:600; }
+.theme-audio-form { max-width:780px; margin-top:24px; }
+.theme-audio-form fieldset { border:0; padding:0; margin:0; min-width:0; }
+.theme-audio-form legend { font-size:20px; font-weight:600; margin-bottom:12px; }
+.theme-audio-form p,.audio-description { color:#a1bcc3; line-height:1.6; }
+.audio-track-list { list-style:none; padding:0; margin:16px 0; }
+.audio-track-list li { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid #304652; }
+.audio-track-list li>span { overflow-wrap:anywhere; min-width:0; }
+.audio-track-list li>div { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+.theme-audio-form input[type="range"] { padding:0; accent-color:#a3e7ca; }
+.theme-audio-form input[type="checkbox"] { width:auto; }
+@media(max-width:600px) { .audio-track-list li { flex-wrap:wrap; } }
+.theme-audio-form .check-row { display:flex; flex-direction:row; align-items:center; gap:10px; margin:14px 0; }

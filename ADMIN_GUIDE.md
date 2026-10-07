@@ -132,3 +132,21 @@ The game journal shows only discovered, submitted, and solved questions, with a 
 At the top right of Challenge studio, use **Challenge availability** to choose **All** or **Admins-only**. Changes save automatically. **All** lets students see challenges marked **Visible**; **Admins-only** hides all challenges from students. Each challenge also has a **Visible/Hidden** dropdown saved with its definition. Hidden challenges remain available to administrators for testing and editing. Visibility changes reach active games on the next three-second update; student requests for hidden questions, hints, and answers are rejected. Existing progress and scores are preserved.
 
 Challenge YAML supports `visibility: visible` or `visibility: hidden` (defaults to `visible`). This field travels with content export/import. Full backups also preserve the global visibility setting; older backups default to All. Theme-only packs do not change challenge visibility.
+
+### Theme pages and MIDI playlists
+**Theme → Import / Export** contains the theme presets and independent theme/content pack import and export controls. **Theme → Audio** lets administrators add multiple `.mid` or `.midi` files, preview and remove tracks, set volume, and choose whether the shuffled playlist repeats. Click **Save audio** to publish changes, then reload the game to load the new playlist. Players still control sound with the game's sound/mute button. Each shuffle round plays every track once; when possible, the next round starts with a different track than the previous round ended with. Removing a track from the playlist does not delete an asset that another export or map may reference.
+
+Audio is part of the theme: theme packs and full backups contain every playlist file. Content-only packs contain challenges and do not change audio. The existing `audio.midi` setting is supported for single-file configurations. Multiple tracks can be configured as:
+
+```yaml
+audio:
+  playlist:
+    - name: Campus music
+      midi: /music/campus.mid
+    - name: Lab music
+      midi: /music/lab.midi
+  loop: true
+  volume: 0.15
+```
+
+Supply the MIDI files in the server's public directory when configuring paths in YAML. A nonempty playlist takes precedence over `audio.midi`. Admin uploads accept up to 20 tracks, 5 MB per file; the complete theme pack must remain within the existing 8 MB asset limit.

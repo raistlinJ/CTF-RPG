@@ -1,3 +1,4 @@
+import { handleThemeAudio } from "./theme-audio.mjs";
 import { challengeSettings, visibleChallenges, handleChallengeSettings } from "./challenge-visibility.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import {
@@ -271,6 +272,7 @@ function createRequestApi({
         );
       }
     }
+    if (path === "/api/admin/theme-audio") return handleThemeAudio(req,{db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset});
     if (path === "/api/admin/packs") {
       const u = await user(req);
       if (!platformAdmin && u?.role !== "admin")

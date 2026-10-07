@@ -733,9 +733,11 @@ export default function Game() {
         if (audio.current) await audio.current.suspend();
         setMuted(true);
       } else {
-        if (!config?.audio.midi)
+        if (!config?.audio.midi && !config?.audio.playlist?.length)
           throw Error("No background music is configured.");
-        music.current ??= new MidiPlayer(config.audio);
+        music.current ??= new MidiPlayer(config.audio, (e) => {
+          setAudioError(e.message); setMuted(true); music.current = null;
+        });
         await music.current.play();
         if (audio.current) await audio.current.resume();
         setMuted(false);
@@ -1078,7 +1080,7 @@ export default function Game() {
             className="icon-button"
             aria-label={muted ? "Enable sound" : "Mute sound"}
             onClick={toggleMusic}
-            disabled={audioBusy || !config?.audio.midi}
+            disabled={audioBusy || (!config?.audio.midi && !config?.audio.playlist?.length)}
           >
             {muted ? <VolumeX size={19} /> : <Volume2 size={19} />}
           </button>

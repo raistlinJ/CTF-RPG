@@ -119,7 +119,7 @@ export default function Review() {
         <nav className="admin-header-links">
           <a href="/admin/teams">Manage</a>
           <a href="/admin">Challenges</a>
-          <a href="/admin/packs">Themes &amp; content</a>
+          <a href="/admin/theme">Theme</a>
           <a href="/">Game</a>
         </nav>
       </header>

@@ -4,7 +4,8 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import Game from "../app/page";
 import Review from "../app/admin/review/page";
-import PacksAdmin from "../app/admin/packs/page";
+import PacksAdmin from "../app/admin/theme/import-export/page";
+import AudioAdmin from "../app/admin/theme/audio/page";
 import TeamsAdmin from "../app/admin/teams/page";
 import UsersPage from "../app/admin/users/page";
 import Scoreboard from "../app/scoreboard/page";
@@ -14,7 +15,9 @@ createRoot(document.getElementById("root")!).render(
   <>
     {window.location.pathname.startsWith("/admin/review") ? (
       <Review />
-    ) : window.location.pathname.startsWith("/admin/packs") ? (
+    ) : window.location.pathname.startsWith("/admin/theme/audio") ? (
+      <AudioAdmin />
+    ) : window.location.pathname.startsWith("/admin/packs") || window.location.pathname.startsWith("/admin/theme") ? (
       <PacksAdmin />
     ) : window.location.pathname.startsWith("/admin/teams") ? (
       <TeamsAdmin />

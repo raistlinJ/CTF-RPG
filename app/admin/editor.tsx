@@ -285,8 +285,8 @@ export default function Admin() {
           <a className="admin-link" href="/admin/review">
             Review answers
           </a>
-          <a className="admin-link" href="/admin/packs">
-            Themes &amp; content
+          <a className="admin-link" href="/admin/theme">
+            Theme
           </a>
           <a className="admin-link" href="/admin/teams">
             Teams
