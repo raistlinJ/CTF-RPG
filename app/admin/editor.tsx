@@ -435,6 +435,7 @@ export default function Admin() {
                   )}
                 </div>
                 <MapSettings
+                  key={`${draft.map}:${themeRevision}`}
                   world={activeWorld}
                   onOpenChange={setMapEditing}
                   challenges={catalog}
