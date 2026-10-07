@@ -1,3 +1,4 @@
+import { challengeSettings, visibleChallenges } from "./challenge-visibility.mjs";
 import {
   teamFeatures,
   messageStats,
@@ -97,13 +98,15 @@ export async function handlePresence(
     scores.get(team) === best &&
     teamPolicy(features, admin || own).scores;
   const counts = (await db.prepare("SELECT challenge,COUNT(*) AS count FROM solved GROUP BY challenge").bind().all()).results;
-  const currentCatalog = catalog ? (await catalog()).challenges : [];
-  const challengeSolves = currentCatalog.map((c) => ({
+  const currentCatalog = catalog ? await catalog() : {challenges:[],revision:0};
+  const settings = await challengeSettings(db);
+  const challengeSolves = visibleChallenges(currentCatalog.challenges, settings, admin).map((c) => ({
     id: c.id, map: c.map, x: c.location.x, y: c.location.y,
     count: counts.find((r) => r.challenge === c.id)?.count || 0,
   }));
   const social = {
     challengeSolves,
+    gameRevision: `${currentCatalog.revision}:${settings.revision}`,
     self: { teammate: !!member, crowned: crowned(member?.team, true) },
     teamFeatures: features,
     ...(await messageStats(db, features, member?.team, u.id, admin)),

@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS team_messages(id TEXT PRIMARY KEY,sender_user TEXT RE
 CREATE INDEX IF NOT EXISTS idx_team_messages_recipient_created ON team_messages(recipient_team,created_at);
 CREATE INDEX IF NOT EXISTS idx_team_messages_sender_team_created ON team_messages(sender_team,created_at);
 CREATE INDEX IF NOT EXISTS idx_team_messages_sender_user_created ON team_messages(sender_user,created_at);
+CREATE TABLE IF NOT EXISTS challenge_settings(id TEXT PRIMARY KEY,visibility TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS scoreboard_settings(id TEXT PRIMARY KEY,visibility TEXT NOT NULL,mode TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS instructor_messages(id TEXT PRIMARY KEY,sender_user TEXT NOT NULL REFERENCES students(id),team TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,sender TEXT NOT NULL,text TEXT NOT NULL,created_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_instructor_messages_team_created ON instructor_messages(team,created_at);

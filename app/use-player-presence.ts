@@ -20,6 +20,7 @@ export function usePlayerPresence(
   pos: { x: number; y: number },
   themeRevision: number | undefined,
 ) {
+  const [gameRevision, setGameRevision] = useState<string>();
   const [challengeSolves, setChallengeSolves] = useState<ChallengeSolve[]>([]);
   const [solveShines, setSolveShines] = useState<SolveShine[]>([]);
   const [messageCount, setMessageCount] = useState(0);
@@ -84,6 +85,7 @@ export function usePlayerPresence(
           signal: controller.signal,
         });
         const d = (await r.json()) as {
+          gameRevision: string;
           challengeSolves: ChallengeSolve[];
           players: NearbyPlayer[];
           visibility: string;
@@ -98,6 +100,7 @@ export function usePlayerPresence(
         if (live && !document.hidden && current.current.map === sent.map) {
           const counts = d.challengeSolves || [];
           setChallengeSolves(counts);
+          setGameRevision(d.gameRevision);
           const fresh = counts.filter((c) => previousSolves && previousSolves.has(c.id) && c.count > previousSolves.get(c.id)! && c.map === sent.map);
           previousSolves = new Map(counts.map((c) => [c.id, c.count]));
           if (fresh.length) {
@@ -164,6 +167,7 @@ export function usePlayerPresence(
     latestMessageAt,
     messageCount,
     challengeSolves,
+    gameRevision,
     solveShines: solveShines.filter((c) => c.map === map),
     scoreboard,
     status,

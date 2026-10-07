@@ -1,3 +1,4 @@
+import { challengeSettings } from "./challenge-visibility.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { scoreboardSettings } from "./social-controls.mjs";
 import { teamFeatures } from "./team-social.mjs";
@@ -117,6 +118,7 @@ export function validateSnapshot(input) {
         )
         .max(100000)
         .default([]),
+      challengeSettings: z.object({visibility:z.enum(["admins","all"]),revision:z.number().int().min(0)}).strict().optional(),
       scoreboardSettings: z
         .object({
           visibility: z.enum(["admins", "all"]),
@@ -389,6 +391,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
         .bind()
         .all()
     ).results,
+    challengeSettings: await challengeSettings(db),
     scoreboardSettings: await scoreboardSettings(db),
     playerVisibility: (await presenceSettings(db, config)).visibility,
     teamMaxMembers:

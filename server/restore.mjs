@@ -46,6 +46,7 @@ try {
     for (const table of [
       "instructor_messages",
       "scoreboard_settings",
+      "challenge_settings",
       "team_messages",
       "team_social_settings",
       "player_presence",
@@ -99,6 +100,7 @@ try {
         "INSERT INTO presence_settings(id,visibility,revision) VALUES('active',?,1)",
       )
       .run(snapshot.playerVisibility || snapshot.config.presence.visibility);
+    sqlite.prepare("INSERT INTO challenge_settings(id,visibility,revision) VALUES('active',?,1)").run(snapshot.challengeSettings?.visibility || "all");
     const scoreSettings = snapshot.scoreboardSettings || {
       visibility: "all",
       mode: "individual",

@@ -168,6 +168,7 @@ test("students reach instructor inbox; conversations isolate teams; replies and 
     assert.ok(
       !(await b("/api/game")).data.discovered.includes(challenges[0].id),
     );
+    await admin("/api/admin/challenge-visibility", {visibility:"admins",revision:0});
     const snapshot = await createSnapshot({ db, config, challenges });
     assert.equal(
       snapshot.accounts.find((a) => a.username === "alice").muted,
@@ -223,6 +224,7 @@ test("students reach instructor inbox; conversations isolate teams; replies and 
           .get().n,
         1,
       );
+      assert.equal(recovered.prepare("SELECT visibility FROM challenge_settings").get().visibility,"admins");
       recovered.close();
     } finally {
       rmSync(restoredRoot, { recursive: true, force: true });
@@ -360,4 +362,40 @@ test("challenge solve totals reach every player's map feed, including visibility
     assert.equal((await b("/api/game", {id:challenge.id, answer})).data.correct, true);
     assert.equal((await a("/api/presence", position)).data.challengeSolves.find(c => c.id === challenge.id).count, 2);
   } finally { sqlite.close(); }
+});
+
+
+test("global and individual challenge visibility protect game data, hints, discoveries, submissions and solve feeds without losing progress", async () => {
+  const { sqlite, db, config, challenges, client } = setup();
+  try {
+    const admin=client(), student=client(); await login(admin,"teacher"); await login(student,"alice");
+    await student("/api/teams",{mode:"create",name:"Class",password:"team-password"});
+    const original=challenges[0];
+    const before=await student("/api/game"); assert.equal(before.data.challenges.length,challenges.length);
+    assert.equal((await student("/api/admin/challenge-visibility")).status,403);
+    assert.equal((await student("/api/admin/challenge-visibility",{visibility:"admins",revision:0})).status,403);
+    assert.equal((await admin("/api/admin/challenge-visibility",{visibility:"invalid",revision:0})).status,400);
+    assert.equal((await admin("/api/admin/challenge-visibility",{visibility:"admins",revision:0})).status,200);
+    assert.equal((await admin("/api/admin/challenge-visibility",{visibility:"all",revision:0})).status,409);
+    assert.equal((await student("/api/game")).data.challenges.length,0);
+    assert.equal((await admin("/api/game")).data.challenges.length,challenges.length);
+    assert.deepEqual((await student("/api/presence",position)).data.challengeSolves,[]);
+    for (const body of [{id:original.id,answer:original.flags[0]},{id:original.id,action:"discover"},{id:original.id,action:"hint",hintId:original.hints[0]?.id}]) assert.equal((await student("/api/game",body)).status,400);
+    const catalog=await admin("/api/admin/challenges");
+    const hidden={...catalog.data.challenges[0],visibility:"hidden"};
+    assert.equal((await admin("/api/admin/challenges",{challenge:hidden,editingId:hidden.id,revision:catalog.data.revision})).status,200);
+    await admin("/api/admin/challenge-visibility",{visibility:"all",revision:1});
+    const visible=await student("/api/game"); assert.equal(visible.data.challenges.some(c=>c.id===hidden.id),false);
+    assert.equal((await student("/api/presence",position)).data.challengeSolves.some(c=>c.id===hidden.id),false);
+    assert.equal((await admin("/api/presence",position)).data.challengeSolves.some(c=>c.id===hidden.id),true);
+    assert.equal((await student("/api/game",{id:hidden.id,answer:hidden.flags[0]})).status,400);
+    const snapshot=await createSnapshot({db,config,challenges});
+    assert.equal(snapshot.challengeSettings.visibility,"all");
+    assert.equal(snapshot.challenges.find(c=>c.id===hidden.id).visibility,"hidden");
+    assert.equal(validateSnapshot(snapshot).challengeSettings.visibility,"all");
+    const legacy={...snapshot}; delete legacy.challengeSettings; assert.equal(validateSnapshot(legacy).challengeSettings,undefined);
+    const latest=await admin("/api/admin/challenges");
+    await admin("/api/admin/challenges",{challenge:{...hidden,visibility:"visible"},editingId:hidden.id,revision:latest.data.revision});
+    assert.equal((await student("/api/game")).data.challenges.length,challenges.length);
+  } finally {sqlite.close();}
 });

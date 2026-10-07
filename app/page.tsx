@@ -653,6 +653,9 @@ export default function Game() {
       previous ? d.challenges.find((c) => c.id === previous.id) || null : null,
     );
   }
+  useEffect(() => {
+    if (user && presence.gameRevision !== undefined) void loadGame().catch((e) => setNotice(e.message));
+  }, [presence.gameRevision]);
   async function loadGame() {
     const r = await fetch("/api/game");
     const d = (await r.json()) as GameResponse;

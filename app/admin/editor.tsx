@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { World } from "../page";
 import MapSettings from "./map-settings";
+import ChallengeVisibilityControls from "./challenge-visibility-controls";
 import {
   MAP_IDS,
   mapName,
@@ -36,6 +37,7 @@ type Definition = {
   region: string;
   text: string;
   flags: string[];
+  visibility: "hidden" | "visible";
   grading: "automatic" | "manual";
   caseSensitive: boolean;
   points: number;
@@ -63,6 +65,7 @@ const fresh = (map = "town", x = 18, y = 20): Draft => ({
   region: mapName(map),
   text: "",
   flagsText: "",
+  visibility: "visible",
   grading: "automatic",
   caseSensitive: false,
   points: 100,
@@ -71,6 +74,7 @@ const fresh = (map = "town", x = 18, y = 20): Draft => ({
 });
 const toDraft = (c: Definition): Draft => ({
   ...c,
+  visibility: c.visibility || "visible",
   grading: c.grading || "automatic",
   hints: c.hints.map((h) => ({ ...h })),
   downloads: c.downloads.map((f) => ({ ...f })),
@@ -257,7 +261,7 @@ export default function Admin() {
       const saved = d.challenges.find((c) => c.id === draft.id)!;
       choose(toDraft(saved), saved.id);
       setMessage(
-        "Saved. Students will see this challenge when they next load their expedition.",
+        "Saved. Active games will pick up the challenge and its visibility on their next update.",
       );
     } catch (e) {
       setError((e as Error).message);
@@ -340,6 +344,7 @@ export default function Admin() {
       ) : (
         draft && (
           <section className="admin-workspace">
+            <ChallengeVisibilityControls />
             <div className="admin-heading">
               <div>
                 <span className="eyebrow">BUILD THE TREASURE HUNT</span>
@@ -468,7 +473,7 @@ export default function Admin() {
                           <div>
                             <b>{c.object}</b>
                             <small>
-                              {c.region} · {c.location.x}, {c.location.y}
+                              {c.region} · {c.location.x}, {c.location.y} · {c.visibility === "hidden" ? "Hidden" : "Visible"}
                             </small>
                           </div>
                           <strong>{c.points} pts</strong>
@@ -582,6 +587,13 @@ export default function Admin() {
                     onChange={(e) => patch({ text: e.target.value })}
                     placeholder="What should students discover or solve?"
                   />
+                </label>
+                <label>
+                  Challenge visibility
+                  <select aria-label="Individual challenge visibility" value={draft.visibility} onChange={(e) => patch({visibility: e.target.value as "hidden" | "visible"})}>
+                    <option value="visible">Visible</option><option value="hidden">Hidden</option>
+                  </select>
+                  <small>Hidden challenges are available only to admins. The global setting can restrict all challenges to admins.</small>
                 </label>
                 <label>
                   Answer checking

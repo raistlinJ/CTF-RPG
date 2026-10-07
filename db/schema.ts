@@ -215,3 +215,7 @@ export const discoveredChallenges = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.user, t.challenge] })],
 );
+
+export const challengeSettings = sqliteTable("challenge_settings", {
+  id: text("id").primaryKey(), visibility: text("visibility").notNull(), revision: integer("revision").notNull(),
+});

@@ -1,3 +1,4 @@
+import { challengeSettings, visibleChallenges, handleChallengeSettings } from "./challenge-visibility.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import {
   scoreboardSettings,
@@ -121,8 +122,10 @@ function createRequestApi({
       ? { challenges: JSON.parse(saved.payload), revision: saved.revision }
       : { challenges, revision: 0 };
   }
-  async function gameState(userId) {
-    const { challenges } = await catalog();
+  async function gameState(userId, admin = false) {
+    const current = await catalog();
+    const settings = await challengeSettings(db);
+    const challenges = visibleChallenges(current.challenges, settings, admin);
     const completions = await db
       .prepare("SELECT challenge,points FROM solved WHERE user=?")
       .bind(userId)
@@ -204,6 +207,7 @@ function createRequestApi({
       req.headers.get("origin") !== new URL(req.url).origin
     )
       return json({ error: "Invalid request origin." }, 403);
+    if (path === "/api/admin/challenge-visibility") return handleChallengeSettings(req, {db, user, platformAdmin});
     if (["/api/admin/mute", "/api/admin/scoreboard"].includes(path))
       return handleSocialControls(req, { db, user, platformAdmin });
     if (["/api/presence", "/api/admin/presence"].includes(path))
@@ -900,11 +904,13 @@ function createRequestApi({
     if (path === "/api/game") {
       const u = await user(req);
       if (!u) return json({ error: "Sign in to play." }, 401);
-      if (method === "GET") return json(await gameState(u.id));
+      const admin = platformAdmin || u.role === "admin";
+      if (method === "GET") return json(await gameState(u.id, admin));
       if (method === "POST") {
         const { id, answer, action, hintId, revision } = await req.json();
         const { challenges } = await catalog();
-        const c = challenges.find((c) => c.id === id);
+        const settings = await challengeSettings(db);
+        const c = visibleChallenges(challenges, settings, admin).find((c) => c.id === id);
         if (!c) return json({ error: "Unknown challenge." }, 400);
         if (action === "discover") {
           await db
@@ -913,7 +919,7 @@ function createRequestApi({
             )
             .bind(u.id, c.id)
             .run();
-          return json(await gameState(u.id));
+          return json(await gameState(u.id, admin));
         }
         if (action === "hint") {
           const hint = c.hints.find((h) => h.id === hintId);
@@ -940,7 +946,7 @@ function createRequestApi({
               },
               409,
             );
-          return json({ ...(await gameState(u.id)), unlockedHint: hint.id });
+          return json({ ...(await gameState(u.id, admin)), unlockedHint: hint.id });
         }
         if (action !== undefined && action !== "answer")
           return json({ error: "Unknown action." }, 400);
@@ -988,7 +994,7 @@ function createRequestApi({
               },
               409,
             );
-          return json({ submitted: true, ...(await gameState(u.id)) });
+          return json({ submitted: true, ...(await gameState(u.id, admin)) });
         }
         if (typeof answer !== "string" || answer.length > 500)
           return json({ error: "Invalid answer." }, 400);
@@ -1015,7 +1021,7 @@ function createRequestApi({
         return json({
           correct: true,
           awardedPoints: award.points,
-          ...(await gameState(u.id)),
+          ...(await gameState(u.id, admin)),
         });
       }
     }
