@@ -61,6 +61,7 @@ type GameConfig = {
     world: typeof activeWorld;
   };
   themeRevision: number;
+  scoreboard: { visibility: "admins" | "all"; mode: string };
 };
 type Challenge = {
   id: string;
@@ -93,7 +94,12 @@ type Challenge = {
   }[];
   downloads: { name: string; url: string; filename?: string }[];
 };
-type GameState = { challenges: Challenge[]; solved: string[]; score: number };
+type GameState = {
+  challenges: Challenge[];
+  solved: string[];
+  score: number;
+  discovered: string[];
+};
 type GameResponse = GameState & {
   error?: string;
   correct?: boolean;
@@ -263,6 +269,7 @@ export function World({
   characters = [],
   onPlayerSelect,
   selfPlayer,
+  messageCount = 0,
   selfMarkers = { teammate: false, crowned: false },
 }: {
   hero: Character;
@@ -279,6 +286,7 @@ export function World({
   characters?: Character[];
   onPlayerSelect?: (x: number, y: number) => void;
   selfPlayer?: NearbyPlayer;
+  messageCount?: number;
   selfMarkers?: { teammate: boolean; crowned: boolean };
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -443,6 +451,19 @@ export function World({
         />
         {!onSelect && selfPlayer && (
           <div className="nearby-player-layer" aria-label="Players on this map">
+            {messageCount > 0 && (
+              <div
+                className="avatar-message-badge"
+                role="status"
+                aria-label={`${messageCount} new messages`}
+                style={{
+                  left: `${((pos.x + 0.5) / 40) * 100}%`,
+                  top: `${((pos.y + 0.5) / 28) * 100}%`,
+                }}
+              >
+                {messageCount}
+              </div>
+            )}
             {players.some((p) => p.x === pos.x && p.y === pos.y) &&
               (selfMarkers.teammate || selfMarkers.crowned) && (
                 <div
@@ -594,6 +615,7 @@ export default function Game() {
   const [audioBusy, setAudioBusy] = useState(false);
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
+  const [discovered, setDiscovered] = useState<string[]>([]);
   const [team, setTeam] = useState<Team | null>(null);
   const [playerTile, setPlayerTile] = useState<{
     map: string;
@@ -617,6 +639,9 @@ export default function Game() {
   function applyGame(d: GameState) {
     setChallenges(d.challenges);
     setSolved(d.solved);
+    setDiscovered((ids) =>
+      Array.from(new Set([...ids, ...(d.discovered || [])])),
+    );
     setScore(d.score);
     setActive((previous) =>
       previous ? d.challenges.find((c) => c.id === previous.id) || null : null,
@@ -754,6 +779,19 @@ export default function Game() {
         Math.abs(c.location.x - pos.x) + Math.abs(c.location.y - pos.y) <= 2,
     );
     if (q) {
+      setDiscovered((ids) => (ids.includes(q.id) ? ids : [...ids, q.id]));
+      void fetch("/api/game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: q.id, action: "discover" }),
+      })
+        .then(async (r) => {
+          if (!r.ok)
+            throw Error(
+              "Could not save discovery. Search this challenge again to retry.",
+            );
+        })
+        .catch((e) => setNotice(e.message));
       setActive(q);
       setAnswer(q.submission?.answer || "");
       setFeedback("");
@@ -1007,20 +1045,20 @@ export default function Game() {
               {(presence.features.messaging ||
                 presence.features.everyone.messaging) &&
                 presence.latestMessageAt > readMessagesAt && (
-                  <span
-                    className="message-badge"
-                    aria-label="New team messages"
-                  >
+                  <span className="message-badge" aria-label="New messages">
                     ●
                   </span>
                 )}
             </button>
           )}
-          {user && (
-            <a href="/scoreboard" className="admin-link">
-              Scores
-            </a>
-          )}
+          {user &&
+            (canAdmin ||
+              (presence.scoreboard || config?.scoreboard)?.visibility !==
+                "admins") && (
+              <a href="/scoreboard" className="admin-link">
+                Scores
+              </a>
+            )}
           {canAdmin && (
             <a href="/admin/teams" className="admin-link">
               Manage
@@ -1047,6 +1085,7 @@ export default function Game() {
                   setPlayerTile(null);
                   setReadMessagesAt(0);
                   setActive(null);
+                  setDiscovered([]);
                   setTeam(null);
                   setCanAdmin(false);
                   setPlace({
@@ -1075,6 +1114,7 @@ export default function Game() {
             : []
         }
         characters={heroes}
+        canAdmin={canAdmin}
         featureRevision={presence.features.revision}
         onMessage={(id) => {
           setPlayerTile(null);
@@ -1230,6 +1270,7 @@ export default function Game() {
               hero={chosen}
               players={presence.players}
               selfMarkers={presence.self}
+              messageCount={presence.messageCount}
               selfPlayer={selfPlayer}
               onPlayerSelect={(x, y) => setPlayerTile({ map, x, y })}
               characters={heroes}
@@ -1315,65 +1356,59 @@ export default function Game() {
             <div className="journal">
               <div className="journal-title">
                 <h2>Treasure journal</h2>
-                <span>
-                  {solved.length} / {challenges.length}
-                </span>
-              </div>
-              <div className="progress">
-                <i
-                  style={{
-                    width: `${challenges.length ? (solved.length / challenges.length) * 100 : 0}%`,
-                  }}
-                />
+                <span>{solved.length} solved</span>
               </div>
               <p>
                 Find an object. Solve its challenge.
                 <br />
                 Add a little magic to your journey.
               </p>
-              {challenges.map((q, i) => (
-                <div
-                  className={
-                    "journal-item " + (solved.includes(q.id) ? "found" : "")
-                  }
-                  key={q.id}
-                >
-                  <span className="item-icon">
-                    {solved.includes(q.id)
-                      ? "✦"
-                      : String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <b>
-                      {solved.includes(q.id) || q.submission
-                        ? q.object
-                        : "Undiscovered treasure"}
-                    </b>
-                    <small>
-                      {q.region}
-                      {q.submission?.status === "pending"
-                        ? " · Awaiting review"
-                        : ""}
-                    </small>
-                    {q.submission && (
-                      <button
-                        className="text-button"
-                        onClick={() => {
-                          setActive(q);
-                          setAnswer(q.submission!.answer);
-                          setFeedback("");
-                          setHintMessage("");
-                        }}
-                      >
-                        View response
-                      </button>
-                    )}
+              {challenges
+                .filter(
+                  (q) =>
+                    solved.includes(q.id) ||
+                    q.submission ||
+                    discovered.includes(q.id),
+                )
+                .map((q, i) => (
+                  <div
+                    className={
+                      "journal-item " + (solved.includes(q.id) ? "found" : "")
+                    }
+                    key={q.id}
+                  >
+                    <span className="item-icon">
+                      {solved.includes(q.id)
+                        ? "✦"
+                        : String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <b>{q.object}</b>
+                      <small>
+                        {q.region}
+                        {q.submission?.status === "pending"
+                          ? " · Awaiting review"
+                          : ""}
+                      </small>
+                      {q.submission && (
+                        <button
+                          className="text-button"
+                          onClick={() => {
+                            setActive(q);
+                            setAnswer(q.submission!.answer);
+                            setFeedback("");
+                            setHintMessage("");
+                          }}
+                        >
+                          View response
+                        </button>
+                      )}
+                    </div>
+                    <span>
+                      {solved.includes(q.id) ? "✓" : `+${q.remainingPoints}`}
+                    </span>
                   </div>
-                  <span>
-                    {solved.includes(q.id) ? "✓" : `+${q.remainingPoints}`}
-                  </span>
-                </div>
-              ))}
+                ))}
             </div>
             <div className="tip">
               <Flag size={20} />
@@ -1554,6 +1589,7 @@ function PlayerPopup({
   characters,
   onMessage,
   featureRevision,
+  canAdmin,
 }: {
   tile: { map: string; x: number; y: number } | null;
   onClose: () => void;
@@ -1561,11 +1597,41 @@ function PlayerPopup({
   characters: Character[];
   onMessage: (id: string) => void;
   featureRevision: number;
+  canAdmin: boolean;
 }) {
   const [teams, setTeams] = useState<
     { id: string; label: string; score?: number; canMessage: boolean }[] | null
   >(null);
   const [error, setError] = useState("");
+  const [mutes, setMutes] = useState<
+    { username: string; muted: boolean; revision: number }[]
+  >([]);
+  const [muting, setMuting] = useState<string | null>(null);
+  async function toggleMute(username: string) {
+    const current = mutes.find((m) => m.username === username);
+    if (!current) return;
+    setMuting(username);
+    setError("");
+    try {
+      const r = await fetch("/api/admin/mute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...current, muted: !current.muted }),
+      });
+      const d = (await r.json()) as {
+        username: string;
+        muted: boolean;
+        revision: number;
+        error?: string;
+      };
+      if (!r.ok) throw Error(d.error || "Could not mute user.");
+      setMutes((ms) => ms.map((m) => (m.username === username ? d : m)));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setMuting(null);
+    }
+  }
   useEffect(() => {
     if (!tile) return;
     let live = true;
@@ -1592,6 +1658,13 @@ function PlayerPopup({
         if (!r.ok) throw Error(d.error || "Could not load team details.");
         if (live) {
           setTeams(d.teams);
+          if (canAdmin) {
+            const response = await fetch("/api/admin/mute", {
+              signal: controller.signal,
+            });
+            const muted = (await response.json()) as { users: typeof mutes };
+            if (response.ok && live) setMutes(muted.users);
+          }
           setError("");
         }
       } catch (e) {
@@ -1608,7 +1681,7 @@ function PlayerPopup({
       controller.abort();
       clearInterval(timer);
     };
-  }, [tile, featureRevision]);
+  }, [tile, featureRevision, canAdmin]);
   return (
     <Dialog
       open={!!tile}
@@ -1626,7 +1699,9 @@ function PlayerPopup({
         <div className="player-card-list">
           {!players.length && <p>These players have moved or left the map.</p>}
           {players.map((p) => {
-            const t = teams?.find((t) => t.id === p.team);
+            const t = teams?.find(
+              (t) => t.id === (p.role === "admin" ? "instructors" : p.team),
+            );
             const character =
               p.role === "admin"
                 ? adminAvatar
@@ -1661,7 +1736,23 @@ function PlayerPopup({
                       className="player-message"
                       onClick={() => onMessage(t.id)}
                     >
-                      Send message to team
+                      {p.role === "admin"
+                        ? "Message instructors"
+                        : "Send message to team"}
+                    </button>
+                  )}
+                  {canAdmin && mutes.some((m) => m.username === p.username) && (
+                    <button
+                      type="button"
+                      className="player-message"
+                      disabled={muting !== null}
+                      onClick={() => void toggleMute(p.username)}
+                    >
+                      {muting === p.username
+                        ? "Saving…"
+                        : mutes.find((m) => m.username === p.username)?.muted
+                          ? "Unmute user"
+                          : "Mute user"}
                     </button>
                   )}
                 </div>

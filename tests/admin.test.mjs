@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { parseChallenges, parseGame } from "../lib/config-schema.mjs";
 import { createApi } from "../server/api.mjs";
 const baseline = parseChallenges(
@@ -24,16 +24,10 @@ const fixture = {
 };
 function setup(platformAdmin = false) {
   const sqlite = new DatabaseSync(":memory:");
-  for (const file of [
-    "0000_long_matthew_murdock.sql",
-    "0001_white_maria_hill.sql",
-    "0002_melodic_stephen_strange.sql",
-    "0003_chief_xorn.sql",
-    "0004_high_sentinels.sql",
-    "0005_conscious_magneto.sql",
-    "0006_mixed_blue_blade.sql",
-  ])
-    sqlite.exec(readFileSync("drizzle/" + file, "utf8"));
+  for (const file of readdirSync("drizzle")
+    .filter((name) => /^\d+.*\.sql$/.test(name))
+    .sort())
+    sqlite.exec(readFileSync(`drizzle/${file}`, "utf8"));
   const db = {
     prepare(sql) {
       const stmt = sqlite.prepare(sql);

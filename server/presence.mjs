@@ -1,9 +1,10 @@
 import {
   teamFeatures,
-  teamInbox,
+  messageStats,
   teamScores,
   teamPolicy,
 } from "./team-social.mjs";
+import { scoreboardSettings } from "./social-controls.mjs";
 import { createWorld } from "../lib/world-data.mjs";
 const modes = ["off", "team", "all"];
 const reply = (data, status = 200) =>
@@ -98,7 +99,8 @@ export async function handlePresence(
   const social = {
     self: { teammate: !!member, crowned: crowned(member?.team, true) },
     teamFeatures: features,
-    latestMessageAt: await teamInbox(db, features, member?.team),
+    ...(await messageStats(db, features, member?.team, u.id, admin)),
+    scoreboard: await scoreboardSettings(db),
   };
   if (setting.visibility === "off")
     return reply({
@@ -123,13 +125,16 @@ export async function handlePresence(
       now - 9000,
     )
     .run();
+  const yamlAdmins = config.accounts.users
+    .filter((a) => a.role === "admin")
+    .map((a) => a.username);
   const rows = (
     await db
       .prepare(
         `SELECT p.user,p.x,p.y,s.username,s.hero,s.managed,s.role,s.provisioned,m.team FROM player_presence p JOIN students s ON s.id=p.user LEFT JOIN team_members m ON m.user=s.id
  WHERE p.map=? AND p.theme_revision=? AND p.updated_at>? AND p.user<>? AND s.disabled=0
  AND EXISTS(SELECT 1 FROM sessions WHERE sessions.user=s.id AND expires>?)
- AND (COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)='all' OR (COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)='team' AND m.team=?))
+ AND (COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)='all' OR (COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)='team' AND (m.team=? OR ?=1 OR (s.managed=1 AND s.role='admin') OR (s.managed=0 AND s.username IN (${yamlAdmins.map(() => "?").join(",") || "NULL"})))))
  ORDER BY p.updated_at DESC,s.username LIMIT 101`,
       )
       .bind(
@@ -141,6 +146,8 @@ export async function handlePresence(
         fallback,
         fallback,
         member?.team || "",
+        +admin,
+        ...yamlAdmins,
       )
       .all()
   ).results;

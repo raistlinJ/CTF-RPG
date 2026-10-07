@@ -1,4 +1,5 @@
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
+import { scoreboardSettings } from "./social-controls.mjs";
 import { teamFeatures } from "./team-social.mjs";
 import { presenceSettings } from "./presence.mjs";
 import { spawnSchema } from "../lib/spawn.mjs";
@@ -19,6 +20,7 @@ const account = z
     hero: z.string(),
     spawn: spawnSchema.nullable().default(null),
     role: z.enum(["student", "admin"]),
+    muted: z.number().int().min(0).max(1).default(0),
     disabled: z.number().int().min(0).max(1),
     managed: z.number().int().min(0).max(1),
     provisioned: z.number().int().min(0).max(1),
@@ -100,8 +102,35 @@ export function validateSnapshot(input) {
         )
         .max(100000)
         .default([]),
+      instructorMessages: z
+        .array(
+          z
+            .object({
+              id: z.string().min(1).max(128),
+              sender_user: z.string(),
+              team: z.string(),
+              sender: z.string().min(1).max(80),
+              text: z.string().min(1).max(1000),
+              created_at: z.number().int().min(0),
+            })
+            .strict(),
+        )
+        .max(100000)
+        .default([]),
+      scoreboardSettings: z
+        .object({
+          visibility: z.enum(["admins", "all"]),
+          mode: z.enum(["team", "individual"]),
+          revision: z.number().int().min(0),
+        })
+        .strict()
+        .optional(),
       playerVisibility: z.enum(["off", "team", "all"]).optional(),
       teamMaxMembers: z.number().int().min(1).max(100).optional(),
+      discoveries: z
+        .array(z.object({ user: z.string(), challenge: z.string() }).strict())
+        .max(1000000)
+        .default([]),
       solved: z.array(completion).max(1000000),
       purchasedHints: z.array(purchase).max(1000000),
       writtenResponses: z
@@ -163,6 +192,12 @@ export function validateSnapshot(input) {
     ).size !== snapshot.purchasedHints.length
   )
     throw Error("Duplicate progress in backup.");
+  if (
+    snapshot.discoveries.some((r) => !ids.has(r.user)) ||
+    new Set(snapshot.discoveries.map((r) => `${r.user}\0${r.challenge}`))
+      .size !== snapshot.discoveries.length
+  )
+    throw Error("Invalid discoveries in backup.");
   const teamIds = new Set(snapshot.teams.map((t) => t.id));
   if (
     teamIds.size !== snapshot.teams.length ||
@@ -187,6 +222,17 @@ export function validateSnapshot(input) {
     )
   )
     throw Error("Invalid team messages in backup.");
+  if (
+    new Set(snapshot.instructorMessages.map((m) => m.id)).size !==
+      snapshot.instructorMessages.length ||
+    snapshot.instructorMessages.some(
+      (m) => !ids.has(m.sender_user) || !teamIds.has(m.team),
+    ) ||
+    snapshot.instructorMessages.some((m) =>
+      snapshot.teamMessages.some((t) => t.id === m.id),
+    )
+  )
+    throw Error("Invalid instructor messages in backup.");
   if (
     new Set(snapshot.writtenResponses.map((r) => `${r.user}\0${r.challenge}`))
       .size !== snapshot.writtenResponses.length
@@ -266,6 +312,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       spawn: effective.spawn,
       role: effective.role,
       disabled: row.disabled || 0,
+      muted: row.muted || 0,
       managed: row.managed || 0,
       provisioned: row.provisioned || 0,
       revision: row.revision || 0,
@@ -310,6 +357,14 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       ? JSON.parse(catalog.results[0].payload)
       : challenges,
     accounts: records,
+    discoveries: (
+      await db
+        .prepare(
+          "SELECT user,challenge FROM discovered_challenges ORDER BY user,challenge",
+        )
+        .bind()
+        .all()
+    ).results,
     solved: solved.results,
     purchasedHints: hints.results,
     writtenResponses: responses.results,
@@ -326,6 +381,15 @@ export async function createSnapshot({ db, config, challenges, theme }) {
         .bind()
         .all()
     ).results,
+    instructorMessages: (
+      await db
+        .prepare(
+          "SELECT id,sender_user,team,sender,text,created_at FROM instructor_messages ORDER BY created_at,id",
+        )
+        .bind()
+        .all()
+    ).results,
+    scoreboardSettings: await scoreboardSettings(db),
     playerVisibility: (await presenceSettings(db, config)).visibility,
     teamMaxMembers:
       teamSettings.results[0]?.max_members ?? config.teams?.maxMembers ?? 4,

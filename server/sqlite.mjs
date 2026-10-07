@@ -63,7 +63,12 @@ CREATE TABLE IF NOT EXISTS team_messages(id TEXT PRIMARY KEY,sender_user TEXT RE
 CREATE INDEX IF NOT EXISTS idx_team_messages_recipient_created ON team_messages(recipient_team,created_at);
 CREATE INDEX IF NOT EXISTS idx_team_messages_sender_team_created ON team_messages(sender_team,created_at);
 CREATE INDEX IF NOT EXISTS idx_team_messages_sender_user_created ON team_messages(sender_user,created_at);
+CREATE TABLE IF NOT EXISTS scoreboard_settings(id TEXT PRIMARY KEY,visibility TEXT NOT NULL,mode TEXT NOT NULL,revision INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS instructor_messages(id TEXT PRIMARY KEY,sender_user TEXT NOT NULL REFERENCES students(id),team TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,sender TEXT NOT NULL,text TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_instructor_messages_team_created ON instructor_messages(team,created_at);
+CREATE INDEX IF NOT EXISTS idx_instructor_messages_sender_created ON instructor_messages(sender_user,created_at);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS discovered_challenges(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,hint TEXT NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(user,challenge,hint));
 CREATE TABLE IF NOT EXISTS written_responses(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,answer TEXT NOT NULL,question TEXT NOT NULL,object TEXT NOT NULL,max_points INTEGER NOT NULL,hint_cost INTEGER NOT NULL,submitted_at INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 1,grade INTEGER,feedback TEXT NOT NULL DEFAULT '',reviewer TEXT,graded_at INTEGER,PRIMARY KEY(user,challenge));
@@ -91,6 +96,7 @@ CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NO
   for (const [name, type, defaultValue] of [
     ["role", "TEXT", "'student'"],
     ["disabled", "INTEGER", "0"],
+    ["muted", "INTEGER", "0"],
     ["managed", "INTEGER", "0"],
     ["provisioned", "INTEGER", "0"],
     ["revision", "INTEGER", "0"],

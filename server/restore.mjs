@@ -44,12 +44,15 @@ try {
   sqlite.exec("BEGIN IMMEDIATE");
   try {
     for (const table of [
+      "instructor_messages",
+      "scoreboard_settings",
       "team_messages",
       "team_social_settings",
       "player_presence",
       "presence_settings",
       "sessions",
       "written_responses",
+      "discovered_challenges",
       "solved",
       "purchased_hints",
       "team_members",
@@ -61,7 +64,7 @@ try {
     ])
       sqlite.prepare(`DELETE FROM ${table}`).run();
     const insert = sqlite.prepare(
-      "INSERT INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision,spawn) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision,spawn,muted) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
     );
     for (const a of snapshot.accounts)
       insert.run(
@@ -76,6 +79,7 @@ try {
         a.provisioned,
         a.revision,
         a.spawn ? JSON.stringify(a.spawn) : null,
+        a.muted,
       );
     for (const t of snapshot.teams)
       sqlite
@@ -95,6 +99,31 @@ try {
         "INSERT INTO presence_settings(id,visibility,revision) VALUES('active',?,1)",
       )
       .run(snapshot.playerVisibility || snapshot.config.presence.visibility);
+    const scoreSettings = snapshot.scoreboardSettings || {
+      visibility: "all",
+      mode: "individual",
+    };
+    sqlite
+      .prepare(
+        "INSERT INTO scoreboard_settings(id,visibility,mode,revision) VALUES('active',?,?,1)",
+      )
+      .run(scoreSettings.visibility, scoreSettings.mode);
+    const instructorInsert = sqlite.prepare(
+      "INSERT INTO instructor_messages(id,sender_user,team,sender,text,created_at) VALUES(?,?,?,?,?,?)",
+    );
+    for (const m of snapshot.instructorMessages)
+      instructorInsert.run(
+        m.id,
+        m.sender_user,
+        m.team,
+        m.sender,
+        m.text,
+        m.created_at,
+      );
+    const discovered = sqlite.prepare(
+      "INSERT INTO discovered_challenges(user,challenge) VALUES(?,?)",
+    );
+    for (const d of snapshot.discoveries) discovered.run(d.user, d.challenge);
     const features = snapshot.teamFeatures || snapshot.config.teams.features;
     const everyone = features.everyone || features;
     sqlite

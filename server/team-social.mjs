@@ -52,6 +52,29 @@ export async function teamInbox(db, features, team) {
   );
 }
 
+export async function messageStats(db, features, team, userId, admin) {
+  const received = team
+    ? await db
+        .prepare(
+          `SELECT COUNT(*) AS count,MAX(created_at) AS latest FROM team_messages WHERE recipient_team=? AND sender_user IS NOT ? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team))`,
+        )
+        .bind(team, userId, +features.messaging, +features.everyone.messaging)
+        .first()
+    : null;
+  const instructors =
+    admin && features.messaging
+      ? await db
+          .prepare(
+            "SELECT COUNT(*) AS count,MAX(created_at) AS latest FROM instructor_messages",
+          )
+          .bind()
+          .first()
+      : null;
+  return {
+    receivedCount: (received?.count || 0) + (instructors?.count || 0),
+    latestMessageAt: Math.max(received?.latest || 0, instructors?.latest || 0),
+  };
+}
 export async function teamScores(db, config) {
   const scores = new Map();
   const rows = (
@@ -146,7 +169,32 @@ export async function handleTeamSocial(
       { error: "Join a team to view team details and messages." },
       403,
     );
+  const muted = !!(
+    u &&
+    (
+      await db
+        .prepare("SELECT muted FROM students WHERE id=?")
+        .bind(u.id)
+        .first()
+    )?.muted
+  );
+  const instructorCard = {
+    id: "instructors",
+    label: admin ? "Instructor inbox" : "Instructors",
+    members: 0,
+    isYourTeam: false,
+    canMessage: features.messaging && !admin && !muted,
+    canReadMessages: features.messaging,
+  };
   if (req.method === "POST") {
+    if (muted)
+      return reply(
+        {
+          error:
+            "Your account is muted by an administrator. You can still read messages.",
+        },
+        403,
+      );
     const body = await req.json();
     if (
       typeof body.team !== "string" ||
@@ -160,6 +208,85 @@ export async function handleTeamSocial(
         { error: "Choose a team and write a message of 1–1000 characters." },
         400,
       );
+    const priorInstructor = await db
+      .prepare("SELECT * FROM instructor_messages WHERE id=?")
+      .bind(body.id)
+      .first();
+    if (body.team === "instructors") {
+      if (admin)
+        return reply({ error: "Choose a student team to reply to." }, 400);
+      if (!features.messaging)
+        return reply({ error: "Instructor messaging is turned off." }, 403);
+      if (priorInstructor) {
+        if (
+          priorInstructor.sender_user !== u.id ||
+          priorInstructor.team !== own ||
+          priorInstructor.text !== body.text.trim()
+        )
+          return reply({ error: "Message reference is already in use." }, 409);
+        return reply({ sent: true, id: body.id });
+      }
+      if (
+        await db
+          .prepare("SELECT id FROM team_messages WHERE id=?")
+          .bind(body.id)
+          .first()
+      )
+        return reply({ error: "Message reference is already in use." }, 409);
+      const now = Date.now();
+      const result = await db
+        .prepare(
+          `INSERT OR IGNORE INTO instructor_messages(id,sender_user,team,sender,text,created_at) SELECT ?,s.id,?,?,?,? FROM students s WHERE s.id=? AND s.muted=0 AND s.disabled=0 AND EXISTS(SELECT 1 FROM team_members WHERE user=s.id AND team=?) AND COALESCE((SELECT messaging FROM team_social_settings WHERE id='active'),?)=1 AND (SELECT COUNT(*) FROM team_messages WHERE sender_user=s.id AND created_at>?)+(SELECT COUNT(*) FROM instructor_messages WHERE sender_user=s.id AND created_at>?)<5`,
+        )
+        .bind(
+          body.id,
+          own,
+          u.username,
+          body.text.trim(),
+          now,
+          u.id,
+          own,
+          +features.messaging,
+          now - 60000,
+          now - 60000,
+        )
+        .run();
+      if (!(result.meta?.changes ?? result.changes)) {
+        const saved = await db
+          .prepare("SELECT * FROM instructor_messages WHERE id=?")
+          .bind(body.id)
+          .first();
+        if (
+          saved &&
+          saved.sender_user === u.id &&
+          saved.team === own &&
+          saved.text === body.text.trim()
+        )
+          return reply({ sent: true, id: body.id });
+        if (
+          (
+            await db
+              .prepare("SELECT muted FROM students WHERE id=?")
+              .bind(u.id)
+              .first()
+          )?.muted
+        )
+          return reply(
+            { error: "Your account is muted by an administrator." },
+            403,
+          );
+        return reply(
+          {
+            error:
+              "Cannot send right now. Check your team and messaging permissions, or wait a minute before retrying.",
+          },
+          429,
+        );
+      }
+      return reply({ sent: true, id: body.id });
+    }
+    if (priorInstructor)
+      return reply({ error: "Message reference is already in use." }, 409);
     const internal = admin || body.team === own;
     if (!teamPolicy(features, internal).messaging)
       return reply(
@@ -195,7 +322,8 @@ export async function handleTeamSocial(
  SELECT ?,?,?,t.id,?,?,? FROM teams t WHERE t.id=?
  AND (CASE WHEN ?=1 THEN COALESCE((SELECT messaging FROM team_social_settings WHERE id='active'),?) ELSE COALESCE((SELECT everyone_messaging FROM team_social_settings WHERE id='active'),(SELECT messaging FROM team_social_settings WHERE id='active'),?) END)=1
  AND (?=1 OR EXISTS(SELECT 1 FROM team_members WHERE user=? AND team=?))
- AND (SELECT COUNT(*) FROM team_messages WHERE sender_user IS ? AND created_at>?)<5`,
+ AND (SELECT COUNT(*) FROM team_messages WHERE sender_user IS ? AND created_at>?)+(SELECT COUNT(*) FROM instructor_messages WHERE sender_user IS ? AND created_at>?)<5
+ AND (? IS NULL OR EXISTS(SELECT 1 FROM students WHERE id=? AND muted=0))`,
       )
       .bind(
         body.id,
@@ -213,6 +341,10 @@ export async function handleTeamSocial(
         own,
         u?.id || null,
         now - 60000,
+        u?.id || null,
+        now - 60000,
+        u?.id || null,
+        u?.id || null,
       )
       .run();
     if (!(r.meta?.changes ?? r.changes)) {
@@ -239,6 +371,19 @@ export async function handleTeamSocial(
         return reply(
           { error: "This team was disbanded. Choose another team." },
           404,
+        );
+      if (
+        u &&
+        (
+          await db
+            .prepare("SELECT muted FROM students WHERE id=?")
+            .bind(u.id)
+            .first()
+        )?.muted
+      )
+        return reply(
+          { error: "Your account is muted by an administrator." },
+          403,
         );
       const latest = await teamFeatures(db, config);
       if (!teamPolicy(latest, internal).messaging)
@@ -278,13 +423,22 @@ export async function handleTeamSocial(
       ? await teamScores(db, config)
       : new Map();
   const summary = (t) => {
+    if (!t)
+      return {
+        id: "unavailable",
+        label: "Team unavailable",
+        members: 0,
+        isYourTeam: false,
+        canMessage: false,
+        canReadMessages: false,
+      };
     const policy = teamPolicy(features, admin || t.id === own);
     return {
       id: t.id,
       label: teamLabel(t, policy),
       members: t.members,
       isYourTeam: t.id === own,
-      canMessage: policy.messaging,
+      canMessage: policy.messaging && !muted,
       canReadMessages:
         admin || t.id === own
           ? features.messaging || features.everyone.messaging
@@ -298,9 +452,67 @@ export async function handleTeamSocial(
     return reply({
       features,
       ownTeam: own,
-      teams: teams.map(summary),
+      teams: [...teams.map(summary), instructorCard],
+      muted,
       latestMessageAt: await teamInbox(db, features, own),
     });
+  if (selectedId === "instructors") {
+    let messages = [];
+    if (features.messaging) {
+      const incoming = (
+        await db
+          .prepare(
+            `SELECT id,sender_user,team,sender,text,created_at FROM instructor_messages ${admin ? "" : "WHERE team=?"} ORDER BY created_at DESC,id DESC LIMIT 100`,
+          )
+          .bind(...(admin ? [] : [own]))
+          .all()
+      ).results;
+      messages = incoming.map((m) => ({
+        id: m.id,
+        sender: m.sender,
+        fromTeam: summary(teams.find((t) => t.id === m.team)),
+        toTeam: instructorCard,
+        text: m.text,
+        createdAt: m.created_at,
+        outgoing: !admin,
+      }));
+      if (!admin) {
+        const replies = (
+          await db
+            .prepare(
+              "SELECT id,sender,text,created_at FROM team_messages WHERE recipient_team=? AND sender_team IS NULL ORDER BY created_at DESC,id DESC LIMIT 100",
+            )
+            .bind(own)
+            .all()
+        ).results;
+        messages.push(
+          ...replies.map((m) => ({
+            id: m.id,
+            sender: m.sender,
+            fromTeam: null,
+            toTeam: summary(teams.find((t) => t.id === own)),
+            text: m.text,
+            createdAt: m.created_at,
+            outgoing: false,
+          })),
+        );
+      }
+      messages.sort(
+        (a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id),
+      );
+      messages = messages.slice(-100);
+    }
+    return reply({
+      features,
+      ownTeam: own,
+      team: instructorCard,
+      messages,
+      muted,
+      isAdmin: admin,
+      latestMessageAt: (await messageStats(db, features, own, u?.id, admin))
+        .latestMessageAt,
+    });
+  }
   const selected = teams.find((t) => t.id === selectedId);
   if (!selected) return reply({ error: "This team was disbanded." }, 404);
   let messages = [];
@@ -323,13 +535,30 @@ export async function handleTeamSocial(
         .bind(...args, +features.messaging, +features.everyone.messaging)
         .all()
     ).results;
+    if (admin && features.messaging) {
+      const incoming = (
+        await db
+          .prepare(
+            "SELECT id,team AS sender_team,NULL AS recipient_team,sender,text,created_at FROM instructor_messages WHERE team=? ORDER BY created_at DESC,id DESC LIMIT 100",
+          )
+          .bind(selectedId)
+          .all()
+      ).results;
+      rows.push(...incoming);
+      rows.sort(
+        (a, b) => b.created_at - a.created_at || b.id.localeCompare(a.id),
+      );
+      rows.splice(100);
+    }
     messages = rows.reverse().map((m) => ({
       id: m.id,
       sender: m.sender,
       fromTeam: m.sender_team
         ? summary(teams.find((t) => t.id === m.sender_team))
         : null,
-      toTeam: summary(teams.find((t) => t.id === m.recipient_team)),
+      toTeam: m.recipient_team
+        ? summary(teams.find((t) => t.id === m.recipient_team))
+        : instructorCard,
       text: m.text,
       createdAt: m.created_at,
       outgoing: admin ? m.sender_team === null : m.sender_team === own,
@@ -339,6 +568,8 @@ export async function handleTeamSocial(
     features,
     ownTeam: own,
     team: summary(selected),
+    muted,
+    isAdmin: admin,
     messages,
     latestMessageAt: await teamInbox(db, features, own),
   });

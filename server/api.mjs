@@ -1,4 +1,14 @@
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
+import {
+  scoreboardSettings,
+  handleSocialControls,
+} from "./social-controls.mjs";
+import {
+  teamScores,
+  teamFeatures,
+  teamLabel,
+  teamPolicy,
+} from "./team-social.mjs";
 import { handleTeamSocial } from "./team-social.mjs";
 import { handlePresence } from "./presence.mjs";
 import { spawnSchema, canSpawn, resolveSpawn } from "../lib/spawn.mjs";
@@ -174,6 +184,12 @@ function createRequestApi({
           downloads: c.downloads,
         };
       }),
+      discovered: (
+        await db
+          .prepare("SELECT challenge FROM discovered_challenges WHERE user=?")
+          .bind(userId)
+          .all()
+      ).results.map((r) => r.challenge),
       solved: completions.results.map((r) => r.challenge),
       score: completions.results.reduce((sum, r) => sum + r.points, 0),
     };
@@ -186,6 +202,8 @@ function createRequestApi({
       req.headers.get("origin") !== new URL(req.url).origin
     )
       return json({ error: "Invalid request origin." }, 403);
+    if (["/api/admin/mute", "/api/admin/scoreboard"].includes(path))
+      return handleSocialControls(req, { db, user, platformAdmin });
     if (["/api/presence", "/api/admin/presence"].includes(path))
       return handlePresence(req, {
         db,
@@ -299,7 +317,12 @@ function createRequestApi({
       return json({ error: "Method not allowed." }, 405);
     }
     if (path === "/api/config" && method === "GET")
-      return json({ ...publicConfig(config), theme, themeRevision });
+      return json({
+        ...publicConfig(config),
+        theme,
+        themeRevision,
+        scoreboard: await scoreboardSettings(db),
+      });
     if (path === "/api/auth" && method === "GET") {
       const u = await user(req);
       return json({ user: u, admin: platformAdmin || u?.role === "admin" });
@@ -451,6 +474,59 @@ function createRequestApi({
       const u = await user(req);
       if (!u && !platformAdmin)
         return json({ error: "Sign in to see the scoreboard." }, 401);
+      const settings = await scoreboardSettings(db);
+      if (
+        settings.visibility === "admins" &&
+        !platformAdmin &&
+        u?.role !== "admin"
+      )
+        return json(
+          { error: "The scoreboard is available to administrators only." },
+          403,
+        );
+      if (settings.mode === "team") {
+        const totals = await teamScores(db, config),
+          features = await teamFeatures(db, config);
+        const own = u
+          ? await db
+              .prepare("SELECT team FROM team_members WHERE user=?")
+              .bind(u.id)
+              .first()
+          : null;
+        const teams = (
+          await db
+            .prepare("SELECT id,name FROM teams ORDER BY name")
+            .bind()
+            .all()
+        ).results
+          .map((t) => ({
+            id: t.id,
+            username: teamLabel(
+              t,
+              teamPolicy(
+                features,
+                platformAdmin || u?.role === "admin" || own?.team === t.id,
+              ),
+            ),
+            score: totals.get(t.id) || 0,
+            isYou: own?.team === t.id,
+          }))
+          .sort(
+            (a, b) => b.score - a.score || a.username.localeCompare(b.username),
+          );
+        let rank = 0,
+          lastScore;
+        return json({
+          mode: "team",
+          players: teams.map((t, i) => {
+            if (t.score !== lastScore) {
+              rank = i + 1;
+              lastScore = t.score;
+            }
+            return { ...t, rank };
+          }),
+        });
+      }
       const players = (await accountList())
         .filter((a) => a.role === "student" && !a.disabled)
         .sort(
@@ -459,6 +535,7 @@ function createRequestApi({
       let rank = 0,
         lastScore;
       return json({
+        mode: "individual",
         players: players.map((a, i) => {
           if (a.score !== lastScore) {
             rank = i + 1;
@@ -504,6 +581,7 @@ function createRequestApi({
           !usernamePattern.test(name) ||
           !["student", "admin"].includes(body.role) ||
           typeof body.disabled !== "boolean" ||
+          (body.muted !== undefined && typeof body.muted !== "boolean") ||
           !config.characters.some((c) => c.id === body.hero) ||
           !Number.isInteger(body.revision)
         )
@@ -601,7 +679,7 @@ function createRequestApi({
           const id = crypto.randomUUID();
           const result = await db
             .prepare(
-              "INSERT OR IGNORE INTO students(id,username,hash,salt,hero,role,disabled,spawn,managed,provisioned,revision) SELECT ?,?,?,?,?,?,?,?,1,1,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?",
+              "INSERT OR IGNORE INTO students(id,username,hash,salt,hero,role,disabled,spawn,muted,managed,provisioned,revision) SELECT ?,?,?,?,?,?,?,?,?,1,1,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?",
             )
             .bind(
               id,
@@ -612,6 +690,7 @@ function createRequestApi({
               body.role,
               body.disabled ? 1 : 0,
               spawnJson,
+              +(body.muted ?? false),
               themeRevision,
             )
             .run();
@@ -626,7 +705,7 @@ function createRequestApi({
         } else {
           const update = db
             .prepare(
-              "UPDATE students SET hash=?,salt=?,hero=?,role=?,disabled=?,spawn=?,managed=1,provisioned=1,revision=revision+1 WHERE id=? AND revision=? AND COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?",
+              "UPDATE students SET hash=?,salt=?,hero=?,role=?,disabled=?,spawn=?,muted=?,managed=1,provisioned=1,revision=revision+1 WHERE id=? AND revision=? AND COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?",
             )
             .bind(
               credentials.hash,
@@ -635,6 +714,7 @@ function createRequestApi({
               body.role,
               body.disabled ? 1 : 0,
               spawnJson,
+              +(body.muted ?? !!row.muted),
               row.id,
               body.revision,
               themeRevision,
@@ -823,6 +903,15 @@ function createRequestApi({
         const { challenges } = await catalog();
         const c = challenges.find((c) => c.id === id);
         if (!c) return json({ error: "Unknown challenge." }, 400);
+        if (action === "discover") {
+          await db
+            .prepare(
+              "INSERT OR IGNORE INTO discovered_challenges(user,challenge) VALUES(?,?)",
+            )
+            .bind(u.id, c.id)
+            .run();
+          return json(await gameState(u.id));
+        }
         if (action === "hint") {
           const hint = c.hints.find((h) => h.id === hintId);
           if (!hint) return json({ error: "Unknown hint." }, 400);

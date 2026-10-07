@@ -2,7 +2,7 @@
 
 ## Scoreboard
 
-Open `/scoreboard` or **Scores** from the game. Signed-in students and authorized hosted admins can view it. Scores are the stored points actually awarded after hint costs, with completed-treasure counts and assigned character names. Ties share competition ranks (1, 1, 3); equal scores are ordered by username. Admins and disabled accounts are excluded. Configured student accounts that have not played yet appear with zero points. Refresh scores, reload, or return focus to the scoreboard to update it.
+Open `/scoreboard` or **Scores** from the game. Administrators choose access (**all signed-in players** or **admins only**) and scoring (**individual** or **team**) under **Manage → Teams → Scoreboard**. Server checks enforce private access. Scores are the stored points actually awarded after hint costs, with completed-treasure counts and assigned character names. Ties share competition ranks (1, 1, 3); equal scores are ordered by username. Admins and disabled accounts are excluded. Configured student accounts that have not played yet appear with zero points. Refresh scores, reload, or return focus to the scoreboard to update it.
 
 ## User management
 
@@ -12,6 +12,7 @@ Open `/admin/users` or **Accounts** in the challenge studio. Authorized admins c
 - Change an existing account's role, assigned character, and starting map/tile.
 - Reset a password; the previous password stops working and existing sessions are revoked.
 - Disable an account, blocking access and removing it from the scoreboard, or reactivate it with its progress intact.
+- Mute or unmute chat without blocking gameplay or incoming messages.
 
 Usernames stay fixed to preserve account identity and scores. Saving a YAML account in the studio makes its credentials, role, and hero database-managed; later YAML changes do not override that managed account. Studio-created or managed accounts can sign in even with open registration disabled. Student self-registration never grants admin privileges. All API actions check the current role and disabled state on the server. Admins using a local admin account cannot disable or demote themselves; trusted platform-owner access remains independent.
 
@@ -89,3 +90,5 @@ Full backups also retain the classroom player-visibility setting. Temporary onli
 Full backups retain team-card feature switches and private team messages, including sender and recipient references. Restores preserve conversations; older backups start with an empty inbox and enabled team-card features. Treat these messages as student records when storing or sharing a full backup. Theme and content exports contain no team messages.
 
 Full backups preserve the separate own-team and other-team permissions for names, scores, and messaging. Older backups without the other-team switches inherit their existing team switches for both scopes.
+
+Full backups also preserve chat mute status, shared instructor conversations, discovered questions, and scoreboard settings. Older backups restore with unmuted accounts, empty discovery/instructor history, and the default public-to-players individual scoreboard.

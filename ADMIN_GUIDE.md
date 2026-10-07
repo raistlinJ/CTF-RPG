@@ -77,7 +77,7 @@ The built-in **Agentic Circuit** theme is available under **Themes & content**. 
 
 Use **Manage → Accounts**, select an explorer, choose **Starting map**, and click reachable ground in the map preview. **Use this map’s spawn** chooses its normal arrival tile; **Theme default** clears the account-specific assignment. Save the account. This starting position applies at sign-in and reload; students cannot choose or override it. Gray tiles are unavailable. New or incompatible theme layouts safely use the main map’s default spawn until you update the assignment. YAML accounts can set `spawn: { map: castle, location: { x: 20, y: 23 } }`; studio edits take priority.
 
-**Manage → Teams → Players visible on the map** offers **Teammates only** (default), **All players**, or **Off**. Live explorers appear with their assigned sprites and usernames on the same map; teammate labels use green. Players do not block one another or reveal challenge answers. Visibility is enforced by the server. Each visible game tab exchanges positions every three seconds. Hidden tabs pause, stationary positions refresh less often, and disconnected players disappear within 20 seconds. The response is capped at 100 other players per map. This is a shared exploration view, not synchronized combat.
+**Manage → Teams → Players visible on the map** offers **Teammates only** (default), **All players**, or **Off**. With visibility enabled, students also see instructors on their map; administrators see active students so they can moderate them. Live explorers appear with their assigned sprites and usernames on the same map; teammate labels use green. Players do not block one another or reveal challenge answers. Visibility is enforced by the server. Each visible game tab exchanges positions every three seconds. Hidden tabs pause, stationary positions refresh less often, and disconnected players disappear within 20 seconds. The response is capped at 100 other players per map. This is a shared exploration view, not synchronized combat.
 
 Standalone YAML can set `presence: { visibility: team }` (`team`, `all`, or `off`). Once an admin saves visibility, the database setting takes priority. Full backups retain assigned starts and visibility; theme/content packs exclude these account/classroom settings, and temporary live positions are never exported.
 
@@ -111,3 +111,19 @@ Saved admin settings take priority over YAML. Older saved settings and YAML with
 ## Teammate halos and leading-team crowns
 
 A green halo marks your explorer and visible teammates, distinguishing them from other players in **All players** mode. A gold crown appears above each visible avatar in the highest-scoring team, including your own explorer when applicable. Tied leading teams share the crown; no crowns appear while all teams have zero points. Rankings use the same earned net points and active-student rules as team cards, including players who are offline. They update with the existing three-second position refresh. Crowns follow the corresponding own-team or other-team score-visibility control, so a hidden team score also hides that team's crown.
+
+## Instructor conversations and message badges
+
+Students can click an administrator's avatar and **Message instructors**, or choose **Teams → Instructors**. This is a shared conversation between that student's team and all administrators. Other teams cannot read it. Administrators choose **Teams → Instructor inbox**, then **Reply to…** to answer a team; replies appear in the student's instructor conversation and team inbox. The **Your team → Messaging** control also governs instructor conversations. The five-message-per-minute limit is shared across team and instructor sends.
+
+New incoming messages briefly show a number above your own avatar. The number counts newly received messages, excluding your own sends, and disappears five seconds after the latest arrival. Notifications use the existing three-second presence polling, including when player visibility is off. The badge represents recent arrivals, not an unread-message total.
+
+## Chat moderation
+
+An administrator can click a player avatar and choose **Mute user** or **Unmute user**. In **Manage → Accounts**, select the user, change **Mute chat**, and save. A mute blocks all outgoing team and instructor messages on the server, while leaving gameplay, incoming messages, and stored progress available. Changes use the account revision so a stale mute cannot overwrite another account edit. Mute status is retained in full backups.
+
+## Scoreboard controls and discovered questions
+
+Under **Manage → Teams → Scoreboard**, choose **All signed-in players** or **Administrators only**, then **Individual scores** or **Team scores**. Save to apply the settings. Private scoreboards deny students at the API and hide their Scores link. Team scores aggregate earned net points from active student members; administrators and disabled accounts do not contribute. Scoreboard access/scoring settings are separate from team-card score switches; hidden team names continue to use team references. Full backups retain these settings; theme/content packs exclude them.
+
+The game journal shows only discovered, submitted, and solved questions, with a count such as **3 solved**. It does not show an undiscovered question list or a solved/total fraction. Opening a question saves its discovery for that account so it stays listed after reload or on another device. Solving and submitting remain separate actions.

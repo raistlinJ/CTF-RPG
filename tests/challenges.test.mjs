@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { parseChallenges, normalize } from "../lib/config-schema.mjs";
 import { createApi } from "../server/api.mjs";
 const raw = `challenges:
@@ -42,16 +42,10 @@ const raw = `challenges:
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys=ON");
-  for (const file of [
-    "drizzle/0000_long_matthew_murdock.sql",
-    "drizzle/0001_white_maria_hill.sql",
-    "drizzle/0002_melodic_stephen_strange.sql",
-    "drizzle/0003_chief_xorn.sql",
-    "drizzle/0004_high_sentinels.sql",
-    "drizzle/0005_conscious_magneto.sql",
-    "drizzle/0006_mixed_blue_blade.sql",
-  ])
-    sqlite.exec(readFileSync(file, "utf8"));
+  for (const file of readdirSync("drizzle")
+    .filter((name) => /^\d+.*\.sql$/.test(name))
+    .sort())
+    sqlite.exec(readFileSync(`drizzle/${file}`, "utf8"));
   return {
     sqlite,
     db: {

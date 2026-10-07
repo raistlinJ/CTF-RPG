@@ -25,6 +25,7 @@ type Account = {
   spawn: { map: string; location: { x: number; y: number } } | null;
   role: "student" | "admin";
   disabled: boolean;
+  muted: boolean;
   revision: number;
   source: string;
   score: number;
@@ -40,7 +41,7 @@ type Character = {
 type Theme = { world: typeof activeWorld };
 type Draft = Pick<
   Account,
-  "username" | "hero" | "spawn" | "role" | "disabled" | "revision"
+  "username" | "hero" | "spawn" | "role" | "disabled" | "muted" | "revision"
 > & { password: string };
 export default function UsersPage() {
   const [users, setUsers] = useState<Account[]>([]),
@@ -95,6 +96,7 @@ export default function UsersPage() {
       hero: characters[0]?.id || "web",
       role: "student",
       disabled: false,
+      muted: false,
       spawn: null,
       revision: 0,
       password: "",
@@ -110,6 +112,7 @@ export default function UsersPage() {
       spawn: a.spawn,
       role: a.role,
       disabled: a.disabled,
+      muted: a.muted,
       revision: a.revision,
       password: "",
     });
@@ -450,6 +453,17 @@ export default function UsersPage() {
                   />
                   Disable account
                 </label>
+                <label className="admin-checkbox">
+                  <Checkbox
+                    checked={draft.muted}
+                    onCheckedChange={(v) => patch({ muted: v === true })}
+                  />
+                  Mute chat
+                </label>
+                <p className="roster-note">
+                  Muted users can play and read conversations, but cannot send
+                  messages to teams or instructors.
+                </p>
                 <p className="roster-note">
                   Disabling blocks sign-in and hides the explorer from the
                   scoreboard. Progress is kept for reactivation.

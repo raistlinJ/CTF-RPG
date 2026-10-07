@@ -49,6 +49,8 @@ type ResponseData = {
   messages?: Message[];
   latestMessageAt: number;
   error?: string;
+  muted?: boolean;
+  isAdmin?: boolean;
 };
 export default function TeamPanel({
   open,
@@ -89,7 +91,8 @@ export default function TeamPanel({
       if (version === generation.current && target === selectedRef.current) {
         setData(d);
         if (!sendFailed.current) setError("");
-        if (target === d.ownTeam) onRead(d.latestMessageAt);
+        if (target === d.ownTeam || target === "instructors")
+          onRead(d.latestMessageAt);
       }
     } catch (e) {
       if (version === generation.current && target === selectedRef.current)
@@ -208,8 +211,9 @@ export default function TeamPanel({
                       <div>
                         <b>{t.label}</b>
                         <small>
-                          {t.isYourTeam ? "Your team · " : ""}
-                          {t.members} explorers
+                          {t.id === "instructors"
+                            ? "Shared inbox for all administrators"
+                            : `${t.isYourTeam ? "Your team · " : ""}${t.members} explorers`}
                         </small>
                       </div>
                       {t.score !== undefined && (
@@ -228,8 +232,9 @@ export default function TeamPanel({
                   <div className="team-card-stats">
                     <span>
                       <Users size={17} />
-                      {data.team?.members} explorers
-                      {data.team?.isYourTeam ? " · Your team" : ""}
+                      {selected === "instructors"
+                        ? "Your team and administrators"
+                        : `${data.team?.members} explorers${data.team?.isYourTeam ? " · Your team" : ""}`}
                     </span>
                     {data.team?.score !== undefined && (
                       <strong>
@@ -241,9 +246,11 @@ export default function TeamPanel({
                   {data.team?.canReadMessages ? (
                     <>
                       <h3>
-                        {data.team?.isYourTeam
-                          ? "Team inbox"
-                          : "Conversation with your team"}
+                        {selected === "instructors"
+                          ? "Instructor conversation"
+                          : data.team?.isYourTeam
+                            ? "Team inbox"
+                            : "Conversation with your team"}
                       </h3>
                       <div
                         ref={messageList}
@@ -283,9 +290,11 @@ export default function TeamPanel({
                               </time>
                             </div>
                             <p>{m.text}</p>
-                            {data.team?.isYourTeam &&
+                            {(data.team?.isYourTeam ||
+                              (data.isAdmin && selected === "instructors")) &&
                               m.fromTeam &&
-                              m.fromTeam.id !== data.ownTeam && (
+                              (data.isAdmin ||
+                                m.fromTeam.id !== data.ownTeam) && (
                                 <button
                                   className="text-button"
                                   onClick={() => onSelect(m.fromTeam!.id)}
@@ -318,7 +327,10 @@ export default function TeamPanel({
                           </label>
                           <div>
                             <small>
-                              {text.length}/1000 · visible to team members
+                              {text.length}/1000 ·{" "}
+                              {selected === "instructors"
+                                ? "visible to your team and administrators"
+                                : "visible to team members"}
                             </small>
                             <button
                               className="primary"
@@ -332,8 +344,11 @@ export default function TeamPanel({
                         </form>
                       ) : (
                         <p className="team-muted">
-                          Messaging within your team is turned off by your
-                          instructor.
+                          {data.muted
+                            ? "Your account is muted. You can still read messages."
+                            : selected === "instructors" && data.isAdmin
+                              ? "Select Reply on a message to open that team’s conversation."
+                              : "Messaging is turned off by your instructor."}
                         </p>
                       )}
                     </>

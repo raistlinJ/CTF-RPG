@@ -8,6 +8,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import ScoreboardControls from "../scoreboard-controls";
 import TeamPanel from "@/app/team-panel";
 import type { TeamFeatures } from "@/app/team-panel";
 import type { Team } from "@/app/team-setup";
@@ -216,6 +217,7 @@ export default function TeamsAdmin() {
                 Save team limit
               </button>
             </form>
+            <ScoreboardControls />
             <form className="team-limit admin-editor" onSubmit={saveVisibility}>
               <label>
                 Players visible on the map

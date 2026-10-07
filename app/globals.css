@@ -1905,3 +1905,5 @@ input::placeholder {
 
 .team-message-form button:disabled { cursor: default; }
 .team-message-form button[aria-busy="true"] { cursor: wait; }
+
+.avatar-message-badge { position:absolute;transform:translate(-50%,calc(-100% - 30px));min-width:23px;padding:3px 6px;border-radius:12px;background:#f2cc68;color:#18283a;border:2px solid #172d3d;font-size:12px;font-weight:bold;text-align:center;z-index:5;pointer-events:none; }

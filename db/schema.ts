@@ -13,6 +13,7 @@ export const students = sqliteTable("students", {
   hero: text("hero").notNull(),
   spawn: text("spawn"),
   role: text("role").notNull().default("student"),
+  muted: integer("muted").notNull().default(0),
   disabled: integer("disabled").notNull().default(0),
   managed: integer("managed").notNull().default(0),
   provisioned: integer("provisioned").notNull().default(0),
@@ -173,4 +174,44 @@ export const teamMessages = sqliteTable(
       t.createdAt,
     ),
   ],
+);
+
+export const scoreboardSettings = sqliteTable("scoreboard_settings", {
+  id: text("id").primaryKey(),
+  visibility: text("visibility").notNull(),
+  mode: text("mode").notNull(),
+  revision: integer("revision").notNull(),
+});
+export const instructorMessages = sqliteTable(
+  "instructor_messages",
+  {
+    id: text("id").primaryKey(),
+    senderUser: text("sender_user")
+      .notNull()
+      .references(() => students.id),
+    team: text("team")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    sender: text("sender").notNull(),
+    text: text("text").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_instructor_messages_team_created").on(t.team, t.createdAt),
+    index("idx_instructor_messages_sender_created").on(
+      t.senderUser,
+      t.createdAt,
+    ),
+  ],
+);
+
+export const discoveredChallenges = sqliteTable(
+  "discovered_challenges",
+  {
+    user: text("user")
+      .notNull()
+      .references(() => students.id),
+    challenge: text("challenge").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.user, t.challenge] })],
 );

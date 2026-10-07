@@ -46,6 +46,7 @@ export function effectiveAccount(row, cfg, config) {
         : null
       : cfg?.spawn || null,
     disabled: !!row?.disabled,
+    muted: !!row?.muted,
     revision: row?.revision || 0,
     source: row?.managed ? "studio" : cfg ? "yaml" : "registration",
     provisioned: !!row?.provisioned,

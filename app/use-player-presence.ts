@@ -18,6 +18,11 @@ export function usePlayerPresence(
   pos: { x: number; y: number },
   themeRevision: number | undefined,
 ) {
+  const [messageCount, setMessageCount] = useState(0);
+  const [scoreboard, setScoreboard] = useState<{
+    visibility: "admins" | "all";
+    mode: string;
+  } | null>(null);
   const [snapshot, setSnapshot] = useState<{
       map: string;
       players: NearbyPlayer[];
@@ -40,6 +45,9 @@ export function usePlayerPresence(
     setStatus("");
     setSelf({ teammate: false, crowned: false });
     if (!username || !enabled || themeRevision === undefined) return;
+    let previousCount: number | undefined;
+    let badgeTimer: ReturnType<typeof setTimeout> | undefined;
+    setMessageCount(0);
     let live = true,
       timer: ReturnType<typeof setInterval> | undefined,
       inFlight = false,
@@ -73,6 +81,8 @@ export function usePlayerPresence(
           truncated: boolean;
           teamFeatures: TeamFeatures;
           latestMessageAt: number;
+          receivedCount: number;
+          scoreboard: { visibility: "admins" | "all"; mode: string };
           self: { teammate: boolean; crowned: boolean };
         };
         if (!r.ok) throw Error();
@@ -82,6 +92,16 @@ export function usePlayerPresence(
           setSelf(d.self);
           setFeatures(d.teamFeatures);
           setLatestMessageAt(d.latestMessageAt);
+          setScoreboard(d.scoreboard);
+          if (previousCount !== undefined && d.receivedCount > previousCount) {
+            const incoming = d.receivedCount - previousCount;
+            setMessageCount((n) => n + incoming);
+            clearTimeout(badgeTimer);
+            badgeTimer = setTimeout(() => {
+              if (live) setMessageCount(0);
+            }, 5000);
+          }
+          previousCount = d.receivedCount;
           setStatus(
             d.truncated ? "Showing the 100 most recently active players." : "",
           );
@@ -110,6 +130,7 @@ export function usePlayerPresence(
     return () => {
       live = false;
       clearInterval(timer);
+      clearTimeout(badgeTimer);
       controller?.abort();
       document.removeEventListener("visibilitychange", visibilityChanged);
       window.removeEventListener("pagehide", leave);
@@ -122,6 +143,8 @@ export function usePlayerPresence(
     self,
     features,
     latestMessageAt,
+    messageCount,
+    scoreboard,
     status,
   };
 }

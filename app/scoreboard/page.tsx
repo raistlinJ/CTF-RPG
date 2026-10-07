@@ -4,12 +4,13 @@ import { Snowflake, Cpu, Compass, Trophy, RefreshCw } from "lucide-react";
 type Player = {
   rank: number;
   username: string;
-  hero: string;
+  hero?: string;
   score: number;
-  completed: number;
+  completed?: number;
   isYou: boolean;
 };
 export default function Scoreboard() {
+  const [mode, setMode] = useState("individual");
   const [title, setTitle] = useState("Quest");
   const [badge, setBadge] = useState("compass");
   const [players, setPlayers] = useState<Player[]>([]),
@@ -18,12 +19,18 @@ export default function Scoreboard() {
     [heroes, setHeroes] = useState<Record<string, string>>({});
   async function load() {
     setLoading(true);
+    setPlayers([]);
     setError("");
     try {
       const r = await fetch("/api/scoreboard");
-      const d = (await r.json()) as { players: Player[]; error?: string };
+      const d = (await r.json()) as {
+        players: Player[];
+        error?: string;
+        mode: string;
+      };
       if (!r.ok) throw Error(d.error || "Could not load scores.");
       setPlayers(d.players);
+      setMode(d.mode);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -76,7 +83,9 @@ export default function Scoreboard() {
         <div className="roster-heading">
           <div>
             <span className="eyebrow">THE WINTER EXPEDITION</span>
-            <h1>Explorer scoreboard</h1>
+            <h1>
+              {mode === "team" ? "Team scoreboard" : "Explorer scoreboard"}
+            </h1>
             <p>
               Every discovery counts. Points include the cost of any hints used.
             </p>
@@ -123,8 +132,9 @@ export default function Scoreboard() {
                     {p.isYou && <span>You</span>}
                   </h2>
                   <p>
-                    {heroes[p.hero] || p.hero} · {p.completed}{" "}
-                    {p.completed === 1 ? "treasure" : "treasures"}
+                    {mode === "team"
+                      ? "Team total"
+                      : `${heroes[p.hero || ""] || p.hero} · ${p.completed} ${p.completed === 1 ? "treasure" : "treasures"}`}
                   </p>
                 </div>
                 <strong>
