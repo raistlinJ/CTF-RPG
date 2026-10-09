@@ -1,7 +1,8 @@
 "use client";
+import AdminHeader from "../admin-header";
 import { useEffect, useState } from "react";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import {
-  Snowflake,
   Plus,
   Save,
   Download,
@@ -22,6 +23,7 @@ type Account = {
   id: string | null;
   username: string;
   hero: string;
+  team: { id: string; name: string } | null;
   spawn: { map: string; location: { x: number; y: number } } | null;
   role: "student" | "admin";
   disabled: boolean;
@@ -43,6 +45,8 @@ type Draft = Pick<
   Account,
   "username" | "hero" | "spawn" | "role" | "disabled" | "muted" | "revision"
 > & { password: string };
+type BulkAction = "disable" | "delete" | "mute" | "remove-team";
+const actionNames: Record<BulkAction, string> = { disable: "Disable", delete: "Delete", mute: "Mute chat", "remove-team": "Remove from team" };
 export default function UsersPage() {
   const [users, setUsers] = useState<Account[]>([]),
     [characters, setCharacters] = useState<Character[]>([]),
@@ -56,7 +60,9 @@ export default function UsersPage() {
     [message, setMessage] = useState(""),
     [query, setQuery] = useState(""),
     [theme, setTheme] = useState<Theme | null>(null),
-    [themeRevision, setThemeRevision] = useState(0);
+    [themeRevision, setThemeRevision] = useState(0),
+    [selectedUsers, setSelectedUsers] = useState<string[]>([]),
+    [confirmDelete, setConfirmDelete] = useState(false);
   async function load() {
     setLoading(true);
     try {
@@ -77,6 +83,7 @@ export default function UsersPage() {
       setTheme(d.theme);
       setThemeRevision(d.themeRevision);
       setUsers(d.users);
+      setSelectedUsers((selected) => selected.filter(name => d.users.some(a => a.username === name)));
       setCharacters(d.characters);
       setViewer(d.viewer);
       setAllowed(true);
@@ -88,7 +95,7 @@ export default function UsersPage() {
     }
   }
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(() => load());
   }, []);
   function fresh() {
     setDraft({
@@ -126,7 +133,7 @@ export default function UsersPage() {
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft) return;
+    if (!draft || busy) return;
     setBusy(true);
     setMessage("");
     setError("");
@@ -151,13 +158,43 @@ export default function UsersPage() {
       setCharacters(d.characters);
       select(d.users.find((a) => a.username === draft.username.toLowerCase())!);
       setMessage(
-        "Account saved. Starting positions apply on next sign-in or reload.",
+        "User saved. Starting positions apply on next sign-in or reload.",
       );
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
+  }
+  const filteredUsers = users.filter(a => `${a.username} ${a.team?.name || ""}`.toLowerCase().includes(query.toLowerCase().trim()));
+  const selected = users.filter(a => selectedUsers.includes(a.username));
+  const allShownSelected = filteredUsers.length > 0 && filteredUsers.every(a => selectedUsers.includes(a.username));
+  const someShownSelected = filteredUsers.some(a => selectedUsers.includes(a.username));
+  const selfSelected = !!viewer && selectedUsers.includes(viewer);
+  const profileTeam = editing ? users.find(a => a.username === draft?.username)?.team : null;
+  async function applyBulk(action: BulkAction) {
+    if (busy || !selected.length) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const r = await fetch("/api/admin/users", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({action, users: selected.map(a => ({username:a.username, revision:a.revision, team:a.team?.id ?? null}))}),
+      });
+      const d = await r.json() as {users:Account[]; characters:Character[]; updated:number; error?:string};
+      if (!r.ok) throw Error(d.error || "Could not update the selected users.");
+      setUsers(d.users);
+      setCharacters(d.characters);
+      setSelectedUsers([]);
+      if (editing && draft && selectedUsers.includes(draft.username)) {
+        const updated = d.users.find(a => a.username === draft.username);
+        if (updated) select(updated); else setDraft(null);
+      }
+      const descriptions = { disable:"disabled", delete:"deleted", mute:"muted in chat", "remove-team":"removed from their teams" };
+      setMessage(`${d.updated} ${d.updated === 1 ? "user" : "users"} ${descriptions[action]}.`);
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); setConfirmDelete(false); }
   }
   const own = viewer === draft?.username;
   const spawnValid =
@@ -168,30 +205,14 @@ export default function UsersPage() {
     characters.find((c) => c.id === draft?.hero) || characters[0];
   return (
     <main className="admin-studio">
-      <header>
-        <a className="brand" href="/">
-          <span className="brand-icon">
-            <Snowflake size={24} />
-          </span>
-          CTF-RPG <b>STUDIO</b>
-        </a>
-        <div className="admin-header-links">
-          <a href="/admin/theme">Theme</a>
-          <a href="/admin/notifications">Notifications</a>
-          <a href="/admin/review">Review answers</a>
-          <a href="/admin">Challenges</a>
-          <a href="/admin/teams">Teams</a>
-          <a href="/scoreboard">Scoreboard</a>
-          <a href="/">Game</a>
-        </div>
-      </header>
+      <AdminHeader active="users" />
       <section className="admin-workspace">
         <div className="roster-heading">
           <div>
             <span className="eyebrow">ADMIN STUDIO</span>
-            <h1>Explorer accounts</h1>
+            <h1>Users</h1>
             <p>
-              Create accounts, assign heroes and starting positions, and manage
+              Create users, assign heroes and starting positions, and manage
               access to the expedition.
             </p>
           </div>
@@ -201,15 +222,38 @@ export default function UsersPage() {
                 <Download size={17} />
                 Full backup
               </a>
-              <button className="primary" onClick={fresh}>
+              <button className="primary" onClick={fresh} disabled={busy}>
                 <Plus size={17} />
-                New account
+                New user
               </button>
             </div>
           )}
         </div>
+        {allowed && error && <p className="error" role="alert">{error}</p>}
+        {allowed && message && <p className="success" role="status">{message}</p>}
+        {allowed && (
+          <section className="user-bulk-actions" aria-label="Bulk user actions">
+            <div className="user-selection-heading">
+              <label className="admin-checkbox">
+                <Checkbox aria-label="Select all shown users" checked={allShownSelected ? true : someShownSelected ? "indeterminate" : false} disabled={busy || !filteredUsers.length} onCheckedChange={(value) => {
+                  const shown = filteredUsers.map(a => a.username);
+                  setSelectedUsers(current => value === true ? [...new Set([...current, ...shown])] : current.filter(name => !shown.includes(name)));
+                }} />
+                Select all shown users
+              </label>
+              <span>{selected.length} selected</span>
+              <button type="button" className="text-button" disabled={busy || !selected.length} onClick={() => setSelectedUsers([])}>Clear selection</button>
+            </div>
+            <div className="admin-actions">
+              {(Object.keys(actionNames) as BulkAction[]).map(action => (
+                <button type="button" key={action} className={`secondary-button${action === "delete" ? " danger-button" : ""}`} disabled={busy || !selected.length || (selfSelected && (action === "disable" || action === "delete"))} onClick={() => action === "delete" ? setConfirmDelete(true) : void applyBulk(action)}>{actionNames[action]}</button>
+              ))}
+            </div>
+            {selfSelected && <p>Your own administrator user cannot be disabled or deleted. Deselect it to use those actions.</p>}
+          </section>
+        )}
         {loading ? (
-          <p role="status">Loading accounts…</p>
+          <p role="status">Loading users…</p>
         ) : !allowed ? (
           <div className="roster-empty">
             <Users size={28} />
@@ -223,15 +267,16 @@ export default function UsersPage() {
             <section>
               <div className="roster-search">
                 <label>
-                  Find an explorer
+                  Find a user
                   <input
                     type="search"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Username"
+                    placeholder="Username or team"
                   />
                 </label>
                 <button
+                  disabled={busy}
                   aria-label="Refresh users"
                   className="icon-button"
                   onClick={() => void load()}
@@ -239,53 +284,42 @@ export default function UsersPage() {
                   <RefreshCw size={18} />
                 </button>
               </div>
-              <div className="roster-list">
-                {users
-                  .filter((a) => a.username.includes(query.toLowerCase()))
-                  .map((a) => (
-                    <button
-                      key={a.username}
-                      className={
-                        (draft?.username === a.username ? "selected " : "") +
-                        (a.disabled ? "disabled-account" : "")
-                      }
-                      onClick={() => select(a)}
-                    >
-                      <span className="account-avatar">
-                        {a.username.slice(0, 2).toUpperCase()}
-                      </span>
+              <div className="roster-list users-roster-list">
+                {filteredUsers.map((a) => (
+                  <div key={a.username} className={`user-row${draft?.username === a.username ? " selected" : ""}${a.disabled ? " disabled-account" : ""}`}>
+                    <input type="checkbox" aria-label={`Select ${a.username}`} checked={selectedUsers.includes(a.username)} disabled={busy} onChange={e => setSelectedUsers(current => e.target.checked ? [...current, a.username] : current.filter(name => name !== a.username))} />
+                    <button type="button" aria-label={`Edit ${a.username}`} onClick={() => select(a)} disabled={busy}>
+                      <span className="account-avatar">{a.username.slice(0, 2).toUpperCase()}</span>
                       <div>
                         <b>{a.username}</b>
-                        <small>
-                          {a.role === "admin"
-                            ? "Administrator"
-                            : characters.find((c) => c.id === a.hero)?.name ||
-                              a.hero}{" "}
-                          · {a.disabled ? "Disabled" : "Active"}
-                        </small>
+                        <small>{a.role === "admin" ? "Administrator" : characters.find(c => c.id === a.hero)?.name || a.hero} · {a.disabled ? "Disabled" : "Active"}{a.muted ? " · Chat muted" : ""}</small>
+                        <small>{a.team ? `Team: ${a.team.name}` : "No team"}</small>
                       </div>
-                      <span>
-                        {a.score} pts<small>{a.completed} solved</small>
-                      </span>
+                      <span>{a.score} pts<small>{a.completed} solved</small></span>
                     </button>
-                  ))}
-                {!users.length && (
-                  <p>No accounts yet. Create your first explorer.</p>
-                )}
+                  </div>
+                ))}
+                {!filteredUsers.length && <p>{users.length ? "No users match your search." : "No users yet. Create your first explorer."}</p>}
               </div>
             </section>
             {draft ? (
               <form className="admin-editor" onSubmit={save}>
                 <div className="admin-editor-title">
-                  <h2>{editing ? "Edit account" : "New account"}</h2>
+                  <h2>{editing ? "Edit user" : "New user"}</h2>
                   <span>
                     {own
-                      ? "Your account"
+                      ? "Your user"
                       : draft.disabled
                         ? "Disabled"
                         : "Active"}
                   </span>
                 </div>
+                {editing && (
+                  <section className="user-team-info" aria-label="User team">
+                    <h3>Team</h3>
+                    {profileTeam ? <a href="/admin/teams">{profileTeam.name}</a> : <p>No team</p>}
+                  </section>
+                )}
                 <label>
                   Username
                   <input
@@ -326,7 +360,7 @@ export default function UsersPage() {
                     value={draft.hero}
                     onValueChange={(hero) => patch({ hero })}
                   >
-                    <SelectTrigger aria-label="Account character">
+                    <SelectTrigger aria-label="User character">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -355,7 +389,7 @@ export default function UsersPage() {
                         });
                       }}
                     >
-                      <SelectTrigger aria-label="Account starting map">
+                      <SelectTrigger aria-label="User starting map">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -389,7 +423,7 @@ export default function UsersPage() {
                         onMove={() => {}}
                         onSearch={() => {}}
                         selectionAllowed={canSpawn}
-                        selectionLabel="Account spawn picker"
+                        selectionLabel="User spawn picker"
                         onSelect={(x, y) => {
                           if (canSpawn(selectedMap.id, x, y))
                             patch({
@@ -438,7 +472,7 @@ export default function UsersPage() {
                       patch({ role: role as Draft["role"] })
                     }
                   >
-                    <SelectTrigger aria-label="Account role">
+                    <SelectTrigger aria-label="User role">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -452,7 +486,7 @@ export default function UsersPage() {
                     checked={draft.disabled}
                     onCheckedChange={(v) => patch({ disabled: v === true })}
                   />
-                  Disable account
+                  Disable user
                 </label>
                 <label className="admin-checkbox">
                   <Checkbox
@@ -469,19 +503,9 @@ export default function UsersPage() {
                   Disabling blocks sign-in and hides the explorer from the
                   scoreboard. Progress is kept for reactivation.
                 </p>
-                {error && (
-                  <p className="error" role="alert">
-                    {error}
-                  </p>
-                )}
-                {message && (
-                  <p className="success" role="status">
-                    {message}
-                  </p>
-                )}
                 <button className="primary" disabled={busy || !spawnValid}>
                   <Save size={17} />
-                  {busy ? "Saving…" : "Save account"}
+                  {busy ? "Saving…" : "Save user"}
                 </button>
                 <button
                   type="button"
@@ -498,7 +522,7 @@ export default function UsersPage() {
               <div className="roster-empty">
                 <Users size={30} />
                 <h2>Select an explorer</h2>
-                <p>Pick an account to edit, or create a new one.</p>
+                <p>Pick a user to edit, or create a new one.</p>
               </div>
             )}
           </div>
@@ -508,6 +532,19 @@ export default function UsersPage() {
           progress. Keep them in a private location.
         </p>
       </section>
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selected.length} {selected.length === 1 ? "user" : "users"}?</AlertDialogTitle>
+            <AlertDialogDescription>This permanently removes the selected users, their submissions, earned points, and team memberships. This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="bulk-delete-users">{selected.map(a => <li key={a.username}>{a.username}</li>)}</ul>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={busy || selfSelected} onClick={() => void applyBulk("delete")}>Delete users</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

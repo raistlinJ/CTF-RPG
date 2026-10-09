@@ -4,7 +4,9 @@ import TeamPanel from "./team-panel";
 import { usePlayerPresence, type NearbyPlayer, type SolveShine } from "./use-player-presence";
 import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import ScoresPanel from "./scoreboard/scores-panel";
+import TeamPointGifts from "./team-point-gifts";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import NotificationsInbox from "./notifications-inbox";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
 import {
@@ -624,6 +626,7 @@ export default function Game() {
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
   const [discovered, setDiscovered] = useState<string[]>([]);
+  const [scoreboardOpen, setScoreboardOpen] = useState(false);
   const [team, setTeam] = useState<Team | null>(null);
   const [playerTile, setPlayerTile] = useState<{
     map: string;
@@ -1033,8 +1036,8 @@ export default function Game() {
       }
     : undefined;
   return (
-    <main>
-      <header>
+    <main className="game-page">
+      <header className="player-header">
         <a className="brand" href="/">
           <span className="brand-icon">
             {config?.theme.badge === "cpu" ? (
@@ -1071,9 +1074,9 @@ export default function Game() {
             (canAdmin ||
               (presence.scoreboard || config?.scoreboard)?.visibility !==
                 "admins") && (
-              <a href="/scoreboard" className="admin-link">
+              <button id="scores-button" type="button" className="admin-link" onClick={() => setScoreboardOpen(true)}>
                 Scores
-              </a>
+              </button>
             )}
           {canAdmin && (
             <a href="/admin/teams" className="admin-link">
@@ -1370,6 +1373,7 @@ export default function Game() {
               <strong>{score.toLocaleString()}</strong>
               <small>Every discovery counts.</small>
             </div>
+            {team && <TeamPointGifts team={team} />}
             <div className="journal">
               <div className="journal-title">
                 <h2>Treasure journal</h2>
@@ -1440,6 +1444,12 @@ export default function Game() {
           </aside>
         </section>
       ) : null}
+      <Dialog open={scoreboardOpen} onOpenChange={setScoreboardOpen}>
+        <DialogContent className="scoreboard-modal" showCloseButton={false} aria-describedby={undefined} onCloseAutoFocus={(e) => { e.preventDefault(); document.getElementById("scores-button")?.focus(); }}>
+          <div className="scoreboard-modal-header"><DialogTitle>Scoreboard</DialogTitle><DialogClose className="secondary-button">Close</DialogClose></div>
+          <div className="scoreboard-modal-scroll">{scoreboardOpen && <ScoresPanel allowModeSwitch={canAdmin}/>}</div>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={!!active}
         onOpenChange={(v) => {

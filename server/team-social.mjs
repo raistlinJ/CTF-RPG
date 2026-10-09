@@ -93,6 +93,8 @@ export async function teamScores(db, config) {
     )
       scores.set(r.team, (scores.get(r.team) || 0) + r.score);
   }
+  const gifts = (await db.prepare("SELECT team,SUM(points) AS points FROM team_point_awards GROUP BY team").bind().all()).results;
+  for (const gift of gifts) scores.set(gift.team, (scores.get(gift.team) || 0) + gift.points);
   return scores;
 }
 export async function handleTeamSocial(

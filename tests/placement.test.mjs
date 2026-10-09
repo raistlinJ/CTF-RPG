@@ -62,3 +62,16 @@ test("unreachable cells are ignored and overflow spills into another map before 
     ["c"],
   );
 });
+test("skipping an unplaceable prerequisite also excludes its dependent chain from the import preview", () => {
+  const t = structuredClone(theme);
+  t.world.startMap = "tiny"; t.world.buildings = []; t.world.trees = [];
+  t.world.maps = [{ id:"tiny",name:"Tiny",bounds:{left:1,right:2,top:1,bottom:1},spawn:{x:1,y:1},exit:null,background:null,floor:"#ffffff",wall:"#000000",obstacles:[] }];
+  const result = planChallengePlacement(t, [
+    {...question("dependent","tiny",{x:1,y:1}),dependsOn:["prerequisite"]},
+    {...question("grandchild","tiny",{x:2,y:1}),dependsOn:["dependent"]},
+    question("prerequisite","tiny",{x:3,y:1}),
+  ]);
+  assert.deepEqual(result.challenges,[]);
+  assert.deepEqual(result.excluded.map((c)=>c.id),["prerequisite","dependent","grandchild"]);
+  assert.match(result.excluded[1].reason,/prerequisite/);
+});

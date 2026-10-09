@@ -1,7 +1,7 @@
 "use client";
+import AdminHeader from "./admin-header";
 import { useEffect, useState } from "react";
 import {
-  Snowflake,
   Plus,
   Save,
   Download,
@@ -38,6 +38,7 @@ type Definition = {
   region: string;
   text: string;
   flags: string[];
+  dependsOn: string[];
   flagRules?: {value:string;caseSensitive:boolean}[];
   ctfd?: Record<string,unknown>;
   visibility: "hidden" | "visible";
@@ -68,6 +69,7 @@ const fresh = (map = "town", x = 18, y = 20): Draft => ({
   region: mapName(map),
   text: "",
   flagsText: "",
+  dependsOn: [],
   visibility: "visible",
   grading: "automatic",
   caseSensitive: false,
@@ -77,6 +79,7 @@ const fresh = (map = "town", x = 18, y = 20): Draft => ({
 });
 const toDraft = (c: Definition): Draft => ({
   ...c,
+  dependsOn: c.dependsOn || [],
   visibility: c.visibility || "visible",
   grading: c.grading || "automatic",
   hints: c.hints.map((h) => ({ ...h })),
@@ -291,36 +294,7 @@ export default function Admin() {
     !!draft && canPlaceChallenge(draft.map, draft.location.x, draft.location.y);
   return (
     <main className="admin-studio">
-      <header>
-        <a className="brand" href="/">
-          <span className="brand-icon">
-            <Snowflake size={24} />
-          </span>
-          CTF-RPG <b>STUDIO</b>
-        </a>
-        <div className="header-right">
-          <span className="edition">ADMIN STUDIO</span>
-          <a className="admin-link" href="/admin/review">
-            Review answers
-          </a>
-          <a className="admin-link" href="/admin/notifications">Notifications</a>
-          <a className="admin-link" href="/admin/theme">
-            Theme
-          </a>
-          <a className="admin-link" href="/admin/teams">
-            Teams
-          </a>
-          <a className="admin-link" href="/admin/users">
-            Accounts
-          </a>
-          <a className="admin-link" href="/scoreboard">
-            Scores
-          </a>
-          <a className="admin-link" href="/">
-            Back to game
-          </a>
-        </div>
-      </header>
+      <AdminHeader active="challenges" />
       {access === "loading" ? (
         <p className="admin-loading" role="status">
           Opening challenge studio…
@@ -624,6 +598,11 @@ export default function Admin() {
                   </select>
                   <small>Hidden challenges are available only to admins. The global setting can restrict all challenges to admins.</small>
                 </label>
+                <div className="challenge-dependency-summary">
+                  <b>Prerequisites</b>
+                  <p>{draft.dependsOn.length ? draft.dependsOn.map((id) => catalog.find((c) => c.id === id)?.object || id).join(", ") : "No prerequisites"}</p>
+                  <a href="/admin/challenges/dependencies">Edit dependency graph</a>
+                </div>
                 <label>
                   Answer checking
                   <Select

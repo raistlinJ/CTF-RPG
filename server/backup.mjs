@@ -1,3 +1,4 @@
+import { pointAwardSchema } from "./team-points.mjs";
 import { challengeSettings } from "./challenge-visibility.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { scoreboardSettings } from "./social-controls.mjs";
@@ -53,6 +54,7 @@ export function validateSnapshot(input) {
       theme: z.unknown().optional(),
       challenges: z.array(z.unknown()).max(100),
       accounts: z.array(account).max(10000),
+      deletedAccounts: z.array(z.object({username:z.string().regex(/^[a-z0-9_-]{3,24}$/), deleted_at:z.number().int().min(0)}).strict()).max(100000).default([]),
       teams: z
         .array(
           z
@@ -67,6 +69,7 @@ export function validateSnapshot(input) {
         )
         .max(10000)
         .default([]),
+      teamPointAwards: z.array(pointAwardSchema).max(100000).default([]),
       teamMembers: z
         .array(z.object({ user: z.string(), team: z.string() }).strict())
         .max(10000)
@@ -214,6 +217,8 @@ export function validateSnapshot(input) {
   )
     throw Error("Invalid discoveries in backup.");
   const teamIds = new Set(snapshot.teams.map((t) => t.id));
+  if (new Set(snapshot.teamPointAwards.map((a) => a.id)).size !== snapshot.teamPointAwards.length || snapshot.teamPointAwards.some((a) => !teamIds.has(a.team)))
+    throw Error("Invalid team point gifts in backup.");
   if (
     teamIds.size !== snapshot.teams.length ||
     new Set(snapshot.teams.map((t) => t.name_key)).size !==
@@ -280,6 +285,8 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     members,
     teamSettings,
     responses,
+    deletedAccounts,
+    pointAwards,
   ] = await db.batch([
     db.prepare("SELECT * FROM students ORDER BY username").bind(),
     db
@@ -309,10 +316,13 @@ export async function createSnapshot({ db, config, challenges, theme }) {
         "SELECT user,challenge,answer,question,object,max_points AS maxPoints,hint_cost AS hintCost,submitted_at AS submittedAt,submitted_team AS submittedTeam,revision,grade,feedback,reviewer,graded_at AS gradedAt FROM written_responses ORDER BY user,challenge",
       )
       .bind(),
+    db.prepare("SELECT username,deleted_at FROM deleted_accounts ORDER BY username").bind(),
+    db.prepare("SELECT id,team,points,comment,awarded_by,created_at FROM team_point_awards ORDER BY created_at,id").bind(),
   ]);
+  const deleted = new Set(deletedAccounts.results.map(a => a.username));
   const records = [];
   for (const row of users.results) {
-    const cfg = config.accounts.users.find((a) => a.username === row.username),
+    const cfg = deleted.has(row.username) ? undefined : config.accounts.users.find((a) => a.username === row.username),
       effective = effectiveAccount(row, cfg, config);
     const credentials =
       !row.managed && cfg
@@ -334,7 +344,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     });
   }
   for (const cfg of config.accounts.users)
-    if (!records.some((a) => a.username === cfg.username)) {
+    if (!deleted.has(cfg.username) && !records.some((a) => a.username === cfg.username)) {
       const credentials = await configuredCredentials(cfg, null);
       records.push({
         id: crypto.randomUUID(),
@@ -351,7 +361,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       });
     }
   const exportConfig = JSON.parse(JSON.stringify(config));
-  exportConfig.accounts.users = config.accounts.users.map((cfg) => {
+  exportConfig.accounts.users = config.accounts.users.filter(cfg => !deleted.has(cfg.username)).map((cfg) => {
     const a = records.find((a) => a.username === cfg.username);
     return {
       username: a.username,
@@ -372,6 +382,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       ? JSON.parse(catalog.results[0].payload)
       : challenges,
     accounts: records,
+    deletedAccounts: deletedAccounts.results,
     discoveries: (
       await db
         .prepare(
@@ -390,6 +401,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     answerAttempts: (await db.prepare("SELECT * FROM answer_attempts ORDER BY submitted_at,id").bind().all()).results,
     teams: teams.results,
     teamMembers: members.results,
+    teamPointAwards: pointAwards.results,
     teamFeatures: (({ revision, ...flags }) => flags)(
       await teamFeatures(db, config),
     ),

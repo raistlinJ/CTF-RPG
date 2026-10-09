@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -7,7 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-export type Team = { id: string; name: string; members: number };
+export type PointAward = { id: string; team: string; points: number; comment: string; awarded_by: string; created_at: number };
+export type Team = { id: string; name: string; members: number; score?: number; pointAwards?: PointAward[] };
 export default function TeamSetup({
   username,
   onChange,
@@ -29,9 +30,13 @@ export default function TeamSetup({
     [password, setPassword] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const loadVersion = useRef(0);
+  const joining = useRef(false);
   useEffect(() => {
     let live = true;
     const load = async () => {
+      if (joining.current) return;
+      const version = ++loadVersion.current;
       try {
         const r = await fetch("/api/teams"),
           d = (await r.json()) as {
@@ -42,7 +47,7 @@ export default function TeamSetup({
             members?: { team: string; username: string; disabled: number }[];
           };
         if (!r.ok) throw Error(d.error || "Could not load teams.");
-        if (live) {
+        if (live && version === loadVersion.current) {
           setTeams(d.teams);
           setTeam(d.team);
           setLimit(d.maxMembers);
@@ -50,24 +55,29 @@ export default function TeamSetup({
           setError("");
         }
       } catch (e) {
-        if (live) {
+        if (live && version === loadVersion.current) {
           setError((e as Error).message);
           setTeam(null);
           onChange(null);
         }
       } finally {
-        if (live) setLoading(false);
+        if (live && version === loadVersion.current) setLoading(false);
       }
     };
     void load();
     window.addEventListener("focus", load);
+    const timer = setInterval(() => { if (!document.hidden) void load(); }, 5000);
     return () => {
       live = false;
+      clearInterval(timer);
       window.removeEventListener("focus", load);
     };
   }, [username, onChange, featureRevision]);
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (joining.current) return;
+    joining.current = true;
+    loadVersion.current++;
     setBusy(true);
     setError("");
     try {
@@ -90,6 +100,7 @@ export default function TeamSetup({
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      joining.current = false;
       setBusy(false);
     }
   }

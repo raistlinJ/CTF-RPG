@@ -247,7 +247,7 @@ test("private written answers persist, freeze hints, grade/regrade scores atomic
   assert.equal(q.submission.status, "graded");
   assert.equal(q.submission.feedback, "Updated rubric: 70 before hint costs.");
   assert.equal(
-    (await student("/api/scoreboard")).data.players.find(
+    (await admin("/api/scoreboard?mode=individual")).data.players.find(
       (p) => p.username === "alice",
     ).score,
     60,

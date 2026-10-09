@@ -1,6 +1,6 @@
 # Reusable themes and challenge content
 
-Open **Manage → Themes & content** (`/admin/packs`) as an administrator. Both exports and both imports require administrator authorization on the server. Student access to the game does not grant pack-management access.
+Open **Manage → Theme → Import / Export** (`/admin/theme/import-export`) as an administrator. Both exports and both imports require administrator authorization on the server. Student access to the game does not grant pack-management access.
 
 ## What each pack contains
 
@@ -138,7 +138,7 @@ Theme manifests may set `badge: cpu`, `badge: snowflake`, or `badge: compass` fo
 
 Importing a theme or content pack preserves valid, unique challenge positions first. Questions on blocked, unreachable, entrance/exit, duplicate, out-of-grid, or missing-map positions move to the nearest free reachable tile in their map (Manhattan distance; ties by row, then column). If that map is full or missing, the start map and remaining maps are used. Each tile holds one challenge; there is no fixed number of predefined placement slots.
 
-If every map is full, the import pauses before changing data or storing assets. The admin sees the excluded question names and IDs and can cancel to choose a larger theme/reduce the content, or explicitly import only what fits. Keep the source ZIP or export current content before excluding questions. Import reports show relocated coordinates and excluded IDs. Accounts, teams, historical points, and written responses remain saved. Theme-only relocation updates the challenge catalog atomically with the theme; stale approvals are rejected.
+If every map is full, the import pauses before changing data or storing assets. The admin sees the excluded question names and IDs and can cancel to choose a larger theme/reduce the content, or explicitly import only what fits. Keep the source ZIP or export current content before excluding questions. Import reports show relocated coordinates and excluded IDs. Challenge `dependsOn` connections are preserved. If a prerequisite cannot be placed, its dependent chain is also excluded and included in the preview; approving a partial import skips the entire affected chain. Accounts, teams, historical points, and written responses remain saved. Theme-only relocation updates the challenge catalog atomically with the theme; stale approvals are rejected.
 
 ### Edit artwork and ground in the challenge studio
 

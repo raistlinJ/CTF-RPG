@@ -1,3 +1,5 @@
+import { handleChallengeDependencies } from "./challenge-dependencies.mjs";
+import { bulkUserAction } from "./user-actions.mjs";
 import {handleCtfdImport} from "./ctfd-import.mjs";
 import {handleNotifications} from "./notifications.mjs";
 import { handleSubmissions } from "./submissions.mjs";
@@ -65,6 +67,10 @@ function createRequestApi({
     /quest_session=([^;]+)/.exec(req.headers.get("cookie") || "")?.[1];
   const sessionCookie = (token, maxAge = 604800) =>
     `quest_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secureCookies ? "; Secure" : ""}`;
+  async function configuredAccount(name) {
+    const deleted = await db.prepare("SELECT username FROM deleted_accounts WHERE username=?").bind(name).first();
+    return deleted ? undefined : config.accounts.users.find(a => a.username === name);
+  }
   async function user(req) {
     const token = tokenOf(req);
     if (!token) return null;
@@ -75,7 +81,7 @@ function createRequestApi({
       .bind(token, Date.now())
       .first();
     if (!row || row.disabled) return null;
-    const cfg = config.accounts.users.find((a) => a.username === row.username);
+    const cfg = await configuredAccount(row.username);
     if (!config.accounts.allowRegistration && !cfg && !row.provisioned)
       return null;
     const account = effectiveAccount(row, cfg, config);
@@ -92,24 +98,27 @@ function createRequestApi({
     const rows = (
       await db
         .prepare(
-          `SELECT students.*,COALESCE(stats.score,0) AS score,COALESCE(stats.completed,0) AS completed FROM students LEFT JOIN (SELECT user,SUM(points) AS score,COUNT(*) AS completed FROM solved GROUP BY user) stats ON students.id=stats.user ORDER BY username`,
+          `SELECT students.*,teams.id AS team_id,teams.name AS team_name,COALESCE(stats.score,0) AS score,COALESCE(stats.completed,0) AS completed FROM students LEFT JOIN team_members ON team_members.user=students.id LEFT JOIN teams ON teams.id=team_members.team LEFT JOIN (SELECT user,SUM(points) AS score,COUNT(*) AS completed FROM solved GROUP BY user) stats ON students.id=stats.user ORDER BY username`,
         )
         .bind()
         .all()
     ).results;
+    const deleted = new Set((await db.prepare("SELECT username FROM deleted_accounts").bind().all()).results.map(a => a.username));
     const all = rows.map((row) => ({
       ...effectiveAccount(
         row,
-        config.accounts.users.find((c) => c.username === row.username),
+        deleted.has(row.username) ? undefined : config.accounts.users.find((c) => c.username === row.username),
         config,
       ),
+      team: row.team_id ? {id:row.team_id, name:row.team_name} : null,
       score: row.score,
       completed: row.completed,
     }));
     for (const cfg of config.accounts.users)
-      if (!rows.some((r) => r.username === cfg.username))
+      if (!deleted.has(cfg.username) && !rows.some((r) => r.username === cfg.username))
         all.push({
           ...effectiveAccount(null, cfg, config),
+          team: null,
           score: 0,
           completed: 0,
         });
@@ -129,11 +138,11 @@ function createRequestApi({
   async function gameState(userId, admin = false) {
     const current = await catalog();
     const settings = await challengeSettings(db);
-    const challenges = visibleChallenges(current.challenges, settings, admin);
     const completions = await db
       .prepare("SELECT challenge,points FROM solved WHERE user=?")
       .bind(userId)
       .all();
+    const challenges = visibleChallenges(current.challenges, settings, admin, new Set(completions.results.map((r) => r.challenge)));
     const solveCounts = (await db.prepare("SELECT challenge,COUNT(*) AS count FROM solved GROUP BY challenge").bind().all()).results;
     const purchases = await db
       .prepare("SELECT challenge,hint,cost FROM purchased_hints WHERE user=?")
@@ -212,6 +221,7 @@ function createRequestApi({
       req.headers.get("origin") !== new URL(req.url).origin
     )
       return json({ error: "Invalid request origin." }, 403);
+    if (path === "/api/admin/challenge-dependencies") return handleChallengeDependencies(req, {db, user, platformAdmin, catalog, themeRevision});
     if (path === "/api/admin/challenge-visibility") return handleChallengeSettings(req, {db, user, platformAdmin});
     if (["/api/admin/mute", "/api/admin/scoreboard"].includes(path))
       return handleSocialControls(req, { db, user, platformAdmin });
@@ -370,7 +380,7 @@ function createRequestApi({
           400,
         );
       const name = username.toLowerCase(),
-        configured = config.accounts.users.find((u) => u.username === name);
+        configured = await configuredAccount(name);
       let account = await db
         .prepare("SELECT * FROM students WHERE username=?")
         .bind(name)
@@ -432,12 +442,14 @@ function createRequestApi({
             );
           if (!account) {
             const id = crypto.randomUUID();
-            await db
+            const result = await db
               .prepare(
-                "INSERT INTO students(id,username,hash,salt,hero) VALUES(?,?,?,?,?)",
+                "INSERT INTO students(id,username,hash,salt,hero) SELECT ?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM deleted_accounts WHERE username=?)",
               )
-              .bind(id, name, credentials.hash, credentials.salt, selected)
+              .bind(id, name, credentials.hash, credentials.salt, selected, name)
               .run();
+            if (!(result.meta?.changes ?? result.changes))
+              return json({error:"This user was deleted. Contact your administrator."}, 401);
             account = { id, username: name, hero: selected };
           } else {
             const update = db
@@ -500,7 +512,12 @@ function createRequestApi({
           { error: "The scoreboard is available to administrators only." },
           403,
         );
-      if (settings.mode === "team") {
+      const admin = !!(platformAdmin || u?.role === "admin");
+      const requestedMode = new URL(req.url).searchParams.get("mode");
+      if (requestedMode && !["team", "individual"].includes(requestedMode))
+        return json({ error: "Choose user or team scores." }, 400);
+      const mode = admin ? requestedMode || settings.mode : "team";
+      if (mode === "team") {
         const totals = await teamScores(db, config),
           features = await teamFeatures(db, config);
         const own = u
@@ -534,6 +551,7 @@ function createRequestApi({
           lastScore;
         return json({
           mode: "team",
+          admin,
           players: teams.map((t, i) => {
             if (t.score !== lastScore) {
               rank = i + 1;
@@ -552,6 +570,7 @@ function createRequestApi({
         lastScore;
       return json({
         mode: "individual",
+        admin,
         players: players.map((a, i) => {
           if (a.score !== lastScore) {
             rank = i + 1;
@@ -588,8 +607,10 @@ function createRequestApi({
           themeRevision,
         });
       if (method === "POST") {
-        const body = await req.json(),
-          name =
+        const body = await req.json();
+        if (!body || typeof body !== "object" || Array.isArray(body)) return json({error:"Provide user details or a bulk action."}, 400);
+        if (body.action !== undefined) return bulkUserAction(body, {db, config, viewer:u, accountList});
+        const name =
             typeof body.username === "string"
               ? body.username.toLowerCase()
               : "";
@@ -612,7 +633,7 @@ function createRequestApi({
             .prepare("SELECT * FROM students WHERE username=?")
             .bind(name)
             .first(),
-          cfg = config.accounts.users.find((c) => c.username === name),
+          cfg = await configuredAccount(name),
           exists = !!(row || cfg);
         if (exists !== !!body.editing)
           return json(
@@ -695,7 +716,7 @@ function createRequestApi({
           const id = crypto.randomUUID();
           const result = await db
             .prepare(
-              "INSERT OR IGNORE INTO students(id,username,hash,salt,hero,role,disabled,spawn,muted,managed,provisioned,revision) SELECT ?,?,?,?,?,?,?,?,?,1,1,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?",
+              "INSERT OR IGNORE INTO students(id,username,hash,salt,hero,role,disabled,spawn,muted,managed,provisioned,revision) SELECT ?,?,?,?,?,?,?,?,?,1,1,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=? AND (?=0 OR NOT EXISTS(SELECT 1 FROM deleted_accounts WHERE username=?))",
             )
             .bind(
               id,
@@ -708,6 +729,8 @@ function createRequestApi({
               spawnJson,
               +(body.muted ?? false),
               themeRevision,
+              +!!cfg,
+              name,
             )
             .run();
           if (Number(result.meta?.changes ?? result.changes) !== 1)
@@ -822,6 +845,8 @@ function createRequestApi({
           validated = parseChallenges(
             stringify({ challenges: [challenge] }),
             theme.world.maps.map((m) => m.id),
+            false,
+            [...current.challenges.map((c) => c.id), challenge?.id],
           )[0];
         } catch (e) {
           return json(
@@ -917,17 +942,22 @@ function createRequestApi({
       if (method === "GET") return json(await gameState(u.id, admin));
       if (method === "POST") {
         const { id, answer, action, hintId, revision } = await req.json();
-        const { challenges } = await catalog();
+        const current = await catalog();
+        const { challenges } = current;
         const settings = await challengeSettings(db);
-        const c = visibleChallenges(challenges, settings, admin).find((c) => c.id === id);
+        const completions = (await db.prepare("SELECT challenge FROM solved WHERE user=?").bind(u.id).all()).results;
+        const c = visibleChallenges(challenges, settings, admin, new Set(completions.map((r) => r.challenge))).find((c) => c.id === id);
         if (!c) return json({ error: "Unknown challenge." }, 400);
+        // Catalog and visibility revisions guard writes against a graph changed mid-request.
+        const gate = "COALESCE((SELECT revision FROM challenge_catalog WHERE id='active'),0)=? AND COALESCE((SELECT revision FROM challenge_settings WHERE id='active'),0)=?";
+        const versions = [current.revision, settings.revision];
+        const changed = () => json({ error: "Challenges changed. Refresh before continuing." }, 409);
         if (action === "discover") {
-          await db
-            .prepare(
-              "INSERT OR IGNORE INTO discovered_challenges(user,challenge) VALUES(?,?)",
-            )
-            .bind(u.id, c.id)
+          const discovered = await db
+            .prepare(`INSERT OR IGNORE INTO discovered_challenges(user,challenge) SELECT ?,? WHERE ${gate}`)
+            .bind(u.id, c.id, ...versions)
             .run();
+          if (!(discovered.meta?.changes ?? discovered.changes) && !(await db.prepare(`SELECT ${gate} AS valid`).bind(...versions).first())?.valid) return changed();
           return json(await gameState(u.id, admin));
         }
         if (action === "hint") {
@@ -937,10 +967,11 @@ function createRequestApi({
           await db
             .prepare(
               `INSERT OR IGNORE INTO purchased_hints(user,challenge,hint,cost)
-            SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND NOT EXISTS(SELECT 1 FROM written_responses WHERE user=? AND challenge=?)`,
+            SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND NOT EXISTS(SELECT 1 FROM written_responses WHERE user=? AND challenge=?) AND ${gate}`,
             )
-            .bind(u.id, c.id, hint.id, hint.cost, u.id, c.id, u.id, c.id)
+            .bind(u.id, c.id, hint.id, hint.cost, u.id, c.id, u.id, c.id, ...versions)
             .run();
+          if (!(await db.prepare(`SELECT ${gate} AS valid`).bind(...versions).first())?.valid) return changed();
           const purchase = await db
             .prepare(
               "SELECT cost FROM purchased_hints WHERE user=? AND challenge=? AND hint=?",
@@ -974,7 +1005,7 @@ function createRequestApi({
           const r = await db
             .prepare(
               `INSERT INTO written_responses(user,challenge,answer,question,object,max_points,hint_cost,submitted_at,submitted_team,revision)
-            SELECT ?,?,?,?,?,?,COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0),?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),1 WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND COALESCE((SELECT revision FROM written_responses WHERE user=? AND challenge=?),0)=?
+            SELECT ?,?,?,?,?,?,COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0),?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),1 WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND COALESCE((SELECT revision FROM written_responses WHERE user=? AND challenge=?),0)=? AND ${gate}
             ON CONFLICT(user,challenge) DO UPDATE SET answer=excluded.answer,submitted_at=excluded.submitted_at,submitted_team=excluded.submitted_team,revision=written_responses.revision+1 WHERE written_responses.grade IS NULL AND written_responses.revision=?`,
             )
             .bind(
@@ -993,6 +1024,7 @@ function createRequestApi({
               u.id,
               c.id,
               revision,
+              ...versions,
               revision,
             )
             .run();
@@ -1010,13 +1042,14 @@ function createRequestApi({
           return json({ error: "Invalid answer." }, 400);
         const correct = c.flagRules?.length ? c.flagRules.some(rule=>rule.caseSensitive ? answer === rule.value : answer.toLowerCase() === rule.value.toLowerCase()) : c.flags.some(flag=>normalize(flag,c.caseSensitive)===normalize(answer,c.caseSensitive));
         const attempt = db.prepare(`INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at)
-          SELECT ?,?,?,?,?,?,?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),?`)
-          .bind(crypto.randomUUID(),u.id,c.id,answer,c.text,c.object,+correct,u.id,Date.now());
-        if (!correct) { await attempt.run(); return json({correct:false}); }
+          SELECT ?,?,?,?,?,?,?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),? WHERE ${gate}`)
+          .bind(crypto.randomUUID(),u.id,c.id,answer,c.text,c.object,+correct,u.id,Date.now(),...versions);
+        if (!correct) { const result = await attempt.run(); if (!(result.meta?.changes ?? result.changes)) return changed(); return json({correct:false}); }
         // Record the attempt and award points together; duplicate solves still award once.
-        await db.batch([attempt, db.prepare(`INSERT OR IGNORE INTO solved(user,challenge,points)
-          SELECT ?,?,MAX(0,?-COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0))`)
-          .bind(u.id,c.id,c.points,u.id,c.id)]);
+        const results = await db.batch([attempt, db.prepare(`INSERT OR IGNORE INTO solved(user,challenge,points)
+          SELECT ?,?,MAX(0,?-COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0)) WHERE ${gate}`)
+          .bind(u.id,c.id,c.points,u.id,c.id,...versions)]);
+        if (!(results[0].meta?.changes ?? results[0].changes)) return changed();
         const award = await db
           .prepare("SELECT points FROM solved WHERE user=? AND challenge=?")
           .bind(u.id, c.id)

@@ -22,6 +22,17 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0004_high_sentinels.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0005_conscious_magneto.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0006_mixed_blue_blade.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0007_whole_white_tiger.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0008_broad_jazinda.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0009_concerned_reptil.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0010_equal_beyonder.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0011_overconfident_captain_britain.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0012_petite_mantis.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0013_lean_darkstar.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0014_abandoned_rhino.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0015_optimal_greymalkin.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0016_admin_user_actions.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0017_team_point_awards.sql
 npm run dev
 ```
 
@@ -29,7 +40,7 @@ Apply each migration only once, in order, to a new local database. Existing prev
 
 ## Scoreboard, accounts, and backups
 
-Students can view `/scoreboard`. Admins can manage accounts at `/admin/users` and download a full recreation ZIP with accounts and progress. See [BACKUPS.md](BACKUPS.md) for features, export contents, and restore commands.
+Students open **Scores** in a modal showing team totals, or visit `/scoreboard`. Admins can toggle user/team scores, manage users at `/admin/users`, and download a full recreation ZIP with accounts and progress. See [BACKUPS.md](BACKUPS.md) for features, export contents, and restore commands.
 
 ## Admin challenge editor
 
@@ -49,7 +60,7 @@ See [MAP_GUIDE.md](MAP_GUIDE.md) for the expanded town, Santa's castle, all hous
 
 Usernames are case-insensitive, 3–24 letters/digits/underscores/hyphens. Passwords have 8–128 characters and are stored as salted PBKDF2-SHA256 hashes (100,000 iterations). Random server sessions use HttpOnly, SameSite=Lax cookies with a seven-day expiry; HTTPS cookies are Secure. Hero selection and scoring are enforced on the server, and duplicate rewards are prevented with a database primary key. Writes check same-origin requests.
 
-This version includes a teacher challenge editor; password recovery and account deletion UI are not included. The standalone server includes basic login rate limiting; the hosted version has no application-level limiter. Add those before a large public classroom rollout. Current hosted publication is private to the site owner; sharing access must be configured before students can visit. Hero designs and game artwork are original pixel-style interpretations rather than copied game assets. Movement is client-side; this is a learning game, not a competitive anti-cheat system.
+This version includes a teacher challenge editor; admins can reset passwords and delete selected users through **Users**. Self-service password recovery is not included. The standalone server includes basic login rate limiting; the hosted version has no application-level limiter. Add those before a large public classroom rollout. Current hosted publication is private to the site owner; sharing access must be configured before students can visit. Hero designs and game artwork are original pixel-style interpretations rather than copied game assets. Movement is client-side; this is a learning game, not a competitive anti-cheat system.
 
 An optional browser WebMCP `read_expedition` tool exposes the same visible position and score when the browser supports it. It never exposes passwords or answers.
 
@@ -57,13 +68,15 @@ An optional browser WebMCP `read_expedition` tool exposes the same visible posit
 
 Students create a team with a name and password, or join an existing team after signing in. Team passwords have 8–128 characters and are stored as salted hashes. Team names are unique ignoring case. Membership persists across logins; students cannot leave or switch teams. Only admins may disband a team, which releases its members to choose again without changing individual scores.
 
-Admins see **Manage** in the game header. `/admin/teams` links to challenges, accounts, and scores. Set the maximum team size from 1–100 (default 4, initially configured by `teams.maxMembers` in `content/game.yaml`). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. Team management routes enforce admin authorization.
+Admins use **Manage** in the game header. **Teams → Configuration** (`/admin/teams/configuration`) contains team-size, scoreboard, player-visibility, and messaging settings. **Teams → Manage** (`/admin/teams`) shows teams, point gifts, and disband controls. Set the maximum team size from 1–100 (default 4, initially configured by `teams.maxMembers` in `content/game.yaml`). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. Both pages enforce admin authorization.
+
+Use **Gift points** on a team to award 1–10,000 whole points with a required comment. Gifts count once toward the team total and remain separate from individual earned points. Members see **+N pts added** on the game screen; hover, focus, or tap to read the comment. Manage shows gift history. Full backups preserve gifts and comments. Disbanding a team removes its gifts; members retain individual progress.
 
 Full backups include teams, team password hashes, memberships, and the saved size limit. Older backups without teams still restore successfully.
 
 ## Theme and content packs
 
-Administrators can use **Manage → Themes & content** (`/admin/packs`) to export/import reusable themes separately from challenge content. Themes own map artwork/layout, entrances, characters/sprites, and MIDI; content owns challenge text/flags/points/hints/locations/downloads. Neither includes accounts or progress. Full backup still includes the complete system, including imported assets and the active theme. See [THEMES.md](THEMES.md) for formats, limits, authoring, and paired imports. Self-hosters must preserve `data/pack-assets` together with their SQLite database (the Docker data volume already covers it).
+Administrators can use **Manage → Theme → Import / Export** (`/admin/theme/import-export`) to export/import reusable themes separately from challenge content. Themes own map artwork/layout, entrances, characters/sprites, and MIDI; content owns challenge text/flags/points/hints/locations/downloads. Neither includes accounts or progress. Full backup still includes the complete system, including imported assets and the active theme. See [THEMES.md](THEMES.md) for formats, limits, authoring, and paired imports. Self-hosters must preserve `data/pack-assets` together with their SQLite database (the Docker data volume already covers it).
 
 ## Automatic and manual grading
 
@@ -71,8 +84,16 @@ Every challenge supports `grading: automatic` (the default) or `grading: manual`
 
 Admins use `/admin/review` (**Manage → Review answers**) to award a whole-number grade from 0 to the submission's saved maximum and provide feedback. Recorded hint costs are subtracted, with a minimum final award of 0. Regrading updates the existing award and scoreboard. Response revisions prevent stale edits or grades from overwriting newer work. Full backups retain responses/grades/feedback; theme and content packs exclude them. Use new IDs for new tests; grading mode cannot be changed after responses or awards exist.
 
-The built-in **Agentic Circuit** theme is available under **Themes & content**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
+The built-in **Agentic Circuit** theme is available under **Theme → Import / Export**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
 
 ## Included theme packs
 
 The repository includes both [North Pole](themes/north-pole/README.md) and [Agentic Circuit](themes/agentic-circuit/README.md), with ready-to-import ZIPs in [theme-packs](theme-packs/README.md). Rebuild both with `npm run themes:build`.
+
+## CTFd imports
+
+CTFd imports convert standard prerequisites into working graph connections; the preview shows connections and any missing or skipped prerequisites. See [the CTFd import guide](ADMIN_GUIDE.md#importing-ctfd-exports).
+
+## Challenge dependencies
+
+Admins can connect challenge prerequisites under **Challenges → Dependencies** (`/admin/challenges/dependencies`). Players unlock a challenge after completing every prerequisite. Graph connections are retained in challenge YAML, content packs, and full backups. See [ADMIN_GUIDE.md](ADMIN_GUIDE.md#challenge-dependencies) for graph controls and progression rules.

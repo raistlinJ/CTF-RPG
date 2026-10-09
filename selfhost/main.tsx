@@ -4,11 +4,13 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import Game from "../app/page";
 import NotificationsAdmin from "../app/admin/notifications/page";
+import Dependencies from "../app/admin/challenges/dependencies/page";
 import Submissions from "../app/admin/challenges/submissions/page";
 import Review from "../app/admin/review/page";
 import PacksAdmin from "../app/admin/theme/import-export/page";
 import AudioAdmin from "../app/admin/theme/audio/page";
 import TeamsAdmin from "../app/admin/teams/page";
+import TeamsConfiguration from "../app/admin/teams/configuration/page";
 import UsersPage from "../app/admin/users/page";
 import Scoreboard from "../app/scoreboard/page";
 import Admin from "../app/admin/editor";
@@ -17,6 +19,8 @@ createRoot(document.getElementById("root")!).render(
   <>
     {window.location.pathname.startsWith("/admin/notifications") ? (
       <NotificationsAdmin/>
+    ) : window.location.pathname.startsWith("/admin/challenges/dependencies") ? (
+      <Dependencies />
     ) : window.location.pathname.startsWith("/admin/challenges/submissions") ? (
       <Submissions />
     ) : window.location.pathname.startsWith("/admin/review") ? (
@@ -25,6 +29,8 @@ createRoot(document.getElementById("root")!).render(
       <AudioAdmin />
     ) : window.location.pathname.startsWith("/admin/packs") || window.location.pathname.startsWith("/admin/theme") ? (
       <PacksAdmin />
+    ) : window.location.pathname.startsWith("/admin/teams/configuration") ? (
+      <TeamsConfiguration />
     ) : window.location.pathname.startsWith("/admin/teams") ? (
       <TeamsAdmin />
     ) : window.location.pathname.startsWith("/admin/users") ? (

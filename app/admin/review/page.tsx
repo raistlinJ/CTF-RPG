@@ -1,4 +1,5 @@
 "use client";
+import AdminHeader from "../admin-header";
 import { useEffect, useState } from "react";
 import {
   Select,
@@ -113,17 +114,7 @@ export default function Review() {
   }
   return (
     <main className="admin-studio">
-      <header>
-        <a className="brand" href="/">
-          CTF-RPG <b>STUDIO</b>
-        </a>
-        <nav className="admin-header-links">
-          <a href="/admin/teams">Manage</a>
-          <a href="/admin">Challenges</a>
-          <a href="/admin/theme">Theme</a>
-          <a href="/">Game</a>
-        </nav>
-      </header>
+      <AdminHeader active="review" />
       <section className="admin-workspace">
         <div className="roster-heading">
           <div>

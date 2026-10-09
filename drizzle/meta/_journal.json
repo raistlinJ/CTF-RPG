@@ -113,6 +113,20 @@
       "when": 1791405431452,
       "tag": "0015_optimal_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1791489145979,
+      "tag": "0016_admin_user_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1791490484552,
+      "tag": "0017_team_point_awards",
+      "breakpoints": true
     }
   ]
 }

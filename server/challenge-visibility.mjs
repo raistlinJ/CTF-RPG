@@ -1,9 +1,10 @@
+import { challengeUnlocked } from "../lib/challenge-dependencies.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 export async function challengeSettings(db) {
   return (await db.prepare("SELECT visibility,revision FROM challenge_settings WHERE id='active'").bind().first()) || { visibility: "all", revision: 0 };
 }
-export function visibleChallenges(challenges, settings, admin) {
-  return admin ? challenges : settings.visibility === "admins" ? [] : challenges.filter(c => c.visibility !== "hidden");
+export function visibleChallenges(challenges, settings, admin, solved = new Set()) {
+  return admin ? challenges : settings.visibility === "admins" ? [] : challenges.filter(c => c.visibility !== "hidden" && challengeUnlocked(c, solved));
 }
 export async function handleChallengeSettings(req, {db, user, platformAdmin}) {
   const u = await user(req);

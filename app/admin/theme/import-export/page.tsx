@@ -1,4 +1,5 @@
 "use client";
+import AdminHeader from "../../admin-header";
 import { useEffect, useState } from "react";
 import CtfdImporter from "./ctfd-importer";
 import ThemeNav from "../theme-nav";
@@ -140,18 +141,7 @@ export default function PacksAdmin() {
   }
   return (
     <main className="admin-studio">
-      <header>
-        <a className="brand" href="/">
-          CTF-RPG <b>STUDIO</b>
-        </a>
-        <nav className="admin-header-links">
-          <a href="/admin/teams">Manage</a>
-          <a href="/admin/review">Review answers</a>
-          <a href="/admin">Challenges</a>
-          <a href="/admin/users">Accounts</a>
-          <a href="/">Game</a>
-        </nav>
-      </header>
+      <AdminHeader active="theme" />
       <section className="admin-workspace">
         <ThemeNav active="import-export" />
         <div className="roster-heading">

@@ -1,6 +1,6 @@
 # Author challenges in YAML
 
-You can create and edit challenges through the [admin studio](ADMIN_GUIDE.md), with admin-only YAML export. `content/challenges.yaml` provides the initial set; after the first admin save, the persistent database set is authoritative. For your own Node server, restart the service after editing; no frontend rebuild is needed. In Docker, run `docker compose restart quest`. For the hosted Sites version, rebuild and republish. To use another server-side YAML file, set `CHALLENGES_CONFIG=/absolute/path/challenges.yaml` when starting your Node server.
+You can create and edit challenges through the [admin studio](ADMIN_GUIDE.md), with admin-only YAML export. `content/challenges.yaml` provides the initial set; after the first admin save, the persistent database set is authoritative. For your own Node server, restart the service after editing; no frontend rebuild is needed. In Docker, run `docker compose restart ctf-rpg`. For the hosted Sites version, rebuild and republish. To use another server-side YAML file, set `CHALLENGES_CONFIG=/absolute/path/challenges.yaml` when starting your Node server.
 
 ## Complete example
 
@@ -48,16 +48,23 @@ The example URL and local scroll are illustrative: replace them with your own fi
 | `id` | Required unique, stable lowercase identifier using letters, digits, and hyphens. Keep it unchanged to preserve completions and hint purchases. |
 | `map` | Optional map ID, default `town`. Use `castle`, `toy-workshop`, `cocoa-cottage`, `post-office`, `elf-house`, or `bakery` for interiors. See [MAP_GUIDE.md](MAP_GUIDE.md). |
 | `object` | Required name of the hidden object. |
+| `dependsOn` | Optional list of prerequisite challenge IDs, default `[]`. Every prerequisite must be completed by the player before this challenge unlocks. |
 | `location` | Required `{x, y}` map tile coordinates, x 0–39 and y 0–27. See the [map guide](README.md#map-coordinates-and-locations). |
 | `region` | Required location clue shown in the treasure journal. |
 | `text` | Required challenge instructions, up to 20,000 characters. YAML `|` preserves paragraphs and line breaks. Text is displayed as plain text, not HTML or Markdown. |
-| `points` | Required reward before hints: an integer from 1 to 10,000. |
+| `points` | Required reward before hints: an integer from 0 to 10,000. |
 | `flags` | Required list of accepted answers, each a nonempty string up to 500 characters. Any one correct flag solves the challenge. Quote numeric flags, such as `"24"`. |
 | `caseSensitive` | Optional boolean, default `false`. If `true`, capitalization must match. |
 | `hints` | Optional list of up to 20 hints. Use `[]` or omit it for no hints. |
 | `downloads` | Optional list of up to 20 downloadable file links. |
 
 Matching ignores leading and trailing whitespace. Internal spaces and line breaks are significant. With `caseSensitive: false`, `FLAG{Snow}` and `flag{snow}` match. With `caseSensitive: true`, they differ. `"24"` and `"twenty-four"` must be listed separately when both are accepted. Flags remain on the server and are not included in the game response.
+
+## Challenge prerequisites
+
+Use `dependsOn: [first-challenge-id, second-challenge-id]` to require both challenges before this one appears. Referenced IDs must exist in the same catalog; self-links, duplicate prerequisites, and dependency loops are rejected. A written-response prerequisite counts as completed after grading. Previously completed challenges remain available, while hidden challenges retain their visibility restrictions.
+
+Admins edit these connections in **Challenges → Dependencies**, with zoom, fit, and challenge summaries. Exports, content packs, and full backups preserve them. Standard CTFd prerequisites are mapped to these IDs during import; missing references keep the affected challenge hidden for review. See [the dependency guide](ADMIN_GUIDE.md#challenge-dependencies) and [CTFd import guide](ADMIN_GUIDE.md#importing-ctfd-exports).
 
 ## Hint fields and scoring
 
@@ -105,4 +112,4 @@ Every challenge supports `grading: automatic` (the default) or `grading: manual`
 
 Admins use `/admin/review` (**Manage → Review answers**) to award a whole-number grade from 0 to the submission's saved maximum and provide feedback. Recorded hint costs are subtracted, with a minimum final award of 0. Regrading updates the existing award and scoreboard. Response revisions prevent stale edits or grades from overwriting newer work. Full backups retain responses/grades/feedback; theme and content packs exclude them. Use new IDs for new tests; grading mode cannot be changed after responses or awards exist.
 
-The built-in **Agentic Circuit** theme is available under **Themes & content**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
+The built-in **Agentic Circuit** theme is available under **Theme → Import / Export**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.

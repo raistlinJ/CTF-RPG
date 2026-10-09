@@ -1,5 +1,5 @@
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
-import test from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFileSync,cpSync,mkdtempSync,symlinkSync,writeFileSync,rmSync} from 'node:fs';import {resolve} from 'node:path';import {tmpdir} from 'node:os';import {spawnSync} from 'node:child_process';import {zipSync,strToU8,unzipSync} from 'fflate';import {parseGame,parseChallenges} from '../lib/config-schema.mjs';import {createApi} from '../server/api.mjs';import {initializeSchema,createSQLiteAdapter} from '../server/sqlite.mjs';import {createSnapshot,validateSnapshot} from '../server/backup.mjs';import {defaultTheme,parseTheme} from '../lib/theme-schema.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFileSync,cpSync,mkdtempSync,symlinkSync,writeFileSync,rmSync} from 'node:fs';import {resolve} from 'node:path';import {tmpdir} from 'node:os';import {spawnSync} from 'node:child_process';import {zipSync,strToU8} from 'fflate';import {parseGame,parseChallenges} from '../lib/config-schema.mjs';import {createApi} from '../server/api.mjs';import {initializeSchema,createSQLiteAdapter} from '../server/sqlite.mjs';import {createSnapshot,validateSnapshot} from '../server/backup.mjs';import {defaultTheme,parseTheme} from '../lib/theme-schema.mjs';
 function setup(){const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);const db=createSQLiteAdapter(sqlite),config=parseGame('characters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web'),challenges=parseChallenges(readFileSync('content/challenges.yaml','utf8')),files=new Map(),api=createApi({db,config,challenges,assetStore:{async get(k){return files.get(k)||null},async put(k,v){files.set(k,v)}},readBaseAsset:p=>{try{return new Uint8Array(readFileSync('public'+p))}catch{return null}}});function client(){let cookie='';return async(path,body,method=body?'POST':'GET')=>{const r=await api(new Request('http://quest.test'+path,{method,headers:{Origin:'http://quest.test',Cookie:cookie,...(body&&!(body instanceof FormData)?{'Content-Type':'application/json'}:{})},body:body instanceof FormData?body:body?JSON.stringify(body):undefined}));if(r.headers.has('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];return {status:r.status,data:r.headers.get('content-type')?.includes('json')?await r.json():null,r};};}return{sqlite,db,config,challenges,files,client};}
 async function login(c,name){return c('/api/auth',{username:name,password:name==='teacher'?'teacher-password':'student-password',hero:'web',mode:name==='teacher'?'login':'register'});}
 function archive(overrides={}){const tables={challenges:[{id:1,name:'Static CTFd challenge',description:'Find [the file](/files/abc/input.txt) and [docs](https://example.org/docs).',category:'Forensics',value:100,type:'standard',state:'visible',logic:'any',connection_info:'nc example.org 1234',attribution:'Instructor'},{id:2,name:'Regex challenge',description:'A regex flag.',category:'Regex',value:50,type:'standard',state:'visible'},{id:3,name:'Dynamic challenge',description:'Dynamic scoring.',category:'Web',value:0,type:'dynamic',state:'hidden',initial:500,minimum:0,decay:20}],flags:[{id:1,challenge_id:1,type:'static',content:'FLAG{Strict}',data:null},{id:2,challenge_id:1,type:'static',content:'hello',data:'case_insensitive'},{id:3,challenge_id:2,type:'regex',content:'FLAG\\{[0-9]+\\}',data:null},{id:4,challenge_id:3,type:'static',content:'zero',data:null}],hints:[{id:1,challenge_id:1,title:'Clue',content:'Inspect the file.',cost:10}],files:[{id:1,type:'challenge',challenge_id:1,location:'abc/input.txt'}],tags:[{id:1,challenge_id:1,value:'intro'}],users:[{id:1,name:'Student One!',type:'user',team_id:1,password:'$bcrypt-sha256$not-reused'},{id:2,name:'teacher',type:'admin',team_id:1,password:'hash',banned:false}],teams:[{id:1,name:'CTFd Team',password:'hash'}],solves:[{id:1,user_id:1,challenge_id:1}],...overrides};const entries={};for(const [name,rows] of Object.entries(tables))entries['db/'+name+'.json']=strToU8(JSON.stringify({count:rows.length,results:rows,meta:{}}));entries['uploads/abc/input.txt']=strToU8('file contents');return zipSync(entries);}
@@ -10,3 +10,93 @@ test('CTFd malformed archives, stale previews and team-limit decisions do not wr
 test('notification delivery/read history and CTFd import records restore from full backups; old backups default cleanly',async()=>{const s=setup();try{const admin=s.client(),a=s.client();await login(admin,'teacher');await login(a,'alice');const id=crypto.randomUUID();await admin('/api/admin/notifications',{id,title:'Private',body:'For Alice',scope:'users',targets:['alice']});await a('/api/notifications',{action:'read',id});const bytes=archive(),report=(await admin('/api/admin/ctfd-import',form(bytes))).data.report;await admin('/api/admin/ctfd-import',form(bytes,report));const snapshot=await createSnapshot({db:s.db,config:s.config,challenges:s.challenges});const legacy=structuredClone(snapshot);for(const key of ['notifications','notificationRecipients','notificationReads','ctfdImports'])delete legacy[key];assert.equal(validateSnapshot(legacy).notifications.length,0);const folder=mkdtempSync(resolve(tmpdir(),'ctf-notification-restore-'));try{for(const dir of ['server','lib'])cpSync(dir,resolve(folder,dir),{recursive:true});symlinkSync(resolve('node_modules'),resolve(folder,'node_modules'),'dir');writeFileSync(resolve(folder,'backup.json'),JSON.stringify(snapshot));const dbpath=resolve(folder,'quest.sqlite');const r=spawnSync(process.execPath,[resolve(folder,'server/restore.mjs'),resolve(folder,'backup.json')],{encoding:'utf8',env:{...process.env,DATABASE_PATH:dbpath}});assert.equal(r.status,0,r.stderr);const restored=new DatabaseSync(dbpath);assert.equal(restored.prepare('SELECT COUNT(*) AS n FROM notifications').get().n,1);assert.equal(restored.prepare('SELECT COUNT(*) AS n FROM notification_reads').get().n,1);assert.equal(restored.prepare('SELECT COUNT(*) AS n FROM notification_recipients').get().n,1);assert.equal(restored.prepare('SELECT COUNT(*) AS n FROM ctfd_imports').get().n,1);restored.close();}finally{rmSync(folder,{recursive:true,force:true});}}finally{s.sqlite.close();}});
 
 test('CTFd overflow requires explicit skipping and never silently replaces existing challenges',async()=>{const s=setup();try{const admin=s.client();await login(admin,'teacher');const t=defaultTheme(s.config);t.world.maps=[{...t.world.maps[0],id:'town',bounds:{left:0,right:3,top:0,bottom:3},spawn:{x:1,y:2},exit:null,obstacles:[],ground:[[1,2],[2,2]]}];t.world.buildings=[];t.world.transports=[];t.world.portalOverrides=[];t.world.trees=[];parseTheme(t);s.sqlite.prepare("INSERT INTO theme_catalog(id,payload,revision) VALUES('active',?,1)").run(JSON.stringify(t));s.sqlite.prepare("INSERT INTO challenge_catalog(id,payload,revision) VALUES('active','[]',1)").run();const bytes=archive();const preview=await admin('/api/admin/ctfd-import',form(bytes));assert.equal(preview.status,200,JSON.stringify(preview.data));const report=preview.data.report;assert.equal(report.challenges.length,2);assert.equal(report.excluded.length,1);assert.equal((await admin('/api/admin/ctfd-import',form(bytes,report))).status,400);assert.equal(s.sqlite.prepare('SELECT COUNT(*) AS n FROM ctfd_imports').get().n,0);const imported=await admin('/api/admin/ctfd-import',form(bytes,report,{dropOverflow:true}));assert.equal(imported.status,200,JSON.stringify(imported.data));assert.equal((await admin('/api/admin/challenges')).data.challenges.length,2);}finally{s.sqlite.close();}});
+
+const dependencyRows = (rows) => rows.map(row=>({name:'Prerequisite challenge '+row.id,description:'Private question '+row.id,category:'Progression',value:50,type:'standard',state:'visible',logic:'any',...row}));
+const dependencyArchive = (rows,extra={}) => archive({challenges:dependencyRows(rows),flags:rows.map((row,i)=>({id:i+1,challenge_id:row.id,type:'static',content:'flag-'+row.id,data:null})),hints:[],files:[],tags:[],users:[],teams:[],solves:[],...extra});
+
+test('CTFd prerequisites become visible graph connections and enforce every prerequisite regardless of export order',async()=>{
+ const s=setup();try{
+  const admin=s.client(),student=s.client();await login(admin,'teacher');await login(student,'alice');
+  const requirements=JSON.stringify({prerequisites:[101,'104'],anonymize:'preview'});
+  const bytes=dependencyArchive([{id:103,requirements:{prerequisites:[102]}},{id:102,requirements},{id:105,requirements:[101,101]},{id:104},{id:101}]);
+  const preview=await admin('/api/admin/ctfd-import',form(bytes));assert.equal(preview.status,200,JSON.stringify(preview.data));const report=preview.data.report;
+  assert.equal(report.challenges.length,5);assert.ok(report.challenges.every(c=>c.visibility==='visible'));
+  const named=id=>report.challenges.find(c=>c.name==='Prerequisite challenge '+id);
+  assert.deepEqual(named(102).dependsOn,[named(101).id,named(104).id]);assert.deepEqual(named(105).dependsOn,[named(101).id]);
+  assert.ok(!report.warnings.some(w=>w.includes('Prerequisites/unlock rules are preserved but not enforced')));
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) AS n FROM ctfd_imports').get().n,0);
+  assert.equal((await admin('/api/admin/ctfd-import',form(bytes,report))).status,200);
+  const full=(await admin('/api/admin/challenges')).data.challenges;
+  const imported=id=>full.find(c=>c.ctfd?.challenge.id===id);
+  assert.equal(imported(102).ctfd.challenge.requirements,requirements);
+  assert.deepEqual((await admin('/api/admin/challenge-dependencies')).data.challenges.find(c=>c.id===imported(102).id).dependsOn,[imported(101).id,imported(104).id]);
+  const game=async()=> (await student('/api/game')).data;
+  assert.ok(!(await game()).challenges.some(c=>c.id===imported(102).id));
+  assert.equal((await student('/api/game',{id:imported(102).id,answer:'flag-102'})).status,400);
+  assert.equal((await student('/api/game',{id:imported(101).id,answer:'flag-101'})).data.correct,true);
+  assert.ok((await game()).challenges.some(c=>c.id===imported(105).id));assert.ok(!(await game()).challenges.some(c=>c.id===imported(102).id));
+  assert.equal((await student('/api/game',{id:imported(104).id,answer:'flag-104'})).data.correct,true);
+  assert.ok((await game()).challenges.some(c=>c.id===imported(102).id));assert.ok(!(await game()).challenges.some(c=>c.id===imported(103).id));
+  assert.equal((await student('/api/game',{id:imported(102).id,answer:'flag-102'})).data.correct,true);assert.ok((await game()).challenges.some(c=>c.id===imported(103).id));
+  assert.ok(!JSON.stringify(await game()).includes('prerequisites'));
+  const snapshot=await createSnapshot({db:s.db,config:s.config,challenges:s.challenges});assert.deepEqual(validateSnapshot(snapshot).challenges.find(c=>c.id===imported(102).id).dependsOn,[imported(101).id,imported(104).id]);
+  const folder=mkdtempSync(resolve(tmpdir(),'ctfd-prerequisite-restore-'));try{
+   for(const dir of ['server','lib'])cpSync(dir,resolve(folder,dir),{recursive:true});symlinkSync(resolve('node_modules'),resolve(folder,'node_modules'),'dir');writeFileSync(resolve(folder,'backup.json'),JSON.stringify(snapshot));const path=resolve(folder,'quest.sqlite');const result=spawnSync(process.execPath,[resolve(folder,'server/restore.mjs'),resolve(folder,'backup.json')],{encoding:'utf8',env:{...process.env,DATABASE_PATH:path}});assert.equal(result.status,0,result.stderr);
+   const restored=new DatabaseSync(path);const restoredChallenges=JSON.parse(restored.prepare('SELECT payload FROM challenge_catalog').get().payload);assert.deepEqual(restoredChallenges.find(c=>c.id===imported(102).id).dependsOn,[imported(101).id,imported(104).id]);restored.close();
+  }finally{rmSync(folder,{recursive:true,force:true});}
+ }finally{s.sqlite.close();}
+});
+
+test('missing CTFd prerequisites and unsupported unlock or hint rules retain source details and stay hidden for review',async()=>{
+ const s=setup();try{
+  const admin=s.client(),student=s.client();await login(admin,'teacher');await login(student,'alice');
+  const bytes=dependencyArchive([{id:101},{id:102,requirements:{prerequisites:[101,999]}},{id:103,requirements:{prerequisites:[101],minimum_score:10}},{id:104,requirements:{prerequisites:[101]}}],{hints:[{id:1,challenge_id:104,content:'Private hint',cost:5,requirements:{prerequisites:[101]}}]});
+  const preview=await admin('/api/admin/ctfd-import',form(bytes));assert.equal(preview.status,200,JSON.stringify(preview.data));const report=preview.data.report;
+  assert.ok(report.warnings.some(w=>w.includes('Missing prerequisite challenge IDs: 999')));assert.ok(report.warnings.some(w=>w.includes('Unsupported unlock rules: minimum_score')));assert.ok(report.warnings.some(w=>w.includes('Hint prerequisites')));
+  assert.ok(report.challenges.filter(c=>c.name!=='Prerequisite challenge 101').every(c=>c.visibility==='hidden'));
+  assert.equal((await admin('/api/admin/ctfd-import',form(bytes,report))).status,200);
+  const full=(await admin('/api/admin/challenges')).data.challenges,root=full.find(c=>c.ctfd?.challenge.id===101),missing=full.find(c=>c.ctfd?.challenge.id===102);
+  assert.deepEqual(missing.dependsOn,[root.id]);assert.deepEqual(missing.ctfd.challenge.requirements.prerequisites,[101,999]);
+  await student('/api/game',{id:root.id,answer:'flag-101'});assert.equal((await student('/api/game',{id:missing.id,answer:'flag-102'})).status,400);
+ }finally{s.sqlite.close();}
+});
+
+test('malformed, self-referential and cyclic CTFd prerequisite graphs reject the import without writes',async()=>{
+ const s=setup();try{
+  const admin=s.client();await login(admin,'teacher');
+  const invalid=[
+   [{id:101,requirements:{prerequisites:[101]}}],
+   [{id:101,requirements:{prerequisites:[102]}},{id:102,requirements:{prerequisites:[103]}},{id:103,requirements:{prerequisites:[101]}}],
+   ...['{invalid',true,{prerequisites:'101'},{prerequisites:[0]},{prerequisites:[1.5]},{prerequisites:[true]},{prerequisites:[{}]}].map(requirements=>[{id:101,requirements}]),
+  ];
+  for(const rows of invalid){const response=await admin('/api/admin/ctfd-import',form(dependencyArchive(rows)));assert.equal(response.status,400,JSON.stringify(response.data));}
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) AS n FROM ctfd_imports').get().n,0);assert.equal(s.sqlite.prepare('SELECT COUNT(*) AS n FROM challenge_catalog').get().n,0);assert.equal(s.files.size,0);
+ }finally{s.sqlite.close();}
+});
+
+function tinyImportMap(s,count){const t=defaultTheme(s.config);t.world.maps=[{...t.world.maps[0],id:'town',bounds:{left:0,right:3,top:0,bottom:3},spawn:{x:1,y:2},exit:null,obstacles:[],ground:count===1?[[1,2]]:[[1,2],[2,2]]}];t.world.buildings=[];t.world.transports=[];t.world.portalOverrides=[];t.world.trees=[];parseTheme(t);s.sqlite.prepare("INSERT INTO theme_catalog(id,payload,revision) VALUES('active',?,1)").run(JSON.stringify(t));s.sqlite.prepare("INSERT INTO challenge_catalog(id,payload,revision) VALUES('active','[]',1)").run();}
+test('CTFd overflow places prerequisites first and explicitly skips entire chains when a prerequisite cannot be imported',async()=>{
+ for(const count of [1,2]){
+  const s=setup();try{
+   const admin=s.client();await login(admin,'teacher');tinyImportMap(s,count);
+   const rows=count===2?[{id:1,requirements:{prerequisites:[3]}},{id:2,requirements:{prerequisites:[1]}},{id:3}]:[{id:10},{id:1,requirements:{prerequisites:[2]}},{id:3,requirements:{prerequisites:[1]}},{id:2}];
+   const bytes=dependencyArchive(rows),preview=await admin('/api/admin/ctfd-import',form(bytes));assert.equal(preview.status,200,JSON.stringify(preview.data));const report=preview.data.report;
+   assert.equal(report.challenges.length,count);assert.equal(report.excluded.length,rows.length-count);assert.equal((await admin('/api/admin/ctfd-import',form(bytes,report))).status,400);
+   if(count===1)assert.equal(report.excluded.filter(c=>c.reason.startsWith('Prerequisite not imported')).length,2);
+   assert.equal((await admin('/api/admin/ctfd-import',form(bytes,report,{dropOverflow:true}))).status,200);
+   const full=(await admin('/api/admin/challenges')).data.challenges;assert.equal(full.length,count);for(const c of full)assert.ok(c.dependsOn.every(parent=>full.some(c=>c.id===parent)));
+   if(count===2){assert.ok(full.some(c=>c.ctfd.challenge.id===3));assert.ok(full.find(c=>c.ctfd.challenge.id===1).dependsOn.length===1);}
+  }finally{s.sqlite.close();}
+ }
+});
+
+test('CTFd preview respects the catalog limit and keeps existing dependency connections',async()=>{
+ const s=setup();try{
+  const admin=s.client();await login(admin,'teacher');const initial=(await admin('/api/admin/challenges')).data;
+  const saved=await admin('/api/admin/challenge-dependencies',{revision:initial.revision,themeRevision:initial.themeRevision,dependencies:initial.challenges.map((c,i)=>({id:c.id,dependsOn:i===1?[initial.challenges[0].id]:[]}))});assert.equal(saved.status,200);
+  const bytes=dependencyArchive(Array.from({length:101},(_,i)=>({id:1000+i}))),preview=await admin('/api/admin/ctfd-import',form(bytes));assert.equal(preview.status,200,JSON.stringify(preview.data));const report=preview.data.report;
+  assert.equal(report.challenges.length,100-initial.challenges.length);assert.ok(report.excluded.every(c=>c.reason.includes('100 challenges')));
+  assert.equal((await admin('/api/admin/ctfd-import',form(bytes,report,{dropOverflow:true}))).status,200);
+  const full=(await admin('/api/admin/challenges')).data.challenges;assert.equal(full.length,100);assert.deepEqual(full.find(c=>c.id===initial.challenges[1].id).dependsOn,[initial.challenges[0].id]);
+ }finally{s.sqlite.close();}
+});

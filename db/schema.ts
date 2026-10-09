@@ -1,9 +1,11 @@
+import { sql } from "drizzle-orm";
 import {
   integer,
   sqliteTable,
   text,
   primaryKey,
   index,
+  check,
 } from "drizzle-orm/sqlite-core";
 export const students = sqliteTable("students", {
   id: text("id").primaryKey(),
@@ -229,3 +231,24 @@ export const notifications = sqliteTable("notifications", {id:text("id").primary
 export const notificationRecipients = sqliteTable("notification_recipients", {notification:text("notification").notNull().references(()=>notifications.id),username:text("username").notNull()},t=>[primaryKey({columns:[t.notification,t.username]}),index("idx_notification_recipient_username").on(t.username)]);
 export const notificationReads = sqliteTable("notification_reads", {notification:text("notification").notNull().references(()=>notifications.id),user:text("user").notNull().references(()=>students.id),readAt:integer("read_at").notNull()},t=>[primaryKey({columns:[t.notification,t.user]})]);
 export const ctfdImports = sqliteTable("ctfd_imports", {id:text("id").primaryKey(),digest:text("digest").notNull().unique(),createdAt:integer("created_at").notNull(),report:text("report").notNull()});
+
+export const deletedAccounts = sqliteTable("deleted_accounts", {
+  username: text("username").primaryKey().notNull(),
+  deletedAt: integer("deleted_at").notNull(),
+});
+export const adminUserActionGuard = sqliteTable("admin_user_action_guard", {
+  id: text("id").primaryKey().notNull(),
+  valid: integer("valid").notNull(),
+}, table => [check("admin_user_action_valid", sql`${table.valid} = 1`)]);
+
+export const teamPointAwards = sqliteTable("team_point_awards", {
+  id: text("id").primaryKey(),
+  team: text("team").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  points: integer("points").notNull(),
+  comment: text("comment").notNull(),
+  awardedBy: text("awarded_by").notNull(),
+  createdAt: integer("created_at").notNull(),
+}, (t) => [
+  index("idx_team_point_awards_team_created").on(t.team, t.createdAt),
+  check("team_point_awards_points_check", sql`${t.points} BETWEEN 1 AND 10000`),
+]);

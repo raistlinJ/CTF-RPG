@@ -36,7 +36,8 @@ try {
     !args.includes("--replace") &&
     (sqlite.prepare("SELECT COUNT(*) AS n FROM students").get().n ||
       sqlite.prepare("SELECT COUNT(*) AS n FROM challenge_catalog").get().n ||
-      sqlite.prepare("SELECT COUNT(*) AS n FROM teams").get().n)
+      sqlite.prepare("SELECT COUNT(*) AS n FROM teams").get().n ||
+      sqlite.prepare("SELECT COUNT(*) AS n FROM deleted_accounts").get().n)
   )
     throw Error(
       "Restore requires an empty database. Use --replace only when you intend to replace its accounts and progress.",
@@ -44,6 +45,8 @@ try {
   sqlite.exec("BEGIN IMMEDIATE");
   try {
     for (const table of [
+      "admin_user_action_guard",
+      "deleted_accounts",
       "notification_reads",
       "notification_recipients",
       "notifications",
@@ -61,6 +64,7 @@ try {
       "discovered_challenges",
       "solved",
       "purchased_hints",
+      "team_point_awards",
       "team_members",
       "teams",
       "team_settings",
@@ -87,12 +91,15 @@ try {
         a.spawn ? JSON.stringify(a.spawn) : null,
         a.muted,
       );
+    for (const a of snapshot.deletedAccounts) sqlite.prepare("INSERT INTO deleted_accounts(username,deleted_at) VALUES(?,?)").run(a.username,a.deleted_at);
     for (const t of snapshot.teams)
       sqlite
         .prepare(
           "INSERT INTO teams(id,name,name_key,hash,salt) VALUES(?,?,?,?,?)",
         )
         .run(t.id, t.name, t.name_key, t.hash, t.salt);
+    const insertGift = sqlite.prepare("INSERT INTO team_point_awards(id,team,points,comment,awarded_by,created_at) VALUES(?,?,?,?,?,?)");
+    for (const a of snapshot.teamPointAwards) insertGift.run(a.id,a.team,a.points,a.comment,a.awarded_by,a.created_at);
     for (const m of snapshot.teamMembers)
       sqlite
         .prepare("INSERT INTO team_members(user,team) VALUES(?,?)")

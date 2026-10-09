@@ -50,8 +50,12 @@ export function createSQLiteAdapter(sqlite) {
 }
 export function initializeSchema(sqlite) {
   sqlite.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL;
+CREATE TABLE IF NOT EXISTS deleted_accounts(username TEXT PRIMARY KEY,deleted_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS admin_user_action_guard(id TEXT PRIMARY KEY,valid INTEGER NOT NULL CHECK(valid=1));
 CREATE TABLE IF NOT EXISTS students(id TEXT PRIMARY KEY,username TEXT NOT NULL UNIQUE,hash TEXT NOT NULL,salt TEXT NOT NULL,hero TEXT NOT NULL,spawn TEXT,role TEXT NOT NULL DEFAULT 'student',disabled INTEGER NOT NULL DEFAULT 0,managed INTEGER NOT NULL DEFAULT 0,provisioned INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS teams(id TEXT PRIMARY KEY,name TEXT NOT NULL,name_key TEXT NOT NULL UNIQUE,hash TEXT NOT NULL,salt TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS team_point_awards(id TEXT PRIMARY KEY,team TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,points INTEGER NOT NULL CHECK(points BETWEEN 1 AND 10000),comment TEXT NOT NULL,awarded_by TEXT NOT NULL,created_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_team_point_awards_team_created ON team_point_awards(team,created_at);
 CREATE TABLE IF NOT EXISTS team_members(user TEXT PRIMARY KEY REFERENCES students(id),team TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE);
 CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team);
 CREATE TABLE IF NOT EXISTS team_settings(id TEXT PRIMARY KEY,max_members INTEGER NOT NULL);

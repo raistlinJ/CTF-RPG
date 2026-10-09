@@ -19,18 +19,32 @@ export async function handleThemeAudio(req, {db, user, platformAdmin, theme, the
     const playlist=JSON.parse(String(form.get('playlist')));
     if (!Array.isArray(playlist) || playlist.length>20 || playlist.some(t=>!t || typeof t.name!=='string' || !current.some(c=>c.midi===t.midi))) throw Error('Keep only tracks from the current theme.');
     const uploads=form.getAll('files');
-    if (playlist.length+uploads.length>20) throw Error('A playlist can contain at most 20 tracks.');
+    if (uploads.length>20) throw Error('Upload at most 20 MIDI files at a time.');
     const staged=[];
+    const skipped=[];
+    const digest=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
+    const retainedHashes=new Set();
+    for(const track of playlist) {
+      const bytes=await readAsset(track.midi,assetStore,readBaseAsset);
+      if(!bytes) throw Error(`The playlist file "${track.name}" is unavailable.`);
+      retainedHashes.add(await digest(bytes));
+    }
     let total=0;
     for (const file of uploads) {
-      if (typeof file==='string' || !/\.midi?$/i.test(file.name) || file.size>5*1024*1024 || file.size<14) throw Error('Upload MIDI files up to 5 MB each.');
+      if (typeof file==='string') throw Error('Choose MIDI files to upload.');
+      if (!/\.midi?$/i.test(file.name) || file.size>5*1024*1024 || file.size<14) throw Error(`"${file.name}": choose a MIDI file up to 5 MB.`);
       total+=file.size; if(total>PACK_LIMIT) throw Error('Audio exceeds the 8 MB theme pack limit.');
-      const bytes=new Uint8Array(await file.arrayBuffer()); assertAsset(bytes,'mid');
-      const midi=new Midi(bytes);
-      if(!Number.isFinite(midi.duration) || midi.duration<=0 || midi.duration>86400 || midi.tracks.reduce((n,t)=>n+t.notes.length,0)>100000) throw Error('Each MIDI must contain playable notes (at most 100,000 notes and 24 hours).');
-      const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
+      const bytes=new Uint8Array(await file.arrayBuffer());
+      try {
+        assertAsset(bytes,'mid');
+        const midi=new Midi(bytes);
+        if(!Number.isFinite(midi.duration) || midi.duration<=0 || midi.duration>86400 || midi.tracks.reduce((n,t)=>n+t.notes.length,0)>100000) throw Error('MIDI must contain playable notes (at most 100,000 notes and 24 hours).');
+      } catch(e) {throw Error(`"${file.name}": ${e.message || 'Invalid MIDI file.'}`);}
+      const hash=await digest(bytes);
       const key=hash+'.mid', path='/api/assets/'+key;
-      if(playlist.some(t=>t.midi===path)) throw Error('This MIDI is already in the playlist.');
+      if(retainedHashes.has(hash)) {skipped.push(file.name);continue;}
+      if(playlist.length>=20) throw Error('A playlist can contain at most 20 tracks. Remove a track before adding more.');
+      retainedHashes.add(hash);
       playlist.push({name:file.name.slice(0,120),midi:path});staged.push({key,path,bytes});
     }
     if(form.get('loop')!=='true' && form.get('loop')!=='false') throw Error('Choose a valid repeat setting.');
@@ -45,6 +59,6 @@ export async function handleThemeAudio(req, {db, user, platformAdmin, theme, the
     for(const s of staged) await assetStore.put(s.key,s.bytes,'audio/midi');
     const r=await db.prepare("INSERT INTO theme_catalog(id,payload,revision) SELECT 'active',?,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=? ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,revision=theme_catalog.revision+1 WHERE theme_catalog.revision=?").bind(JSON.stringify(next),revision,revision).run();
     if(!(r.meta?.changes??r.changes)) return reply({error:'Another administrator changed the theme. Reload before saving.'},409);
-    return reply({audio:next.audio,revision:revision+1});
+    return reply({audio:next.audio,revision:revision+1,uploaded:staged.length,skipped});
   } catch(e) {return reply({error:e.issues?.map(i=>i.message).join('; ') || e.message || 'Audio could not be saved.'},400);}
 }

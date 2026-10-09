@@ -51,6 +51,7 @@ export default function ScoreboardControls() {
   return (
     <form className="team-limit admin-editor" onSubmit={save}>
       <h2>Scoreboard</h2>
+      <p>Players see team scores. Admins can switch between user and team scores.</p>
       {settings && (
         <>
           <label>
@@ -71,9 +72,9 @@ export default function ScoreboardControls() {
             </select>
           </label>
           <label>
-            Scoreboard scores
+            Default admin scores
             <select
-              aria-label="Scoreboard scores"
+              aria-label="Default admin scores"
               value={settings.mode}
               onChange={(e) => {
                 setSettings({
@@ -83,7 +84,7 @@ export default function ScoreboardControls() {
                 setSaved(false);
               }}
             >
-              <option value="individual">Individual scores</option>
+              <option value="individual">User scores</option>
               <option value="team">Team scores</option>
             </select>
           </label>

@@ -1,4 +1,5 @@
-import { teamFeatures, teamLabel, teamPolicy } from "./team-social.mjs";
+import { giftTeamPoints, teamPointAwards } from "./team-points.mjs";
+import { teamFeatures, teamLabel, teamPolicy, teamScores } from "./team-social.mjs";
 import { passwordHash, equal } from "./passwords.mjs";
 const reply = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -33,10 +34,26 @@ export async function teamState(db, config, u, admin = false) {
       t.name = teamLabel(t, teamPolicy(features, t.id === membership?.team));
     });
   }
+  const ownTeam = teams.find((t) => t.id === membership?.team) || null;
+  if (admin) {
+    const scores = await teamScores(db, config);
+    const awards = (await db.prepare("SELECT id,team,points,comment,awarded_by,created_at FROM team_point_awards ORDER BY created_at DESC,id").bind().all()).results;
+    const byTeam = new Map();
+    for (const a of awards) {
+      if (!byTeam.has(a.team)) byTeam.set(a.team, []);
+      byTeam.get(a.team).push(a);
+    }
+    for (const t of teams) {
+      t.score = scores.get(t.id) || 0;
+      t.pointAwards = byTeam.get(t.id) || [];
+    }
+  } else if (ownTeam) {
+    ownTeam.pointAwards = await teamPointAwards(db, ownTeam.id);
+  }
   return {
     maxMembers: setting?.max_members ?? config.teams?.maxMembers ?? 4,
     teams,
-    team: teams.find((t) => t.id === membership?.team) || null,
+    team: ownTeam,
   };
 }
 export async function handleTeams(req, { db, config, user, platformAdmin }) {
@@ -62,6 +79,10 @@ export async function handleTeams(req, { db, config, user, platformAdmin }) {
   const body = await req.json();
   if (path === "/api/admin/teams") {
     if (req.method === "POST") {
+      if (body.action === "gift") {
+        const result = await giftTeamPoints(db, body, u?.username || "Platform admin");
+        return reply(result.body, result.status);
+      }
       if (
         !Number.isInteger(body.maxMembers) ||
         body.maxMembers < 1 ||
