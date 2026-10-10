@@ -5,21 +5,23 @@ import {
   Plus,
   Save,
   Download,
+  Upload,
   MapPin,
   LockKeyhole,
 } from "lucide-react";
 import { World } from "../page";
-import MapSettings from "./map-settings";
 import ChallengeNav from "./challenges/challenge-nav";
 import ChallengeVisibilityControls from "./challenge-visibility-controls";
 import {
   MAP_IDS,
   mapName,
-  canPlaceChallenge,
   configureWorld,
   activeWorld,
   mapInfo,
+  createWorld,
 } from "@/lib/world-data.mjs";
+import { challengeLocationAvailable, findChallengeLocation } from "@/lib/challenge-placement.mjs";
+import type { EntityCharacter, EntitySummary } from "@/lib/non-player-entities";
 import {
   Select,
   SelectContent,
@@ -28,7 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-type Hint = { id: string; label: string; text: string; cost: number };
+import { KEY_COLORS, KEY_PALETTE, normalizeIncantation } from "@/lib/inventory-data.mjs";
+type Hint = { id: string; label: string; text: string; cost: number; rewardCost: { keys: string[]; incantations: string[] } };
 type FileLink = { name: string; url: string; filename?: string };
 type Definition = {
   id: string;
@@ -47,6 +50,9 @@ type Definition = {
   points: number;
   hints: Hint[];
   downloads: FileLink[];
+  discoveryVideo: string | null;
+  solveVideo: string | null;
+  rewards: { keys: string[]; incantations: string[] };
 };
 type Draft = Omit<Definition, "flags"> & { flagsText: string };
 const explorer = {
@@ -76,13 +82,19 @@ const fresh = (map = "town", x = 18, y = 20): Draft => ({
   points: 100,
   hints: [],
   downloads: [],
+  discoveryVideo: null,
+  solveVideo: null,
+  rewards: { keys: [], incantations: [] },
 });
 const toDraft = (c: Definition): Draft => ({
   ...c,
   dependsOn: c.dependsOn || [],
   visibility: c.visibility || "visible",
   grading: c.grading || "automatic",
-  hints: c.hints.map((h) => ({ ...h })),
+  discoveryVideo: c.discoveryVideo || null,
+  solveVideo: c.solveVideo || null,
+  rewards: { keys: [...(c.rewards?.keys || [])], incantations: [...(c.rewards?.incantations || [])] },
+  hints: c.hints.map((h) => ({ ...h, rewardCost: { keys: [...(h.rewardCost?.keys || [])], incantations: [...(h.rewardCost?.incantations || [])] } })),
   downloads: c.downloads.map((f) => ({ ...f })),
   flagsText: (c.flags || []).join("\n"),
 });
@@ -92,8 +104,6 @@ export default function Admin() {
     ),
     [catalog, setCatalog] = useState<Definition[]>([]),
     [revision, setRevision] = useState(0),
-    [themeRevision, setThemeRevision] = useState(0),
-    [mapEditing, setMapEditing] = useState(false),
     [draft, setDraft] = useState<Draft | null>(null),
     [editingId, setEditingId] = useState<string | undefined>(),
     [initial, setInitial] = useState(""),
@@ -103,9 +113,22 @@ export default function Admin() {
     [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [firstHero, setFirstHero] = useState("web");
+  const [editorPanel, setEditorPanel] = useState("challenge");
+  const [themeRevision, setThemeRevision] = useState(0);
+  const [mapEntities, setMapEntities] = useState<EntitySummary[]>([]);
+  const [themeCharacters, setThemeCharacters] = useState<EntityCharacter[]>([]);
+  const [moveFeedback, setMoveFeedback] = useState<{ text: string; error: boolean } | null>(null);
+  const editorPanels = [
+    { id: "challenge", label: "Challenge" },
+    { id: "rewards", label: "Rewards" },
+    { id: "cutscenes", label: "Cutscenes" },
+    { id: "resources", label: "Hints & files" },
+  ];
   const [challengeQuery, setChallengeQuery] = useState("");
   const [useRegex, setUseRegex] = useState(false);
   const [searchAllMaps, setSearchAllMaps] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState<"discoveryVideo" | "solveVideo" | null>(null);
+  const placementWorld = createWorld(activeWorld);
   let filterError = "";
   let pattern: RegExp | null = null;
   if (useRegex && challengeQuery) {
@@ -125,15 +148,18 @@ export default function Admin() {
       draft.text.trim() ||
       draft.flagsText.trim() ||
       draft.hints.length ||
-      draft.downloads.length,
+      draft.downloads.length ||
+      draft.discoveryVideo || draft.solveVideo || draft.rewards.keys.length || draft.rewards.incantations.length,
     ) &&
     JSON.stringify(draft) !== initial;
-  function choose(c: Draft, id?: string) {
+  function choose(c: Draft, id?: string, preservePanel = false) {
+    if (!preservePanel) setEditorPanel("challenge");
     setDraft(c);
     setEditingId(id);
     setInitial(JSON.stringify(c));
     setError("");
     setMessage("");
+    setMoveFeedback(null);
   }
   async function load(keepSelection = false, preserveDraft = false) {
     const r = await fetch("/api/admin/challenges");
@@ -141,7 +167,7 @@ export default function Admin() {
       challenges: Definition[];
       revision: number;
       themeRevision: number;
-      theme: { world: typeof activeWorld };
+      theme: { world: typeof activeWorld & { entities?: EntitySummary[] }; characters: EntityCharacter[] };
       error?: string;
     };
     if (r.status === 401 || r.status === 403) {
@@ -155,6 +181,8 @@ export default function Admin() {
     setCatalog(d.challenges);
     setRevision(d.revision);
     setThemeRevision(d.themeRevision);
+    setMapEntities(d.theme.world.entities || []);
+    setThemeCharacters(d.theme.characters);
     setAccess("ready");
     if (preserveDraft) return;
     const selected = keepSelection
@@ -163,14 +191,14 @@ export default function Admin() {
     const freshMap =
       keepSelection && draft && mapInfo(draft.map)
         ? draft.map
-        : activeWorld.startMap;
+        : new URLSearchParams(window.location.search).get("map") || activeWorld.startMap;
     choose(
       selected
         ? toDraft(selected)
         : fresh(
-            freshMap,
-            mapInfo(freshMap)!.spawn.x,
-            mapInfo(freshMap)!.spawn.y,
+            mapInfo(freshMap) ? freshMap : activeWorld.startMap,
+            (mapInfo(freshMap) || mapInfo(activeWorld.startMap))!.spawn.x,
+            (mapInfo(freshMap) || mapInfo(activeWorld.startMap))!.spawn.y,
           ),
       selected?.id,
     );
@@ -203,14 +231,36 @@ export default function Admin() {
     setMessage("");
   }
   function canDiscard() {
+    if (busy || uploadingVideo) return false;
     return !dirty || window.confirm("Discard your unsaved edits?");
+  }
+  async function uploadVideo(field: "discoveryVideo" | "solveVideo", file: File) {
+    if (!draft || uploadingVideo) return;
+    const draftId = draft.id;
+    setUploadingVideo(field);
+    setError("");
+    setMessage("");
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      if (!ext || !["mp4", "webm"].includes(ext) || file.size > 4 * 1024 * 1024)
+        throw Error("Choose an MP4 or WebM video up to 4 MB, or use a hosted video URL.");
+      const r = await fetch(`/api/admin/challenge-videos?type=${ext}`, { method: "POST", body: file });
+      const d = await r.json() as { url: string; error?: string };
+      if (!r.ok) throw Error(d.error || "Video upload failed.");
+      setDraft(current => current?.id === draftId ? { ...current, [field]: d.url } : current);
+      setMessage("Video uploaded. Save the challenge to use it.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setUploadingVideo(null);
+    }
   }
   function newChallenge() {
     if (canDiscard())
       choose(fresh(draft?.map, draft?.location.x, draft?.location.y));
   }
   function selectTile(x: number, y: number) {
-    if (!draft) return;
+    if (!draft || busy || uploadingVideo) return;
     const existing = catalog.find(
       (c) => c.map === draft.map && c.location.x === x && c.location.y === y,
     );
@@ -221,6 +271,36 @@ export default function Admin() {
   function selectExisting(c: Definition) {
     if (c.id === editingId) return;
     if (canDiscard()) choose(toDraft(c), c.id);
+  }
+  async function moveChallenge(map: string, location?: { x: number; y: number }) {
+    if (!draft || !editingId || busy || uploadingVideo) return;
+    if (location && !challengeLocationAvailable(placementWorld, catalog, map, location.x, location.y, editingId)) {
+      setMoveFeedback({ text: "That location is unavailable. Drop on unoccupied, reachable ground away from doors and transport.", error: true });
+      return;
+    }
+    setBusy(true);
+    setMoveFeedback({ text: "Moving challenge…", error: false });
+    setError("");
+    setMessage("");
+    try {
+      const r = await fetch("/api/admin/challenges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "move", id: editingId, map, location, revision, themeRevision }),
+      });
+      const d = await r.json() as { challenges: Definition[]; revision: number; error?: string };
+      if (!r.ok) throw Error(d.error || "The challenge could not be moved.");
+      const moved = d.challenges.find(c => c.id === editingId)!;
+      setCatalog(d.challenges);
+      setRevision(d.revision);
+      setDraft(current => current?.id === editingId ? { ...current, map: moved.map, location: { ...moved.location } } : current);
+      setInitial(JSON.stringify(toDraft(moved)));
+      setMoveFeedback({ text: `Moved “${moved.object}” to ${mapName(moved.map)} at ${moved.location.x}, ${moved.location.y}. Location saved.`, error: false });
+    } catch (e) {
+      setMoveFeedback({ text: (e as Error).message, error: true });
+    } finally {
+      setBusy(false);
+    }
   }
   async function login(e: React.FormEvent) {
     e.preventDefault();
@@ -249,7 +329,7 @@ export default function Admin() {
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft) return;
+    if (!draft || uploadingVideo) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -258,6 +338,7 @@ export default function Admin() {
       if (definition.flagRules && (flagsText !== (catalog.find(c=>c.id===editingId)?.flags||[]).join("\n") || definition.caseSensitive !== catalog.find(c=>c.id===editingId)?.caseSensitive)) delete definition.flagRules;
       const challenge = {
         ...definition,
+        rewards: { ...definition.rewards, incantations: definition.rewards.incantations.map(s => s.trim()).filter(Boolean) },
         flags:
           draft.grading === "manual"
             ? []
@@ -280,7 +361,7 @@ export default function Admin() {
       setCatalog(d.challenges);
       setRevision(d.revision);
       const saved = d.challenges.find((c) => c.id === draft.id)!;
-      choose(toDraft(saved), saved.id);
+      choose(toDraft(saved), saved.id, true);
       setMessage(
         "Saved. Active games will pick up the challenge and its visibility on their next update.",
       );
@@ -290,8 +371,11 @@ export default function Admin() {
       setBusy(false);
     }
   }
+  const invalidHintRewards = !!draft && draft.hints.some(h =>
+    h.rewardCost.keys.some(key => !draft.rewards.keys.includes(key)) ||
+    h.rewardCost.incantations.some(phrase => !draft.rewards.incantations.some(p => normalizeIncantation(p) === normalizeIncantation(phrase))));
   const validLocation =
-    !!draft && canPlaceChallenge(draft.map, draft.location.x, draft.location.y);
+    !!draft && challengeLocationAvailable(placementWorld, catalog, draft.map, draft.location.x, draft.location.y, editingId);
   return (
     <main className="admin-studio">
       <AdminHeader active="challenges" />
@@ -348,17 +432,6 @@ export default function Admin() {
                 </p>
               </div>
               <div className="admin-actions">
-                <a href="/api/admin/backup" className="secondary-button">
-                  <Download size={17} />
-                  Full backup
-                </a>
-                <a
-                  href="/api/admin/challenges?format=yaml"
-                  className="secondary-button"
-                >
-                  <Download size={17} />
-                  Export YAML
-                </a>
                 <button
                   className="primary"
                   type="button"
@@ -367,6 +440,21 @@ export default function Admin() {
                   <Plus size={17} />
                   New challenge
                 </button>
+                <a href="/admin/challenges/import" className="secondary-button">
+                  <Upload size={17} />
+                  Import CTFd
+                </a>
+                <a
+                  href="/api/admin/challenges?format=yaml"
+                  className="secondary-button"
+                >
+                  <Download size={17} />
+                  Export YAML
+                </a>
+                <a href="/api/admin/backup" className="secondary-button">
+                  <Download size={17} />
+                  Full backup
+                </a>
                 <ChallengeVisibilityControls />
               </div>
             </div>
@@ -400,7 +488,7 @@ export default function Admin() {
                       </SelectContent>
                     </Select>
                   </label>
-                  {!mapEditing && (
+                  {(
                     <span
                       className={validLocation ? "tile-valid" : "tile-invalid"}
                     >
@@ -412,41 +500,51 @@ export default function Admin() {
                     </span>
                   )}
                 </div>
-                <MapSettings
-                  key={`${draft.map}:${themeRevision}`}
-                  world={activeWorld}
-                  onOpenChange={setMapEditing}
-                  challenges={catalog}
-                  mapId={draft.map}
-                  themeRevision={themeRevision}
-                  contentRevision={revision}
-                  onSaved={async () => {
-                    await load(true, dirty);
-                  }}
-                />
-                <div hidden={mapEditing}>
+                <p className="management-map-note">Navigate to Theme to edit artwork, ground &amp; transport.</p>
+                <div>
                   <World
                     hero={explorer}
+                    entities={mapEntities}
+                    characters={themeCharacters}
                     map={draft.map}
                     pos={draft.location}
                     challenges={catalog
                       .filter((c) => c.map === draft.map)
                       .map((c) => ({
                         ...c,
+                        location: c.id === editingId ? draft.location : c.location,
+                        rewards: {keys:c.rewards?.keys || [],incantationCount:c.rewards?.incantations.length || 0},
                         remainingPoints: c.points,
                         awardedPoints: null,
                         submission: null,
                         hintCost: 0,
-                        hints: c.hints.map((h) => ({ ...h, unlocked: false })),
+                        hints: c.hints.map((h) => ({ ...h, rewardCost: { keys: h.rewardCost.keys, incantationCount: h.rewardCost.incantations.length }, available: true, unlocked: false })),
                       }))}
                     solved={[]}
                     onMove={noop}
                     onSearch={noop}
                     onSelect={selectTile}
+                    selectionAllowed={(map, x, y) => challengeLocationAvailable(placementWorld, catalog, map, x, y, editingId)}
+                    selectedChallengeId={editingId}
+                    onChallengeDrop={!busy && !uploadingVideo && editingId ? (id, x, y) => {
+                      if (id === editingId) void moveChallenge(draft.map, { x, y });
+                    } : undefined}
                   />
+                  {editingId && <div className="challenge-move-controls">
+                    <span>Selected: <b>{draft.object || editingId}</b></span>
+                    <Select value="" onValueChange={map => void moveChallenge(map)} disabled={busy || !!uploadingVideo}>
+                      <SelectTrigger aria-label="Move challenge to another map"><SelectValue placeholder="Move to…" /></SelectTrigger>
+                      <SelectContent>
+                        {MAP_IDS.filter(map => map !== draft.map).map(map => {
+                          const available = !!findChallengeLocation(placementWorld, catalog, map, draft.location, editingId);
+                          return <SelectItem key={map} value={map} disabled={!available}>{mapName(map)}{!available && " — no available locations"}</SelectItem>;
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>}
+                  {moveFeedback && <p className={`challenge-move-feedback ${moveFeedback.error ? "error" : "success"}`} role={moveFeedback.error ? "alert" : "status"}>{moveFeedback.text}</p>}
                   <p className="admin-map-help">
-                    Click a star to edit a challenge or clear ground to choose
-                    its location. Gray tiles are unavailable.
+                    Select a star, then drag it or use Move to…; moves save immediately. Gray tiles are unavailable. Other draft edits use Save challenge.
                   </p>
                   <div className="admin-list-heading">
                     <h2>Saved discoveries</h2>
@@ -490,13 +588,38 @@ export default function Admin() {
                   </div>
                 </div>
               </div>
-              <form className="admin-editor" onSubmit={save}>
+              <form className="admin-editor" onSubmit={save} onInvalidCapture={e => {
+                e.preventDefault();
+                if (e.currentTarget.querySelector(":invalid") !== e.target) return;
+                const field = e.target as HTMLInputElement;
+                const panel = field.closest<HTMLElement>("[data-editor-panel]")?.dataset.editorPanel;
+                if (panel) setEditorPanel(panel);
+                setError(field.validationMessage || "Complete the highlighted field before saving.");
+                requestAnimationFrame(() => field.focus());
+              }}>
                 <div className="admin-editor-title">
                   <h2>{editingId ? "Edit discovery" : "New discovery"}</h2>
                   <span>
                     {dirty ? "Unsaved edits" : editingId ? "Saved" : "Draft"}
                   </span>
                 </div>
+                <div className="challenge-editor-tabs" role="tablist" aria-label="Discovery sections" onKeyDown={e => {
+                  const index = editorPanels.findIndex(p => p.id === editorPanel);
+                  let next: number;
+                  if (e.key === "ArrowRight") next = (index + 1) % editorPanels.length;
+                  else if (e.key === "ArrowLeft") next = (index + editorPanels.length - 1) % editorPanels.length;
+                  else if (e.key === "Home") next = 0;
+                  else if (e.key === "End") next = editorPanels.length - 1;
+                  else return;
+                  e.preventDefault();
+                  setEditorPanel(editorPanels[next].id);
+                  e.currentTarget.querySelectorAll<HTMLButtonElement>("[role=tab]")[next].focus();
+                }}>
+                  {editorPanels.map(panel => <button type="button" role="tab" key={panel.id} id={`editor-tab-${panel.id}`}
+                    aria-selected={editorPanel === panel.id} aria-controls={`editor-panel-${panel.id}`} tabIndex={editorPanel === panel.id ? 0 : -1}
+                    onClick={() => setEditorPanel(panel.id)}>{panel.label}</button>)}
+                </div>
+                <div className="challenge-editor-panel" data-editor-panel="challenge" role="tabpanel" id="editor-panel-challenge" aria-labelledby="editor-tab-challenge" hidden={editorPanel !== "challenge"}>
                 <label>
                   Discovery name
                   <input
@@ -600,7 +723,7 @@ export default function Admin() {
                 </label>
                 <div className="challenge-dependency-summary">
                   <b>Prerequisites</b>
-                  <p>{draft.dependsOn.length ? draft.dependsOn.map((id) => catalog.find((c) => c.id === id)?.object || id).join(", ") : "No prerequisites"}</p>
+                  <p>{draft.dependsOn.length ? draft.dependsOn.map((id) => catalog.find((c) => c.id === id)?.object || mapEntities.find(e => `npe:${e.id}` === id)?.name || id).join(", ") : "No prerequisites"}</p>
                   <a href="/admin/challenges/dependencies">Edit dependency graph</a>
                 </div>
                 <label>
@@ -655,6 +778,54 @@ export default function Admin() {
                     points, and provide feedback from Review answers.
                   </p>
                 )}
+                </div>
+                <div className="challenge-editor-panel" data-editor-panel="rewards" role="tabpanel" id="editor-panel-rewards" aria-labelledby="editor-tab-rewards" hidden={editorPanel !== "rewards"}>
+                <section className="admin-repeaters challenge-reward-settings">
+                  <h3>Inventory rewards <small>Optional</small></h3>
+                  <p>Award these items when the challenge is solved or manually graded. Keys are reusable.</p>
+                  <fieldset className="reward-key-options">
+                    <legend>Keys to grant</legend>
+                    {KEY_COLORS.map(color => <label key={color}>
+                      <input type="checkbox" checked={draft.rewards.keys.includes(color)} onChange={e => patch({ rewards: {
+                        ...draft.rewards, keys: e.target.checked ? [...draft.rewards.keys, color] : draft.rewards.keys.filter(c => c !== color),
+                      } })} />
+                      <span className="key-swatch" style={{ background: KEY_PALETTE[color as keyof typeof KEY_PALETTE] }} />{color} key
+                    </label>)}
+                  </fieldset>
+                  <label>Incantations to grant <small>One short phrase per line, up to 80 characters each.</small>
+                    <textarea rows={3} maxLength={1620} value={draft.rewards.incantations.join("\n")} placeholder="open sesame" onChange={e => patch({ rewards: { ...draft.rewards, incantations: e.target.value.split(/\r?\n/) } })} />
+                  </label>
+                  <small>Players see the phrases in Inventory after earning them. Previously earned rewards stay unchanged when you edit a challenge.</small>
+                </section>
+                </div>
+                <div className="challenge-editor-panel" data-editor-panel="cutscenes" role="tabpanel" id="editor-panel-cutscenes" aria-labelledby="editor-tab-cutscenes" hidden={editorPanel !== "cutscenes"}>
+                <section className="admin-repeaters challenge-video-settings">
+                  <h3>Cutscenes <small>Optional</small></h3>
+                  <p>Play a short video on first discovery or after solving. Players can replay it from the challenge.</p>
+                  {(["discoveryVideo", "solveVideo"] as const).map(field => (
+                    <div className="admin-repeater" key={field}>
+                      <label>
+                        {field === "discoveryVideo" ? "Discovery video URL" : "Solve video URL"}
+                        <input value={draft[field] || ""} disabled={!!uploadingVideo} onChange={e => patch({ [field]: e.target.value.trim() || null })} placeholder="/videos/intro.mp4 or https://…/video.mp4" />
+                      </label>
+                      <small>Use a direct MP4 or WebM link, or upload a video up to 4 MB.</small>
+                      <label>
+                        {uploadingVideo === field ? "Uploading video…" : "Upload video"}
+                        <input type="file" accept=".mp4,.webm,video/mp4,video/webm" disabled={!!uploadingVideo || busy} onChange={e => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (file) void uploadVideo(field, file);
+                        }} />
+                      </label>
+                      {draft[field] && <>
+                        <video key={draft[field]} src={draft[field]} controls preload="metadata" playsInline aria-label={field === "discoveryVideo" ? "Discovery video preview" : "Solve video preview"} />
+                        <button type="button" className="text-button" disabled={!!uploadingVideo} onClick={() => patch({ [field]: null })}>Remove video</button>
+                      </>}
+                    </div>
+                  ))}
+                </section>
+                </div>
+                <div className="challenge-editor-panel" data-editor-panel="resources" role="tabpanel" id="editor-panel-resources" aria-labelledby="editor-tab-resources" hidden={editorPanel !== "resources"}>
                 <section className="admin-repeaters">
                   <div>
                     <h3>Hints</h3>
@@ -670,6 +841,7 @@ export default function Admin() {
                               label: `Hint ${draft.hints.length + 1}`,
                               text: "",
                               cost: 0,
+                              rewardCost: { keys: [], incantations: [] },
                             },
                           ],
                         })
@@ -679,8 +851,11 @@ export default function Admin() {
                       Add hint
                     </button>
                   </div>
-                  <p>Each hint reduces this challenge’s reward once.</p>
-                  {draft.hints.map((h, i) => (
+                  <p>Set a point cost, select rewards from this challenge, or combine both. Selected rewards are withheld when the player completes the challenge. Each reward can pay for one hint.</p>
+                  {draft.hints.map((h, i) => {
+                    const keys = [...new Set([...draft.rewards.keys, ...h.rewardCost.keys])];
+                    const phrases = [...new Map([...h.rewardCost.incantations, ...draft.rewards.incantations.filter(p => p.trim())].map(p => [normalizeIncantation(p), p.trim()])).values()];
+                    return (
                     <div className="admin-repeater" key={h.id}>
                       <div className="admin-repeater-top">
                         <label>
@@ -698,8 +873,9 @@ export default function Admin() {
                           />
                         </label>
                         <label>
-                          Cost
+                          Point cost
                           <input
+                            aria-label={`Hint ${i + 1} point cost`}
                             type="number"
                             min={0}
                             max={draft.points}
@@ -729,6 +905,22 @@ export default function Admin() {
                           Remove
                         </button>
                       </div>
+                      <fieldset className="hint-reward-costs">
+                        <legend>Rewards to forfeit</legend>
+                        <div className="hint-reward-options">
+                          {keys.map(color => <label key={color} className="hint-reward-option">
+                            <input type="checkbox" aria-label={`Hint ${i + 1} cost: ${color} key`} checked={h.rewardCost.keys.includes(color)} onChange={e => patch({ hints: draft.hints.map((v, j) => j === i ? { ...v, rewardCost: { ...v.rewardCost, keys: e.target.checked ? [...v.rewardCost.keys, color] : v.rewardCost.keys.filter(k => k !== color) } } : v) })} />
+                            <span>{color} key{!draft.rewards.keys.includes(color) && <small className="error">Not in challenge rewards — uncheck to remove</small>}</span>
+                          </label>)}
+                          {phrases.map(phrase => <label key={normalizeIncantation(phrase)} className="hint-reward-option">
+                            <input type="checkbox" aria-label={`Hint ${i + 1} cost: incantation ${phrase}`} checked={h.rewardCost.incantations.some(p => normalizeIncantation(p) === normalizeIncantation(phrase))} onChange={e => patch({ hints: draft.hints.map((v, j) => j === i ? { ...v, rewardCost: { ...v.rewardCost, incantations: [...v.rewardCost.incantations.filter(p => normalizeIncantation(p) !== normalizeIncantation(phrase)), ...(e.target.checked ? [phrase] : [])] } } : v) })} />
+                            <span>Incantation: {phrase}{!draft.rewards.incantations.some(p => normalizeIncantation(p) === normalizeIncantation(phrase)) && <small className="error">Not in challenge rewards — uncheck to remove</small>}</span>
+                          </label>)}
+                        </div>
+                        {!keys.length && !phrases.length && <p>Add keys or incantations on the Rewards tab to use them as hint costs.</p>}
+                        <button type="button" className="text-button" onClick={() => setEditorPanel("rewards")}>Configure challenge rewards</button>
+                        <small>A hint is free when its point cost is 0 and no rewards are selected. Items earned from other challenges stay in Inventory.</small>
+                      </fieldset>
                       <label>
                         Hint text
                         <textarea
@@ -747,7 +939,7 @@ export default function Admin() {
                         />
                       </label>
                     </div>
-                  ))}
+                  ); })}
                 </section>
                 <section className="admin-repeaters">
                   <div>
@@ -840,11 +1032,13 @@ export default function Admin() {
                     </div>
                   ))}
                 </section>
+                </div>
                 <div className="admin-save">
                   <p>
                     {draft.points - draft.hints.reduce((s, h) => s + h.cost, 0)}{" "}
                     points after all hints
                   </p>
+                  {invalidHintRewards && <p className="error" role="alert">Some hint costs are no longer in the challenge’s reward list. <button type="button" className="text-button" onClick={() => setEditorPanel("resources")}>Review hint costs</button></p>}
                   {error && (
                     <p className="error" role="alert">
                       {error}
@@ -859,7 +1053,9 @@ export default function Admin() {
                     className="primary"
                     disabled={
                       busy ||
+                      !!uploadingVideo ||
                       !validLocation ||
+                      invalidHintRewards ||
                       draft.hints.reduce((s, h) => s + h.cost, 0) > draft.points
                     }
                   >

@@ -158,6 +158,7 @@ export async function handleReview(req, { db, user, platformAdmin }) {
         "INSERT INTO solved(user,challenge,points) SELECT user,challenge,MAX(0,grade-hint_cost) FROM written_responses WHERE user=? AND challenge=? AND revision=? AND changes()=1 ON CONFLICT(user,challenge) DO UPDATE SET points=excluded.points",
       )
       .bind(owner, challenge, revision + 1),
+    db.prepare("INSERT OR IGNORE INTO earned_rewards(user,challenge,payload) SELECT user,challenge,rewards_payload FROM written_responses WHERE user=? AND challenge=? AND revision=? AND changes()=1").bind(owner,challenge,revision+1),
   ]);
   if (!(results[0].meta?.changes ?? results[0].changes))
     return reply(

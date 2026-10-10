@@ -3,7 +3,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { Maximize2, ZoomIn, ZoomOut, LayoutGrid, Trash2, Info } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { dependencyBounds, dependencyWorldPoint, fitDependencyCamera, zoomDependencyCamera, DEPENDENCY_NODE_WIDTH, DEPENDENCY_NODE_HEIGHT } from "@/lib/dependency-viewport.mjs";
+import type { NonPlayerEntity } from "@/lib/non-player-entities";
 export type DependencyNode = {
+  kind?: "entity"; entity?: NonPlayerEntity; location?: { x: number; y: number };
   id: string; object: string; map: string; region: string;
   visibility: "hidden" | "visible"; points: number; dependsOn: string[];
   summary: string; grading: "automatic" | "manual";
@@ -151,7 +153,7 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove }
   }
   return <section className="dependency-graph-shell" aria-label="Dependency graph editor">
     <div className="dependency-graph-toolbar">
-      <p>{nodes.length} challenges · {edges.length} connections</p>
+      <p>{nodes.filter(n => !n.entity).length} challenges · {nodes.filter(n => n.entity).length} entities · {edges.length} connections</p>
       <div className="dependency-graph-tools">
         <button type="button" className="secondary-button" aria-label="Zoom out" disabled={disabled || zoom <= .01} onClick={() => changeZoom(cameraRef.current.zoom / 1.25)}><ZoomOut size={17}/>Zoom out</button>
         <button type="button" className="secondary-button dependency-zoom" aria-label="Reset zoom to 100%" title="Reset zoom to 100%" disabled={disabled} onClick={() => changeZoom(1)}>{zoom < .001 ? "<0.1" : zoom < .01 ? (zoom * 100).toFixed(1) : Math.round(zoom * 100)}%</button>
@@ -215,20 +217,20 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove }
             })}
             {source && pointer && positions[source] && <path className="dependency-edge-preview" d={curve({ x: positions[source].x + nodeWidth, y: positions[source].y + nodeHeight / 2 }, pointer)}/>}
           </svg>
-          {nodes.map((c) => <article className={"dependency-node" + (source === c.id ? " connecting" : "")} key={c.id} aria-label={`Challenge ${c.object}`} style={{ left: positions[c.id].x, top: positions[c.id].y, width: nodeWidth, height: nodeHeight }}>
+          {nodes.map((c) => <article className={"dependency-node" + (c.entity ? " dependency-entity-node" : "") + (source === c.id ? " connecting" : "")} key={c.id} aria-label={`${c.entity ? "Non-player entity" : "Challenge"} ${c.object}`} style={{ left: positions[c.id].x, top: positions[c.id].y, width: nodeWidth, height: nodeHeight }}>
             <button type="button" className="dependency-handle input" data-dependency-input={c.id} aria-label={`Connect prerequisite to ${c.object}`} title="Connect a prerequisite here" disabled={disabled} onClick={() => finish(c.id)}/>
-            <button type="button" className="dependency-node-drag" aria-label={`Move challenge ${c.object}`} title={`${c.object}\n${c.id}\nDrag to move, or use arrow keys while focused.`} disabled={disabled}
+            <button type="button" className="dependency-node-drag" aria-label={`Move ${c.entity ? "entity" : "challenge"} ${c.object}`} title={`${c.object}\n${c.id}\nDrag to move, or use arrow keys while focused.`} disabled={disabled}
               onPointerDown={(e) => moveNode(e,c.id)} onPointerMove={dragNode} onPointerUp={(e) => { if (drag.current?.pointerId === e.pointerId) stopGesture(); }} onPointerCancel={stopGesture} onLostPointerCapture={(e) => { if (drag.current?.pointerId === e.pointerId) drag.current = null; }}
               onKeyDown={(e) => {
                 const step = { ArrowLeft: [-16,0], ArrowRight: [16,0], ArrowUp: [0,-16], ArrowDown: [0,16] }[e.key];
                 if (!step) return;
                 e.preventDefault(); fitted.current = false; setPositions((previous) => ({ ...previous, [c.id]: { x: previous[c.id].x + step[0], y: previous[c.id].y + step[1] } }));
               }}>
-              <strong>{c.object}</strong><small>{c.id}</small>
+              <strong>{c.object}</strong><small>{c.entity ? "Entity · activate by speaking" : c.id}</small>
               <span className="dependency-node-meta">{c.visibility === "hidden" ? "Hidden · " : ""}{c.dependsOn.length ? `${c.dependsOn.length} prerequisite${c.dependsOn.length === 1 ? "" : "s"}` : "Available at start"}</span>
             </button>
-            <button type="button" className="dependency-node-info" aria-label={`Challenge info: ${c.object}`} title="Challenge info" onClick={(e) => { stopGesture(); cancel(); infoTrigger.current = e.currentTarget; setInfoId(c.id); }}><Info size={17}/></button>
-            <button type="button" className="dependency-handle output" aria-label={`Start connection from ${c.object}`} title="Connect to the challenge this unlocks" disabled={disabled} onPointerDown={(e) => { if (e.button === 0) begin(c.id); }} onClick={(e) => { if (e.detail > 0 && suppressClick.current) { suppressClick.current = false; return; } begin(c.id); }}/>
+            <button type="button" className="dependency-node-info" aria-label={`${c.entity ? "Entity" : "Challenge"} info: ${c.object}`} title="Challenge info" onClick={(e) => { stopGesture(); cancel(); infoTrigger.current = e.currentTarget; setInfoId(c.id); }}><Info size={17}/></button>
+            <button type="button" className="dependency-handle output" aria-label={`Start connection from ${c.object}`} title="Connect to the challenge or entity this unlocks" disabled={disabled} onPointerDown={(e) => { if (e.button === 0) begin(c.id); }} onClick={(e) => { if (e.detail > 0 && suppressClick.current) { suppressClick.current = false; return; } begin(c.id); }}/>
           </article>)}
         </div>
     </div>
@@ -238,12 +240,12 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove }
         <DialogDescription>{info?.region} · {info?.map}</DialogDescription>
         <div className="dependency-info-body">
         <dl className="dependency-info-details">
-          <div><dt>Points</dt><dd>{info?.points.toLocaleString()}</dd></div>
-          <div><dt>Answer checking</dt><dd>{info?.grading === "manual" ? "Written answer" : "Automatic"}</dd></div>
+          {info?.entity ? <div><dt>Activation</dt><dd>Speak to this character</dd></div> : <div><dt>Points</dt><dd>{info?.points.toLocaleString()}</dd></div>}
+          {!info?.entity && <div><dt>Answer checking</dt><dd>{info?.grading === "manual" ? "Written answer" : "Automatic"}</dd></div>}
           <div><dt>Visibility</dt><dd>{info?.visibility === "hidden" ? "Hidden" : "Visible"}</dd></div>
-          <div><dt>Challenge ID</dt><dd>{info?.id}</dd></div>
+          <div><dt>Node ID</dt><dd>{info?.id}</dd></div>
         </dl>
-        <div><h3>Challenge preview</h3><p className="dependency-info-preview">{info?.summary || "No challenge text available."}</p></div>
+        <div><h3>{info?.entity ? "First dialogue" : "Challenge preview"}</h3><p className="dependency-info-preview">{info?.summary || "No challenge text available."}</p></div>
         <div><h3>Prerequisites</h3><p>{info?.dependsOn.length ? info.dependsOn.map((id) => nodes.find((c) => c.id === id)?.object || id).join(", ") : "No prerequisites"}</p></div>
         </div>
         <DialogClose className="secondary-button">Close</DialogClose>

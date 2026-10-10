@@ -1,3 +1,4 @@
+import { validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { planChallengePlacement } from "../lib/challenge-placement.mjs";
 import { gradingCompatible } from "./review.mjs";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
@@ -25,9 +26,11 @@ export const assetTypes = {
   csv: "text/csv; charset=utf-8",
   zip: "application/zip",
   bin: "application/octet-stream",
+  mp4: "video/mp4",
+  webm: "video/webm",
 };
 export const assetKeyPattern =
-  /^[a-f0-9]{64}\.(png|jpg|jpeg|webp|gif|mid|midi|pdf|txt|csv|zip|bin)$/;
+  /^[a-f0-9]{64}\.(png|jpg|jpeg|webp|gif|mid|midi|pdf|txt|csv|zip|bin|mp4|webm)$/;
 let seed;
 export function seedAsset(path) {
   seed ??= unzipSync(Uint8Array.from(atob(kitBase64), (c) => c.charCodeAt(0)));
@@ -52,6 +55,7 @@ export async function readAsset(path, store, readBase = seedAsset) {
   return readBase(path);
 }
 export function themeContentValid(theme, challenges) {
+  validateProgressionDependencies(challenges, theme.world.entities || []);
   const w = createWorld(theme.world);
   for (const c of challenges)
     if (!w.canPlaceChallenge(c.map, c.location.x, c.location.y))
@@ -59,11 +63,11 @@ export function themeContentValid(theme, challenges) {
         `Challenge ${c.id} is not on reachable ground in theme map ${c.map}. Import a matching content pack alongside this theme, or move/remove the challenge first.`,
       );
 }
-const contentPaths = (cs) => [
+export const contentPaths = (cs) => [
   ...new Set(
     cs
-      .flatMap((c) => c.downloads.map((d) => d.url))
-      .filter((p) => p.startsWith("/")),
+      .flatMap((c) => [...c.downloads.map((d) => d.url), c.discoveryVideo, c.solveVideo])
+      .filter((p) => p?.startsWith("/")),
   ),
 ];
 async function packageAssets(entries, paths, store, readBase) {
@@ -178,6 +182,8 @@ export function assertAsset(bytes, ext) {
       !(text(0, 4) === "MThd" && bytes.length >= 14)) ||
     (ext === "pdf" && text(0, 5) !== "%PDF-") ||
     (ext === "zip" && text(0, 2) !== "PK")
+    || (ext === "mp4" && !(bytes.length >= 12 && text(4, 8) === "ftyp"))
+    || (ext === "webm" && ![0x1a, 0x45, 0xdf, 0xa3].every((v, i) => bytes[i] === v))
   )
     throw Error("Asset bytes do not match their file extension.");
   if (["txt", "csv"].includes(ext))
@@ -212,6 +218,8 @@ async function stage(pack, kind, store) {
     ? mapThemeAssets(pack.value, (p) => rewrite.get(p))
     : pack.value.map((c) => ({
         ...c,
+        discoveryVideo: rewrite.get(c.discoveryVideo) || c.discoveryVideo,
+        solveVideo: rewrite.get(c.solveVideo) || c.solveVideo,
         downloads: c.downloads.map((d) => ({
           ...d,
           url: rewrite.get(d.url) || d.url,
@@ -223,7 +231,7 @@ async function stage(pack, kind, store) {
 }
 export async function importPacks(
   req,
-  { db, config, theme, themeRevision, challenges, contentRevision, store },
+  { db, config, theme, themeRevision, challenges, contentRevision, store, preservePlacements = false },
   kind,
 ) {
   const reader = req.body?.getReader();
@@ -270,7 +278,10 @@ export async function importPacks(
   const nextTheme = kind === "theme" ? primary.value : theme,
     nextContent =
       kind === "content" ? primary.value : secondary?.value || challenges;
+  validateProgressionDependencies(nextContent, nextTheme.world.entities || []);
   const placement = planChallengePlacement(nextTheme, nextContent);
+  if (preservePlacements && (placement.moved.length || placement.excluded.length))
+    throw Error("This update cannot move or exclude challenges.");
   await gradingCompatible(db, challenges, nextContent);
   const ids = new Set(nextTheme.characters.map((c) => c.id)),
     accounts = (

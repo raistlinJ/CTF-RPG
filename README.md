@@ -33,6 +33,10 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0015_optimal_greymalkin.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0016_admin_user_actions.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0017_team_point_awards.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0018_challenge_cutscenes.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0019_inventory_locks.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0020_hint_reward_costs.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0021_entity_activations.sql
 npm run dev
 ```
 
@@ -52,6 +56,8 @@ The starting set comes from `content/challenges.yaml`; after the first admin sav
 
 Restart your standalone Node server after YAML changes. For Sites, rebuild and republish. Hint purchases persist once per student; costs reduce that challenge's reward. Existing completed challenges keep their saved scores.
 
+Manage optional discovery/solve videos, colored keys, incantations, and hint prices in the challenge editor. Players can replay unlocked cutscenes and open **Inventory** beside **Search nearby**. Configure character dialogue in **Theme → Maps & transport → Non-Player Entities**, then connect solved challenges and spoken-to characters in **Challenges → Dependencies**. See [the admin guide](ADMIN_GUIDE.md#challenge-dependencies) for entity creation, deletion, and progression.
+
 ## Map coordinates and locations
 
 See [MAP_GUIDE.md](MAP_GUIDE.md) for the expanded town, Santa's castle, all house doors, interior coordinates, furniture collision, and placing treasures indoors. Walk into a lit doorway to enter, and through the southern door to exit. The map is 40 × 28 tiles; x increases east and y increases south. Challenge YAML's optional `map` defaults to `town`.
@@ -68,7 +74,7 @@ An optional browser WebMCP `read_expedition` tool exposes the same visible posit
 
 Students create a team with a name and password, or join an existing team after signing in. Team passwords have 8–128 characters and are stored as salted hashes. Team names are unique ignoring case. Membership persists across logins; students cannot leave or switch teams. Only admins may disband a team, which releases its members to choose again without changing individual scores.
 
-Admins use **Manage** in the game header. **Teams → Configuration** (`/admin/teams/configuration`) contains team-size, scoreboard, player-visibility, and messaging settings. **Teams → Manage** (`/admin/teams`) shows teams, point gifts, and disband controls. Set the maximum team size from 1–100 (default 4, initially configured by `teams.maxMembers` in `content/game.yaml`). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. Both pages enforce admin authorization.
+Admins use **Manage** in the game header. **Teams → Team size** (`/admin/teams/configuration`) sets the team limit. **Players & messages** (`/admin/teams/players`) controls player visibility and team messaging; **Scoreboard** (`/admin/teams/scoreboard`) controls ranking access and defaults. **Teams → Manage teams** (`/admin/teams`) shows teams, point gifts, and disband controls. Set the maximum team size from 1–100 (default 4, initially configured by `teams.maxMembers` in `content/game.yaml`). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. All management pages enforce admin authorization.
 
 Use **Gift points** on a team to award 1–10,000 whole points with a required comment. Gifts count once toward the team total and remain separate from individual earned points. Members see **+N pts added** on the game screen; hover, focus, or tap to read the comment. Manage shows gift history. Full backups preserve gifts and comments. Disbanding a team removes its gifts; members retain individual progress.
 
@@ -84,7 +90,7 @@ Every challenge supports `grading: automatic` (the default) or `grading: manual`
 
 Admins use `/admin/review` (**Manage → Review answers**) to award a whole-number grade from 0 to the submission's saved maximum and provide feedback. Recorded hint costs are subtracted, with a minimum final award of 0. Regrading updates the existing award and scoreboard. Response revisions prevent stale edits or grades from overwriting newer work. Full backups retain responses/grades/feedback; theme and content packs exclude them. Use new IDs for new tests; grading mode cannot be changed after responses or awards exist.
 
-The built-in **Agentic Circuit** theme is available under **Theme → Import / Export**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
+The built-in **Agentic Circuit** theme is available under **Theme → Theme library**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
 
 ## Included theme packs
 
@@ -97,3 +103,7 @@ CTFd imports convert standard prerequisites into working graph connections; the 
 ## Challenge dependencies
 
 Admins can connect challenge prerequisites under **Challenges → Dependencies** (`/admin/challenges/dependencies`). Players unlock a challenge after completing every prerequisite. Graph connections are retained in challenge YAML, content packs, and full backups. See [ADMIN_GUIDE.md](ADMIN_GUIDE.md#challenge-dependencies) for graph controls and progression rules.
+
+## Inventory and locked routes
+
+Challenges can award reusable colored keys and teach incantations. Players open **Inventory** from the link to the left of **Search nearby** on the map. Administrators configure key or phrase requirements on new transports and existing building doors under **Theme → Maps & transport → Transport**, and configure rewards under **New discovery / Edit discovery → Rewards → Inventory rewards**. Unlocks and inventory persist per player and are included in full backups. See [the admin guide](ADMIN_GUIDE.md#locked-doors-portals-and-inventory).

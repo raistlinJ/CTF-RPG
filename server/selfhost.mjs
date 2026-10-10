@@ -17,6 +17,7 @@ import { createSQLiteAdapter, initializeSchema } from "./sqlite.mjs";
 import { exportFullBackup } from "./backup.mjs";
 import { readdirSync, lstatSync } from "node:fs";
 import { createApi } from "./api.mjs";
+import { byteRange } from "./byte-range.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const config = parseGame(
   readFileSync(
@@ -119,6 +120,8 @@ const types = {
   ".zip": "application/zip",
   ".mid": "audio/midi",
   ".midi": "audio/midi",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
 };
@@ -159,7 +162,7 @@ const server = createServer(async (req, res) => {
       const chunks = [];
       let length = 0;
       const bodyLimit =
-        url.pathname === "/api/admin/ctfd-import" ? 65 * 1024 * 1024 : url.pathname === "/api/admin/packs" ? 17 * 1024 * 1024 : url.pathname === "/api/admin/theme-audio" ? 9 * 1024 * 1024 : 524288;
+        url.pathname === "/api/admin/ctfd-import" ? 65 * 1024 * 1024 : url.pathname === "/api/admin/packs" ? 17 * 1024 * 1024 : url.pathname === "/api/admin/theme-audio" ? 9 * 1024 * 1024 : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : 524288;
       for await (const chunk of req) {
         length += chunk.length;
         chunks.push(chunk);
@@ -218,6 +221,8 @@ const server = createServer(async (req, res) => {
         "/admin/challenges/dependencies/",
         "/admin/challenges/submissions",
         "/admin/challenges/submissions/",
+        "/admin/challenges/import",
+        "/admin/challenges/import/",
         "/admin/notifications",
         "/admin/notifications/",
         "/admin/review",
@@ -228,12 +233,20 @@ const server = createServer(async (req, res) => {
         "/admin/theme/",
         "/admin/theme/audio",
         "/admin/theme/audio/",
+        "/admin/theme/maps",
+        "/admin/theme/maps/",
+        "/admin/theme/library",
+        "/admin/theme/library/",
         "/admin/theme/import-export",
         "/admin/theme/import-export/",
         "/admin/teams",
         "/admin/teams/",
         "/admin/teams/configuration",
         "/admin/teams/configuration/",
+        "/admin/teams/players",
+        "/admin/teams/players/",
+        "/admin/teams/scoreboard",
+        "/admin/teams/scoreboard/",
         "/admin/users",
         "/admin/users/",
         "/scoreboard",
@@ -245,12 +258,14 @@ const server = createServer(async (req, res) => {
       res.writeHead(404);
       return res.end("Not found");
     }
-    res.writeHead(200, {
+    const range = /\.(mp4|webm)$/.test(file) ? byteRange(req.headers.range, statSync(file).size) : null;
+    res.writeHead(range?.status || 200, {
+      ...range?.headers,
       "Content-Type": types[extname(file)] || "application/octet-stream",
       "Cache-Control": "no-cache",
     });
-    if (req.method === "HEAD") return res.end();
-    createReadStream(file).pipe(res);
+    if (req.method === "HEAD" || range?.status === 416) return res.end();
+    createReadStream(file, range ? {start:range.start,end:range.end} : undefined).pipe(res);
   } catch {
     res.writeHead(400);
     res.end("Invalid request");

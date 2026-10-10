@@ -85,6 +85,7 @@ export function usePlayerPresence(
           signal: controller.signal,
         });
         const d = (await r.json()) as {
+          themeRevision?: number;
           gameRevision: string;
           challengeSolves: ChallengeSolve[];
           players: NearbyPlayer[];
@@ -96,6 +97,7 @@ export function usePlayerPresence(
           scoreboard: { visibility: "admins" | "all"; mode: string };
           self: { teammate: boolean; crowned: boolean };
         };
+        if (r.status === 409 && d.themeRevision !== undefined && d.themeRevision !== sent.themeRevision) { window.location.reload(); return; }
         if (!r.ok) throw Error();
         if (live && !document.hidden && current.current.map === sent.map) {
           const counts = d.challengeSolves || [];

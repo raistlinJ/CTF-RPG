@@ -10,28 +10,40 @@ import {
   Paintbrush,
   RotateCcw,
   ArrowLeftRight,
+  UsersRound,
 } from "lucide-react";
+import EntityEditor from "./entity-editor";
+import { EntityMarker } from "../entity-dialogue";
+import { entitiesSchema, entityLocationAvailable, findEntityLocation } from "@/lib/non-player-entities.mjs";
+import type { EntityCharacter, NonPlayerEntity } from "@/lib/non-player-entities";
+import { challengeLocationAvailable } from "@/lib/challenge-placement.mjs";
 import { clientUuid } from "@/lib/client-uuid.mjs";
 import { paintStroke } from "@/lib/paint-stroke.mjs";
 import { createWorld, activeWorld } from "@/lib/world-data.mjs";
+import { KEY_COLORS } from "@/lib/inventory-data.mjs";
+type TransportLock = { type: "key"; color: string } | { type: "incantation"; phrase: string };
 type MapData = (typeof activeWorld.maps)[number] & {
   ground?: [number, number][] | null;
+  originalBackground?: string | null;
 };
 type Transport = {
   id: string;
   map: string;
   location: { x: number; y: number };
   to: string;
+  lock?: TransportLock | null;
 };
 type PortalOverride = {
   id: string;
   location: { x: number; y: number };
   to: string;
+  lock?: TransportLock | null;
 };
 type WorldData = Omit<typeof activeWorld, "maps"> & {
   maps: MapData[];
   transports?: Transport[];
   portalOverrides?: PortalOverride[];
+  entities?: NonPlayerEntity[];
 };
 type Placement = {
   id: string;
@@ -47,6 +59,9 @@ export default function MapSettings({
   onSaved,
   challenges,
   onOpenChange,
+  standalone = false,
+  onDirtyChange,
+  characters = [],
 }: {
   world: WorldData;
   mapId: string;
@@ -54,7 +69,10 @@ export default function MapSettings({
   contentRevision: number;
   onSaved: () => Promise<void>;
   challenges: Placement[];
-  onOpenChange: (open: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
+  standalone?: boolean;
+  onDirtyChange?: (dirty: boolean) => void;
+  characters?: EntityCharacter[];
 }) {
   const original = world.maps.find((m) => m.id === mapId)!;
   const [map, setMap] = useState<MapData>(original),
@@ -62,9 +80,9 @@ export default function MapSettings({
     [image, setImage] = useState<File | null>(null),
     [imageUrl, setImageUrl] = useState<string | null>(null),
     [cursor, setCursor] = useState({ x: 0, y: 0 }),
-    [editorOpen, setEditorOpen] = useState(false),
+    [editorOpen, setEditorOpen] = useState(standalone),
     [panel, setPanel] = useState<
-      "ground" | "transport" | "artwork" | "advanced"
+      "ground" | "entities" | "transport" | "artwork" | "advanced"
     >("ground"),
     [mode, setMode] = useState<"allow" | "block" | "spawn" | "move">("allow"),
     [busy, setBusy] = useState(false),
@@ -74,12 +92,14 @@ export default function MapSettings({
       map: MapData;
       transports: Transport[];
       portalOverrides: PortalOverride[];
+      entities: NonPlayerEntity[];
     } | null>(null),
     [transports, setTransports] = useState<Transport[]>(world.transports || []),
     [portalOverrides, setPortalOverrides] = useState<PortalOverride[]>(
       world.portalOverrides || [],
     ),
     [selectedTransport, setSelectedTransport] = useState(""),
+    [newLock, setNewLock] = useState<TransportLock | null>(null),
     [transportUndo, setTransportUndo] = useState<
       { transports: Transport[]; portalOverrides: PortalOverride[] }[]
     >([]),
@@ -88,10 +108,13 @@ export default function MapSettings({
     ),
     [moves, setMoves] = useState<Record<string, { x: number; y: number }>>({}),
     [selectedChallenge, setSelectedChallenge] = useState("");
+  const [entities, setEntities] = useState<NonPlayerEntity[]>(world.entities || []);
+  const [selectedEntity, setSelectedEntity] = useState("");
   const canvas = useRef<HTMLCanvasElement>(null),
     dragging = useRef(false),
     lastPaint = useRef<{ x: number; y: number } | null>(null),
     imageInput = useRef<HTMLInputElement>(null);
+  const [initialState, setInitialState] = useState("");
   function reset() {
     const engine = createWorld(world),
       next = new Set<string>();
@@ -108,14 +131,29 @@ export default function MapSettings({
     setTransports(structuredClone(world.transports || []));
     setPortalOverrides(structuredClone(world.portalOverrides || []));
     setSelectedTransport("");
+    setNewLock(null);
     setTransportUndo([]);
     setDestination(world.maps.find((m) => m.id !== mapId)?.id || "");
     setError("");
     setMoves({});
     setSelectedChallenge("");
+    setEntities(structuredClone(world.entities || []));
+    setSelectedEntity("");
     dragging.current = false;
     lastPaint.current = null;
+    setInitialState(JSON.stringify([original, [...next].sort(), world.transports || [], world.portalOverrides || [], {}]));
   }
+  const mapLayoutDirty = !!initialState && initialState !== JSON.stringify([map, [...cells].sort(), transports, portalOverrides, moves]);
+  const entitiesDirty = JSON.stringify(entities) !== JSON.stringify(world.entities || []);
+  const layoutDirty = mapLayoutDirty || entitiesDirty;
+  const dirty = layoutDirty || !!image;
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
   useEffect(() => {
     reset();
   }, [world, mapId]);
@@ -141,21 +179,42 @@ export default function MapSettings({
       ...world,
       transports,
       portalOverrides,
+      entities,
       maps: world.maps.map((m) =>
         m.id === mapId ? { ...map, obstacles: [], ground } : m,
       ),
     }),
-    [world, mapId, map, ground, transports, portalOverrides],
+    [world, mapId, map, ground, transports, portalOverrides, entities],
   );
   const engine = useMemo(() => createWorld(preview), [preview]);
+  const selectedLink = selectedTransport.startsWith("portal:")
+    ? engine.portals.find(p => p.id === selectedTransport.slice(7))
+    : transports.find(t => t.id === selectedTransport.slice(10));
+  const selectedLock = (selectedTransport ? selectedLink?.lock || null : newLock) as TransportLock | null;
   const placements = useMemo(
     () =>
       challenges.map((c) => ({ ...c, location: moves[c.id] || c.location })),
     [challenges, moves],
   );
   const invalid = placements.filter(
-    (c) => !engine.canPlaceChallenge(c.map, c.location.x, c.location.y),
+    (c) => !challengeLocationAvailable(engine, [], c.map, c.location.x, c.location.y, c.id),
   );
+  const selectedNpc = entities.find(e => e.id === selectedEntity);
+  const entityValidation = entitiesSchema.safeParse(entities);
+  const entityProblems = [
+    ...(!entityValidation.success ? entityValidation.error.issues.map(i => `Character ${i.path[0] === undefined ? "" : Number(i.path[0]) + 1}: ${i.message}`) : []),
+    ...entities.flatMap(e => !characters.some(c => c.id === e.characterId) || !entityLocationAvailable(engine, placements, entities, e.map, e.location.x, e.location.y, e.id) ? [`${e.name || "Character"} needs a valid appearance and a separate, reachable tile away from challenges and transport.`] : []),
+  ];
+  function updateEntity(entity: NonPlayerEntity) {
+    setEntities(all => all.map(e => e.id === entity.id ? entity : e)); setMessage(""); setError("");
+  }
+  function addEntity() {
+    const location = findEntityLocation(engine, placements, entities, mapId, cursor);
+    if (!location) { setError("This map has no available location for another character."); return; }
+    const node = "dialogue-" + clientUuid(), id = "entity-" + clientUuid();
+    setEntities(all => [...all, { id, name: "New character", characterId: characters[0]?.id || "web", map: mapId, location, startNode: node, nodes: [{ id: node, text: "", choices: [] }] }]);
+    setSelectedEntity(id); setCursor(location); setMessage(""); setError("");
+  }
   const duplicated = placements.filter((c, i) =>
     placements.some(
       (d, j) =>
@@ -205,7 +264,7 @@ export default function MapSettings({
         p = engine.portals.find((p) => p.id === id)!;
       setPortalOverrides((os) => [
         ...os.filter((o) => o.id !== id),
-        { id, location: { ...p.location }, to },
+        { id, location: { ...p.location }, to, lock: p.lock as TransportLock | null },
       ]);
     } else
       setTransports((ts) =>
@@ -214,7 +273,16 @@ export default function MapSettings({
         ),
       );
   }
+  function editLock(lock: TransportLock | null) {
+    if (!selectedTransport) { setNewLock(lock); return; }
+    rememberTransport();
+    if (selectedTransport.startsWith("portal:")) {
+      const p = engine.portals.find(p => p.id === selectedTransport.slice(7))!;
+      setPortalOverrides(os => [...os.filter(o => o.id !== p.id), { id: p.id, location: {...p.location}, to: p.to, lock }]);
+    } else setTransports(ts => ts.map(t => t.id === selectedTransport.slice(10) ? {...t,lock} : t));
+  }
   const transportProblems = [
+    ...[...transports, ...portalOverrides].filter(t => t.lock?.type === "incantation" && (!t.lock.phrase.trim() || t.lock.phrase.trim().length > 80 || /[\r\n]/.test(t.lock.phrase))).map(() => "Locked portals need an incantation of 1–80 characters."),
     ...portalProblems,
     ...transports.flatMap((t) => {
       const source = preview.maps.find((m) => m.id === t.map),
@@ -335,6 +403,13 @@ export default function MapSettings({
     )
       return;
     setCursor({ x, y });
+    if (panel === "entities") {
+      const existing = entities.find(e => e.map === mapId && e.location.x === x && e.location.y === y);
+      if (existing) { setSelectedEntity(existing.id); setError(""); return; }
+      if (!selectedNpc) { setError("Add or select a character, then click its location on the map."); return; }
+      if (!entityLocationAvailable(engine, placements, entities, mapId, x, y, selectedNpc.id)) { setError("Choose an unoccupied, reachable tile away from challenges, doors and transport."); return; }
+      updateEntity({ ...selectedNpc, location: { x, y } }); return;
+    }
     if (panel === "transport") {
       if (!destination) {
         setError("Choose a destination map first.");
@@ -360,7 +435,7 @@ export default function MapSettings({
         return;
       }
       if (
-        !engine.canPlaceChallenge(mapId, x, y) ||
+        !entityLocationAvailable(engine, [], entities, mapId, x, y) ||
         (x === map.spawn.x && y === map.spawn.y)
       ) {
         setError(
@@ -397,7 +472,7 @@ export default function MapSettings({
         const id = selectedTransport.slice(7);
         setPortalOverrides((os) => [
           ...os.filter((o) => o.id !== id),
-          { id, location: { x, y }, to: destination },
+          { id, location: { x, y }, to: destination, lock: engine.portals.find(p => p.id === id)?.lock as TransportLock | null },
         ]);
       } else if (selectedTransport.startsWith("transport:")) {
         setTransports((ts) =>
@@ -407,16 +482,20 @@ export default function MapSettings({
               : t,
           ),
         );
-      } else
+      } else {
+        const id = "transport-" + clientUuid();
         setTransports((ts) => [
           ...ts,
           {
-            id: "transport-" + clientUuid(),
+            id,
             map: mapId,
             location: { x, y },
             to: destination,
+            lock: newLock,
           },
         ]);
+        setSelectedTransport(`transport:${id}`);
+      }
       setError("");
       setMessage("");
       return;
@@ -436,7 +515,7 @@ export default function MapSettings({
         );
         return;
       }
-      if (!engine.canPlaceChallenge(mapId, x, y)) {
+      if (!challengeLocationAvailable(engine, [], mapId, x, y, selectedChallenge)) {
         setError("Choose a free, reachable tile for this challenge.");
         return;
       }
@@ -492,16 +571,18 @@ export default function MapSettings({
     map: MapData;
     transports: Transport[];
     portalOverrides: PortalOverride[];
+    entities: NonPlayerEntity[];
   }) {
     setBusy(true);
     setError("");
     setMessage("");
     try {
       const form = new FormData();
+      const entitiesOnly = !restore && entitiesDirty && !mapLayoutDirty;
       form.set(
         "map",
         JSON.stringify(
-          restore
+          entitiesOnly ? { id: mapId } : restore
             ? { ...restore.map, ground: restore.map.ground ?? null }
             : {
                 id: map.id,
@@ -515,16 +596,19 @@ export default function MapSettings({
       form.set("themeRevision", String(themeRevision));
       form.set("contentRevision", String(contentRevision));
       if (restore) form.set("action", "restore");
+      if (entitiesOnly) form.set("action", "update-entities");
+      form.set("entities", JSON.stringify(restore?.entities || entities));
+      if (!entitiesOnly) {
       form.set("transports", JSON.stringify(restore?.transports || transports));
       form.set(
         "portalOverrides",
         JSON.stringify(restore?.portalOverrides || portalOverrides),
       );
-      if (image && !restore) form.set("image", image);
       form.set(
         "moves",
         JSON.stringify(Object.entries(moves).map(([id, p]) => ({ id, ...p }))),
       );
+      }
       const r = await fetch("/api/admin/maps", { method: "POST", body: form }),
         d = (await r.json()) as {
           error?: string;
@@ -538,12 +622,43 @@ export default function MapSettings({
               map: structuredClone(original),
               transports: structuredClone(world.transports || []),
               portalOverrides: structuredClone(world.portalOverrides || []),
+              entities: structuredClone(world.entities || []),
             },
       );
       await onSaved();
       setMessage(
         `${restore ? "Previous saved map restored" : "Map saved"}. ${d.placement.moved.length} challenges moved. Reload the game to use it.`,
       );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function cancelImage() {
+    setImage(null);
+    if (imageInput.current) imageInput.current.value = "";
+    setError("");
+    setMessage("Image selection reset. Saved artwork is unchanged.");
+  }
+  async function saveArtwork(resetImage = false) {
+    if (busy || layoutDirty || (!resetImage && !image)) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const form = new FormData();
+      form.set("action", resetImage ? "reset-artwork" : "replace-artwork");
+      form.set("map", JSON.stringify({ id: mapId }));
+      form.set("themeRevision", String(themeRevision));
+      form.set("contentRevision", String(contentRevision));
+      if (image && !resetImage) form.set("image", image);
+      const r = await fetch("/api/admin/maps", { method: "POST", body: form });
+      const d = await r.json() as { error?: string };
+      if (!r.ok) throw Error(d.error || "Map image could not be updated.");
+      setPreviousSave(null);
+      await onSaved();
+      setMessage(resetImage ? "Original map image restored. Placements and map settings are unchanged." : "Map image replaced. Placements and map settings are unchanged.");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -579,15 +694,18 @@ export default function MapSettings({
   const attention = [
     ...new Map([...invalid, ...duplicated].map((c) => [c.id, c])).values(),
   ];
+  const EditorContainer = standalone ? "section" : "details";
   return (
-    <details
-      className="map-settings"
+    <EditorContainer
+      className={`map-settings${standalone ? " map-settings-standalone" : ""}`}
       onToggle={(e) => {
-        setEditorOpen(e.currentTarget.open);
-        onOpenChange(e.currentTarget.open);
+        if (standalone) return;
+        const open = (e.currentTarget as HTMLDetailsElement).open;
+        setEditorOpen(open);
+        onOpenChange?.(open);
       }}
     >
-      <summary>
+      {!standalone && <summary>
         <span>
           <Paintbrush size={17} />
           Map artwork &amp; reachable ground
@@ -595,12 +713,13 @@ export default function MapSettings({
         <span className="map-summary-hint">
           {editorOpen ? "Close editor" : "Edit map"}
         </span>
-      </summary>
+      </summary>}
       <div className="map-settings-body">
         <div className="map-settings-tabs" aria-label="Map settings sections">
           {(
             [
               { id: "ground", label: "Ground", icon: Paintbrush },
+              { id: "entities", label: "Non-Player Entities", icon: UsersRound },
               { id: "transport", label: "Transport", icon: ArrowLeftRight },
               { id: "artwork", label: "Artwork", icon: ImageIcon },
               { id: "advanced", label: "Advanced", icon: SlidersHorizontal },
@@ -617,6 +736,17 @@ export default function MapSettings({
             </button>
           ))}
         </div>
+        <div className="map-settings-controls">
+        {panel === "entities" && <div className="map-settings-section">
+          <p className="map-tool-help" id="entity-tool-help">Add a character, then click reachable ground to place it. Players use Search nearby to speak and choose their replies. Save map to publish your characters and dialogue.</p>
+          <button type="button" className="secondary-button" disabled={busy || entities.length >= 100 || !characters.length} onClick={addEntity}>Add character</button>
+          <div className="entity-list" aria-label="Characters on this map">{entities.filter(e => e.map === mapId).map(e => <div key={e.id}>
+            <button type="button" aria-pressed={selectedEntity === e.id} disabled={busy} onClick={() => { setSelectedEntity(e.id); setCursor({ ...e.location }); }}>{e.name || "Unnamed character"} · {e.location.x}, {e.location.y}</button>
+            <button type="button" className="text-button" aria-label={`Remove character ${e.name}`} disabled={busy} onClick={() => { setEntities(all => all.filter(v => v.id !== e.id)); if (selectedEntity === e.id) setSelectedEntity(""); }}>Remove</button>
+          </div>)}</div>
+          {!entities.some(e => e.map === mapId) && <small>No characters on this map yet.</small>}
+          {selectedNpc && <fieldset className="entity-fields" disabled={busy}><EntityEditor key={selectedNpc.id} entity={selectedNpc} characters={characters} onChange={updateEntity} /></fieldset>}
+        </div>}
         {panel === "ground" && (
           <div className="map-edit-tools">
             <div className="map-tool-buttons" aria-label="Map tools">
@@ -681,6 +811,23 @@ export default function MapSettings({
                   ))}
               </select>
             </label>
+            <label>Lock requirement
+              <select aria-label="Lock requirement" value={selectedLock?.type || "none"} onChange={e => editLock(e.target.value === "key" ? {type:"key",color:"red"} : e.target.value === "incantation" ? {type:"incantation",phrase:""} : null)}>
+                <option value="none">No lock</option>
+                <option value="key">Locked door · colored key</option>
+                <option value="incantation">Locked portal · incantation</option>
+              </select>
+            </label>
+            {selectedLock?.type === "key" && <label>Required key color
+              <select aria-label="Required key color" value={selectedLock.color} onChange={e => editLock({type:"key",color:e.target.value})}>
+                {KEY_COLORS.map(color => <option key={color} value={color}>{color}</option>)}
+              </select>
+            </label>}
+            {selectedLock?.type === "incantation" && <label>Required incantation
+              <input aria-label="Required incantation" maxLength={80} value={selectedLock.phrase} placeholder="open sesame" onChange={e => editLock({type:"incantation",phrase:e.target.value})} />
+              <small>Players enter this short phrase to unlock the portal. Case and extra spaces are ignored.</small>
+            </label>}
+            <p className="map-tool-help">Lock settings apply to the selected transport, or to the next transport you add. Unlocks belong to each player; keys are kept after use.</p>
             <p id="transport-tool-help" className="map-tool-help">
               Select a transport to edit its destination, then click a free tile
               to move it. Theme entrances and exits keep their original return
@@ -693,6 +840,7 @@ export default function MapSettings({
                 className="text-button"
                 onClick={() => {
                   setSelectedTransport("");
+                  setNewLock(null);
                   setMessage(
                     "Choose a destination and click a free tile to add a transport.",
                   );
@@ -729,7 +877,7 @@ export default function MapSettings({
                 free tile to move it.
               </p>
             )}
-            <div className="transport-list">
+            <div className="transport-list" role="region" aria-label="Map transports" tabIndex={0}>
               {engine.portals
                 .filter((p) => p.map === mapId)
                 .map((p) => (
@@ -745,7 +893,7 @@ export default function MapSettings({
                       <ArrowLeftRight size={15} />
                       {p.name} · {p.location.x}, {p.location.y} →{" "}
                       {world.maps.find((m) => m.id === p.to)?.name}
-                      <small>Theme predefined</small>
+                      <small>Theme predefined{p.lock ? p.lock.type === "key" ? ` · ${p.lock.color} key required` : " · Incantation required" : " · No lock"}</small>
                     </span>
                     <button
                       type="button"
@@ -789,6 +937,7 @@ export default function MapSettings({
                       <ArrowLeftRight size={15} />
                       {t.location.x}, {t.location.y} →{" "}
                       {world.maps.find((m) => m.id === t.to)?.name}
+                      <small>{t.lock ? t.lock.type === "key" ? `${t.lock.color} key required` : "Incantation required" : "No lock"}</small>
                     </span>
                     <button
                       type="button"
@@ -841,16 +990,19 @@ export default function MapSettings({
               />
             </label>
             <label>
-              Upload map image
+              Replace map image
               <input
                 ref={imageInput}
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif"
+                disabled={busy || layoutDirty}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   setError("");
-                  if (file && file.size > 4 * 1024 * 1024) {
-                    setError("Image must be at most 4 MB.");
+                  if (file && (file.size > 4 * 1024 * 1024 || !/\.(png|jpe?g|webp|gif)$/i.test(file.name))) {
+                    setError("Choose a PNG, JPEG, WebP or GIF image up to 4 MB.");
+                    setImage(null);
+                    e.target.value = "";
                     return;
                   }
                   setImage(file || null);
@@ -862,6 +1014,16 @@ export default function MapSettings({
               PNG, JPEG, WebP or GIF · up to 4 MB. Images fill the 40 × 28 grid;
               ground is painted separately.
             </small>
+            <p className="map-tool-help">Replacing or resetting an image preserves challenge positions, walkable ground, spawn, doors, portals, and locks.</p>
+            {layoutDirty && <p className="map-tool-help">Save or reset your other map edits before replacing or resetting the image.</p>}
+            <div className="map-bulk-actions">
+              <button type="button" className="secondary-button" disabled={busy || layoutDirty || (!image && !Object.hasOwn(original, "originalBackground"))} onClick={() => {
+                if (!Object.hasOwn(original, "originalBackground")) cancelImage();
+                else void saveArtwork(true);
+              }}>Reset image</button>
+              {image && <button type="button" className="text-button" disabled={busy} onClick={cancelImage}>Cancel upload</button>}
+            </div>
+            <small>Reset image restores the artwork from before the first replacement, or cancels an unsaved upload. The original image is kept across reloads and in exports.</small>
           </div>
         )}
         {panel === "advanced" && (
@@ -928,7 +1090,9 @@ export default function MapSettings({
             </small>
           </div>
         )}
-        <canvas
+        </div>
+        <div className="map-settings-preview">
+        <div className="entity-map-surface"><canvas
           ref={canvas}
           width={960}
           height={672}
@@ -940,10 +1104,10 @@ export default function MapSettings({
               ? "map-tool-help"
               : panel === "transport"
                 ? "transport-tool-help"
-                : undefined
+                : panel === "entities" ? "entity-tool-help" : undefined
           }
           onPointerDown={(e) => {
-            if ((panel !== "ground" && panel !== "transport") || busy) return;
+            if (!["ground", "transport", "entities"].includes(panel) || busy) return;
             e.preventDefault();
             e.currentTarget.focus();
             lastPaint.current = null;
@@ -968,7 +1132,7 @@ export default function MapSettings({
             lastPaint.current = null;
           }}
           onKeyDown={(e) => {
-            if ((panel !== "ground" && panel !== "transport") || busy) return;
+            if (!["ground", "transport", "entities"].includes(panel) || busy) return;
             const dirs: Record<string, [number, number]> = {
               ArrowLeft: [-1, 0],
               ArrowRight: [1, 0],
@@ -988,6 +1152,7 @@ export default function MapSettings({
             }
           }}
         />
+        <div className="entity-map-layer">{entities.filter(e => e.map === mapId).map(e => <EntityMarker key={e.id} entity={e} character={characters.find(c => c.id === e.characterId)} selected={e.id === selectedEntity} />)}</div></div>
         <div className="map-canvas-meta">
           <div className="map-legend">
             <span>
@@ -1047,6 +1212,7 @@ export default function MapSettings({
             {transportProblems.join(" ")}
           </p>
         )}
+        {entityProblems.length > 0 && <p role="alert" className="error">{entityProblems.join(" ")}</p>}
         {error && (
           <p role="alert" className="error">
             {error}
@@ -1084,14 +1250,15 @@ export default function MapSettings({
             type="button"
             className="primary"
             disabled={
-              busy || attention.length > 0 || transportProblems.length > 0
+              busy || (image ? layoutDirty : attention.length > 0 || transportProblems.length > 0 || entityProblems.length > 0)
             }
-            onClick={() => void save()}
+            onClick={() => image ? void saveArtwork() : void save()}
           >
-            {busy ? "Saving…" : "Save map"}
+            {busy ? "Saving…" : image ? "Replace image" : "Save map"}
           </button>
         </div>
+        </div>
       </div>
-    </details>
+    </EditorContainer>
   );
 }

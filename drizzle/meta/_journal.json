@@ -127,6 +127,34 @@
       "when": 1791490484552,
       "tag": "0017_team_point_awards",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1791605112112,
+      "tag": "0018_challenge_cutscenes",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1791607220317,
+      "tag": "0019_inventory_locks",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1791611203321,
+      "tag": "0020_hint_reward_costs",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1791660000000,
+      "tag": "0021_entity_activations",
+      "breakpoints": true
     }
   ]
 }

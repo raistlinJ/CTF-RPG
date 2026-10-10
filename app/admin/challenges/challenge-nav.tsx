@@ -1,4 +1,4 @@
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
-export default function ChallengeNav({active}:{active:"manage"|"submissions"|"dependencies"}) {
- return <nav className="theme-subnav" aria-label="Challenge pages"><strong>Challenges</strong><a href="/admin" aria-current={active==="manage"?"page":undefined}>Manage challenges</a><a href="/admin/challenges/submissions" aria-current={active==="submissions"?"page":undefined}>Submissions</a><a href="/admin/challenges/dependencies" aria-current={active==="dependencies"?"page":undefined}>Dependencies</a></nav>;
+export default function ChallengeNav({active}:{active:"manage"|"submissions"|"dependencies"|"import"}) {
+ return <nav className="theme-subnav" aria-label="Challenge pages"><strong>Challenges</strong><a href="/admin" aria-current={active==="manage"?"page":undefined}>Manage challenges</a><a href="/admin/challenges/submissions" aria-current={active==="submissions"?"page":undefined}>Submissions</a><a href="/admin/challenges/dependencies" aria-current={active==="dependencies"?"page":undefined}>Dependencies</a><a href="/admin/challenges/import" aria-current={active==="import"?"page":undefined}>Import CTFd</a></nav>;
 }

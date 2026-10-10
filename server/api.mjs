@@ -1,9 +1,16 @@
+import { playerMilestones } from "./progression.mjs";
+import { entityReference, entityUnlocked, validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { handleChallengeDependencies } from "./challenge-dependencies.mjs";
 import { bulkUserAction } from "./user-actions.mjs";
 import {handleCtfdImport} from "./ctfd-import.mjs";
 import {handleNotifications} from "./notifications.mjs";
 import { handleSubmissions } from "./submissions.mjs";
 import { handleThemeAudio } from "./theme-audio.mjs";
+import { handleChallengeVideoUpload } from "./challenge-videos.mjs";
+import { byteRange } from "./byte-range.mjs";
+import { inventoryState, accessibleMaps, unlockTransport } from "./inventory.mjs";
+import { publicTheme, emptyInventory, rewardsAfterHints, normalizeIncantation } from "../lib/inventory.mjs";
+import { hintAdjustedRewardsSQL, hintAdjustedRewardsBindings, hintRewardAvailabilitySQL, normalizedHintRewardCost } from "./hint-rewards.mjs";
 import { challengeSettings, visibleChallenges, handleChallengeSettings } from "./challenge-visibility.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import {
@@ -31,6 +38,8 @@ import {
   assetTypes,
 } from "./packs.mjs";
 import { createWorld } from "../lib/world-data.mjs";
+import { challengeLocationAvailable, findChallengeLocation } from "../lib/challenge-placement.mjs";
+import { publicEntity, resolveEntityDialogue } from "../lib/non-player-entities.mjs";
 import { handleTeams } from "./teams.mjs";
 import {
   passwordHash,
@@ -135,17 +144,22 @@ function createRequestApi({
       ? { challenges: JSON.parse(saved.payload), revision: saved.revision }
       : { challenges, revision: 0 };
   }
-  async function gameState(userId, admin = false) {
+  async function gameState(userId, admin = false, startMap = theme.world.startMap) {
     const current = await catalog();
     const settings = await challengeSettings(db);
     const completions = await db
       .prepare("SELECT challenge,points FROM solved WHERE user=?")
       .bind(userId)
       .all();
-    const challenges = visibleChallenges(current.challenges, settings, admin, new Set(completions.results.map((r) => r.challenge)));
+    const { rewardsByChallenge, ...items } = await inventoryState(db, userId, theme);
+    const maps = accessibleMaps(theme, items.unlockedTransports, startMap);
+    const solvedIds = new Set(completions.results.map(r => r.challenge));
+    const milestones = await playerMilestones(db, userId, [...solvedIds]);
+    const expedition = admin ? current.challenges : settings.visibility === "admins" ? [] : current.challenges.filter(c => c.visibility !== "hidden");
+    const challenges = visibleChallenges(current.challenges, settings, admin, milestones).filter(c => admin || maps.has(c.map) || solvedIds.has(c.id));
     const solveCounts = (await db.prepare("SELECT challenge,COUNT(*) AS count FROM solved GROUP BY challenge").bind().all()).results;
     const purchases = await db
-      .prepare("SELECT challenge,hint,cost FROM purchased_hints WHERE user=?")
+      .prepare("SELECT challenge,hint,cost,reward_cost FROM purchased_hints WHERE user=?")
       .bind(userId)
       .all();
     const responses = (
@@ -154,12 +168,18 @@ function createRequestApi({
         .bind(userId)
         .all()
     ).results;
+    const cutscenes = (await db.prepare("SELECT challenge,phase FROM challenge_cutscenes WHERE user=?").bind(userId).all()).results;
     return {
+      ...items,
+      entities: (theme.world.entities || []).filter(e => admin || entityUnlocked(e, milestones) && maps.has(e.map)).map(publicEntity),
+      activatedEntities: [...milestones].filter(id => id.startsWith("npe:")).map(id => id.slice(4)),
+      expeditionComplete: expedition.length > 0 && expedition.every(c => solvedIds.has(c.id)),
       challenges: challenges.map((c) => {
         const bought = purchases.results.filter((p) => p.challenge === c.id);
         const hintCost = bought.reduce((sum, p) => sum + p.cost, 0);
         const award = completions.results.find((r) => r.challenge === c.id);
         const response = responses.find((r) => r.challenge === c.id);
+        const rewards = rewardsByChallenge[c.id] || (response ? JSON.parse(response.rewards_payload) : rewardsAfterHints(c.rewards || emptyInventory(), bought.map(p => JSON.parse(p.reward_cost))));
         return {
           id: c.id,
           solveCount: solveCounts.find((r) => r.challenge === c.id)?.count || 0,
@@ -192,15 +212,24 @@ function createRequestApi({
           hintCost: response?.hint_cost ?? hintCost,
           hints: c.hints.map((h) => {
             const purchased = bought.find((p) => p.hint === h.id);
+            const rewardCost = purchased ? JSON.parse(purchased.reward_cost) : h.rewardCost || emptyInventory();
+            const available = rewardCost.keys.every(k => rewards.keys.includes(k)) && rewardCost.incantations.every(p => rewards.incantations.some(r => normalizeIncantation(r) === normalizeIncantation(p)));
             return {
               id: h.id,
               label: h.label,
               cost: purchased?.cost ?? h.cost,
+              rewardCost: { keys: rewardCost.keys, incantationCount: rewardCost.incantations.length },
+              available,
               unlocked: !!purchased,
               ...(purchased ? { text: h.text } : {}),
             };
           }),
           downloads: c.downloads,
+          discoveryVideo: c.discoveryVideo || null,
+          solveVideo: award ? c.solveVideo || null : null,
+          discoveryCutsceneSeen: cutscenes.some(r => r.challenge === c.id && r.phase === "discovery"),
+          solveCutsceneSeen: cutscenes.some(r => r.challenge === c.id && r.phase === "solve"),
+          rewards: { keys: rewards.keys, incantationCount: rewards.incantations.length },
         };
       }),
       discovered: (
@@ -221,8 +250,9 @@ function createRequestApi({
       req.headers.get("origin") !== new URL(req.url).origin
     )
       return json({ error: "Invalid request origin." }, 403);
-    if (path === "/api/admin/challenge-dependencies") return handleChallengeDependencies(req, {db, user, platformAdmin, catalog, themeRevision});
+    if (path === "/api/admin/challenge-dependencies") return handleChallengeDependencies(req, {db, user, platformAdmin, catalog, theme, themeRevision});
     if (path === "/api/admin/challenge-visibility") return handleChallengeSettings(req, {db, user, platformAdmin});
+    if (path === "/api/admin/challenge-videos") return handleChallengeVideoUpload(req, {user, platformAdmin, assetStore});
     if (["/api/admin/mute", "/api/admin/scoreboard"].includes(path))
       return handleSocialControls(req, { db, user, platformAdmin });
     if (["/api/presence", "/api/admin/presence"].includes(path))
@@ -244,8 +274,12 @@ function createRequestApi({
       if (!assetKeyPattern.test(key)) return json({ error: "Not found." }, 404);
       const bytes = await readAsset(path, assetStore, readBaseAsset);
       if (!bytes) return json({ error: "Not found." }, 404);
-      return new Response(bytes, {
+      const isVideo = /\.(mp4|webm)$/.test(key);
+      const range = isVideo ? byteRange(req.headers.get("range"), bytes.length) : null;
+      return new Response(range?.status === 416 ? null : range ? bytes.slice(range.start, range.end + 1) : bytes, {
+        status: range?.status || 200,
         headers: {
+          ...range?.headers,
           "Content-Type": assetTypes[key.split(".").pop()],
           "X-Content-Type-Options": "nosniff",
           "Content-Disposition": key.endsWith(".bin") ? "attachment" : "inline",
@@ -345,7 +379,7 @@ function createRequestApi({
     if (path === "/api/config" && method === "GET")
       return json({
         ...publicConfig(config),
-        theme,
+        theme: { ...publicTheme(theme), world: { ...publicTheme(theme).world, entities: (theme.world.entities || []).filter(e => !e.dependsOn?.length).map(publicEntity) } },
         themeRevision,
         scoreboard: await scoreboardSettings(db),
       });
@@ -831,7 +865,9 @@ function createRequestApi({
         return json({ ...current, theme, themeRevision });
       }
       if (method === "POST") {
-        const { challenge, revision, editingId } = await req.json();
+        const body = await req.json();
+        const { revision } = body;
+        let { challenge, editingId } = body;
         if (!Number.isInteger(revision) || revision !== current.revision)
           return json(
             {
@@ -840,13 +876,29 @@ function createRequestApi({
             },
             409,
           );
+        if (body.action !== undefined) {
+          if (body.action !== "move") return json({ error: "Unknown challenge action." }, 400);
+          if (body.themeRevision !== themeRevision)
+            return json({ error: "The maps changed. Reload the saved version before moving the challenge." }, 409);
+          const selected = current.challenges.find(c => c.id === body.id);
+          if (!selected) return json({ error: "This challenge no longer exists. Reload the saved version." }, 409);
+          const world = createWorld(theme.world);
+          if (!world.mapInfo(body.map)) return json({ error: "Choose an available map." }, 400);
+          const location = body.location === undefined
+            ? findChallengeLocation(world, current.challenges, body.map, selected.location, selected.id)
+            : body.location;
+          if (!location || !challengeLocationAvailable(world, current.challenges, body.map, location.x, location.y, selected.id))
+            return json({ error: "Choose an unoccupied, reachable tile away from doors, walls, water, and furniture." }, 400);
+          editingId = selected.id;
+          challenge = { ...selected, map: body.map, location: { x: location.x, y: location.y } };
+        }
         let validated;
         try {
           validated = parseChallenges(
             stringify({ challenges: [challenge] }),
             theme.world.maps.map((m) => m.id),
             false,
-            [...current.challenges.map((c) => c.id), challenge?.id],
+            [...current.challenges.map((c) => c.id), challenge?.id, ...(theme.world.entities || []).map(e => entityReference(e.id))],
           )[0];
         } catch (e) {
           return json(
@@ -855,16 +907,17 @@ function createRequestApi({
           );
         }
         if (
-          !createWorld(theme.world).canPlaceChallenge(
+          !challengeLocationAvailable(createWorld(theme.world), [],
             validated.map,
             validated.location.x,
             validated.location.y,
+            validated.id,
           )
         )
           return json(
             {
               error:
-                "Choose reachable ground or floor, away from doors, walls, water, and furniture.",
+                "Choose reachable ground or floor, away from doors, walls, water, furniture, and non-player entities.",
             },
             400,
           );
@@ -897,6 +950,7 @@ function createRequestApi({
             stringify({ challenges: updated }),
             theme.world.maps.map((m) => m.id),
           );
+          validateProgressionDependencies(updated, theme.world.entities || []);
           await gradingCompatible(db, current.challenges, updated);
         } catch (e) {
           return json({ error: e.message }, 400);
@@ -939,37 +993,83 @@ function createRequestApi({
       const u = await user(req);
       if (!u) return json({ error: "Sign in to play." }, 401);
       const admin = platformAdmin || u.role === "admin";
-      if (method === "GET") return json(await gameState(u.id, admin));
+      if (method === "GET") return json(await gameState(u.id, admin, u.spawn.map));
       if (method === "POST") {
-        const { id, answer, action, hintId, revision } = await req.json();
+        const body = await req.json();
+        const { id, answer, action, hintId, revision, phase, replay, phrase } = body;
+        if (action === "entity-dialogue") {
+          if (body.themeRevision !== themeRevision) return json({ error: "The characters changed. Close this conversation and refresh the game." }, 409);
+          const entity = (theme.world.entities || []).find(e => e.id === id);
+          if (!entity) return json({ error: "This character is unavailable." }, 404);
+          const items = await inventoryState(db, u.id, theme);
+          if (!admin && !accessibleMaps(theme, items.unlockedTransports, u.spawn.map).has(entity.map))
+            return json({ error: "Unlock a route to this map before speaking with its characters." }, 403);
+          if (body.map !== entity.map || !Number.isInteger(body.x) || !Number.isInteger(body.y) || body.x < 0 || body.x > 39 || body.y < 0 || body.y > 27 || Math.abs(body.x - entity.location.x) + Math.abs(body.y - entity.location.y) > 2)
+            return json({ error: "Move near this character and Search nearby to speak." }, 400);
+          const choices = body.choices ?? [];
+          if (!Array.isArray(choices) || choices.length > 100 || choices.some(c => typeof c !== "string" || c.length > 80))
+            return json({ error: "Restart this conversation to continue." }, 400);
+          const current = await catalog();
+          const solved = (await db.prepare("SELECT challenge FROM solved WHERE user=?").bind(u.id).all()).results;
+          const milestones = await playerMilestones(db, u.id, solved.map(r => r.challenge));
+          if (!admin && !entityUnlocked(entity, milestones)) return json({ error: "This character is unavailable." }, 404);
+          let dialogue;
+          try { dialogue = resolveEntityDialogue(entity, choices); }
+          catch (e) { return json({ error: e.message }, 400); }
+          const gate = "COALESCE((SELECT revision FROM challenge_catalog WHERE id='active'),0)=? AND COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?";
+          if (!admin) await db.prepare(`INSERT OR IGNORE INTO entity_activations(user,entity) SELECT ?,? WHERE ${gate}`).bind(u.id, entity.id, current.revision, themeRevision).run();
+          if (!(await db.prepare(`SELECT ${gate} AS valid`).bind(current.revision, themeRevision).first())?.valid)
+            return json({ error: "Dependencies changed. Refresh before continuing." }, 409);
+          return json({ entity: publicEntity(entity), dialogue, themeRevision, game: await gameState(u.id, admin, u.spawn.map) });
+        }
+        if (action === "unlock-transport") {
+          const result = await unlockTransport(db,u.id,theme,themeRevision,id,phrase);
+          if (result.error) return json({error:result.error},result.status);
+          return json(await gameState(u.id,admin,u.spawn.map));
+        }
         const current = await catalog();
         const { challenges } = current;
         const settings = await challengeSettings(db);
         const completions = (await db.prepare("SELECT challenge FROM solved WHERE user=?").bind(u.id).all()).results;
-        const c = visibleChallenges(challenges, settings, admin, new Set(completions.map((r) => r.challenge))).find((c) => c.id === id);
+        const c = visibleChallenges(challenges, settings, admin, await playerMilestones(db, u.id, completions.map((r) => r.challenge))).find((c) => c.id === id);
         if (!c) return json({ error: "Unknown challenge." }, 400);
+        const items = await inventoryState(db,u.id,theme);
+        if (!admin && !accessibleMaps(theme,items.unlockedTransports,u.spawn.map).has(c.map) && !completions.some(r => r.challenge === c.id)) return json({error:"Unlock a route to this map before opening its challenges."},403);
         // Catalog and visibility revisions guard writes against a graph changed mid-request.
-        const gate = "COALESCE((SELECT revision FROM challenge_catalog WHERE id='active'),0)=? AND COALESCE((SELECT revision FROM challenge_settings WHERE id='active'),0)=?";
-        const versions = [current.revision, settings.revision];
+        const gate = "COALESCE((SELECT revision FROM challenge_catalog WHERE id='active'),0)=? AND COALESCE((SELECT revision FROM challenge_settings WHERE id='active'),0)=? AND COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?";
+        const versions = [current.revision, settings.revision, themeRevision];
         const changed = () => json({ error: "Challenges changed. Refresh before continuing." }, 409);
+        if (action === "cutscene") {
+          if (!["discovery", "solve"].includes(phase) || (replay !== undefined && typeof replay !== "boolean")) return json({error:"Choose a discovery or solve cutscene."},400);
+          const solved = completions.some(r => r.challenge === c.id);
+          const discovered = await db.prepare("SELECT challenge FROM discovered_challenges WHERE user=? AND challenge=?").bind(u.id,c.id).first();
+          if (phase === "solve" ? !solved : !discovered && !solved) return json({error:"This cutscene is not unlocked yet."},403);
+          const url = phase === "discovery" ? c.discoveryVideo : c.solveVideo;
+          if (!url) return json({play:false});
+          if (replay) return json({play:true,url});
+          const result = await db.prepare(`INSERT OR IGNORE INTO challenge_cutscenes(user,challenge,phase) SELECT ?,?,? WHERE ${gate}`).bind(u.id,c.id,phase,...versions).run();
+          if (!(await db.prepare(`SELECT ${gate} AS valid`).bind(...versions).first())?.valid) return changed();
+          return json({play:!!(result.meta?.changes ?? result.changes),url});
+        }
         if (action === "discover") {
           const discovered = await db
             .prepare(`INSERT OR IGNORE INTO discovered_challenges(user,challenge) SELECT ?,? WHERE ${gate}`)
             .bind(u.id, c.id, ...versions)
             .run();
           if (!(discovered.meta?.changes ?? discovered.changes) && !(await db.prepare(`SELECT ${gate} AS valid`).bind(...versions).first())?.valid) return changed();
-          return json(await gameState(u.id, admin));
+          return json(await gameState(u.id, admin, u.spawn.map));
         }
         if (action === "hint") {
           const hint = c.hints.find((h) => h.id === hintId);
           if (!hint) return json({ error: "Unknown hint." }, 400);
-          // One atomic statement prevents duplicate charges and purchase/solve races.
+          const rewardCost = JSON.stringify(normalizedHintRewardCost(hint.rewardCost));
+          // One atomic statement prevents duplicate charges, shared-reward double spending, and purchase/solve races.
           await db
             .prepare(
-              `INSERT OR IGNORE INTO purchased_hints(user,challenge,hint,cost)
-            SELECT ?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND NOT EXISTS(SELECT 1 FROM written_responses WHERE user=? AND challenge=?) AND ${gate}`,
+              `INSERT OR IGNORE INTO purchased_hints(user,challenge,hint,cost,reward_cost)
+            SELECT ?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND NOT EXISTS(SELECT 1 FROM written_responses WHERE user=? AND challenge=?) AND ${hintRewardAvailabilitySQL} AND ${gate}`,
             )
-            .bind(u.id, c.id, hint.id, hint.cost, u.id, c.id, u.id, c.id, ...versions)
+            .bind(u.id, c.id, hint.id, hint.cost, rewardCost, u.id, c.id, u.id, c.id, u.id, c.id, rewardCost, u.id, c.id, rewardCost, ...versions)
             .run();
           if (!(await db.prepare(`SELECT ${gate} AS valid`).bind(...versions).first())?.valid) return changed();
           const purchase = await db
@@ -982,11 +1082,11 @@ function createRequestApi({
             return json(
               {
                 error:
-                  "An answer is already submitted or complete; new hints cannot be purchased.",
+                  "This hint cannot be purchased: an answer is submitted or complete, or a required reward was used for another hint.",
               },
               409,
             );
-          return json({ ...(await gameState(u.id, admin)), unlockedHint: hint.id });
+          return json({ ...(await gameState(u.id, admin, u.spawn.map)), unlockedHint: hint.id });
         }
         if (action !== undefined && action !== "answer")
           return json({ error: "Unknown action." }, 400);
@@ -1004,8 +1104,8 @@ function createRequestApi({
             );
           const r = await db
             .prepare(
-              `INSERT INTO written_responses(user,challenge,answer,question,object,max_points,hint_cost,submitted_at,submitted_team,revision)
-            SELECT ?,?,?,?,?,?,COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0),?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),1 WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND COALESCE((SELECT revision FROM written_responses WHERE user=? AND challenge=?),0)=? AND ${gate}
+              `INSERT INTO written_responses(user,challenge,answer,question,object,max_points,rewards_payload,hint_cost,submitted_at,submitted_team,revision)
+            SELECT ?,?,?,?,?,?,${hintAdjustedRewardsSQL},COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0),?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),1 WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND COALESCE((SELECT revision FROM written_responses WHERE user=? AND challenge=?),0)=? AND ${gate}
             ON CONFLICT(user,challenge) DO UPDATE SET answer=excluded.answer,submitted_at=excluded.submitted_at,submitted_team=excluded.submitted_team,revision=written_responses.revision+1 WHERE written_responses.grade IS NULL AND written_responses.revision=?`,
             )
             .bind(
@@ -1015,6 +1115,7 @@ function createRequestApi({
               c.text,
               c.object,
               c.points,
+              ...hintAdjustedRewardsBindings(c.rewards, u.id, c.id),
               u.id,
               c.id,
               Date.now(),
@@ -1036,7 +1137,7 @@ function createRequestApi({
               },
               409,
             );
-          return json({ submitted: true, ...(await gameState(u.id, admin)) });
+          return json({ submitted: true, ...(await gameState(u.id, admin, u.spawn.map)) });
         }
         if (typeof answer !== "string" || answer.length > 500)
           return json({ error: "Invalid answer." }, 400);
@@ -1048,7 +1149,8 @@ function createRequestApi({
         // Record the attempt and award points together; duplicate solves still award once.
         const results = await db.batch([attempt, db.prepare(`INSERT OR IGNORE INTO solved(user,challenge,points)
           SELECT ?,?,MAX(0,?-COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0)) WHERE ${gate}`)
-          .bind(u.id,c.id,c.points,u.id,c.id,...versions)]);
+          .bind(u.id,c.id,c.points,u.id,c.id,...versions),
+          db.prepare(`INSERT OR IGNORE INTO earned_rewards(user,challenge,payload) SELECT user,challenge,${hintAdjustedRewardsSQL} FROM solved WHERE user=? AND challenge=? AND ${gate}`).bind(...hintAdjustedRewardsBindings(c.rewards,u.id,c.id),u.id,c.id,...versions)]);
         if (!(results[0].meta?.changes ?? results[0].changes)) return changed();
         const award = await db
           .prepare("SELECT points FROM solved WHERE user=? AND challenge=?")
@@ -1057,7 +1159,7 @@ function createRequestApi({
         return json({
           correct: true,
           awardedPoints: award.points,
-          ...(await gameState(u.id, admin)),
+          ...(await gameState(u.id, admin, u.spawn.map)),
         });
       }
     }

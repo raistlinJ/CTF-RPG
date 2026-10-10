@@ -4,7 +4,7 @@ A digital campus for question-based assessments: cyan circuitry on dark navy boa
 
 ## Use it
 
-As an admin, open **Manage → Theme → Import / Export → Agentic Circuit**. **Use this theme** loads the complete built-in pack and asks you to confirm the change. **Download theme ZIP** gives you the same portable pack for another installation. Existing questions, accounts, teams, scores, and written responses remain saved. The theme retains the original map and character IDs so existing bindings continue to work. Its interiors have clear floors for placing test questions.
+As an admin, open **Manage → Theme → Theme library → Agentic Circuit**. **Use this theme** loads the complete built-in pack and asks you to confirm the change. **Download theme ZIP** gives you the same portable pack for another installation. Existing questions, accounts, teams, scores, and written responses remain saved. The theme retains the original map and character IDs so existing bindings continue to work. Its interiors have clear floors for placing test questions.
 
 | Course location | Map ID | Example reachable question tile |
 | --- | --- | --- |

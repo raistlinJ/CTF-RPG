@@ -49,6 +49,7 @@ export const purchasedHints = sqliteTable(
     challenge: text("challenge").notNull(),
     hint: text("hint").notNull(),
     cost: integer("cost").notNull(),
+    rewardCost: text("reward_cost").notNull().default('{"keys":[],"incantations":[]}'),
   },
   (t) => [primaryKey({ columns: [t.user, t.challenge, t.hint] })],
 );
@@ -58,6 +59,24 @@ export const challengeCatalog = sqliteTable("challenge_catalog", {
   payload: text("payload").notNull(),
   revision: integer("revision").notNull(),
 });
+
+export const challengeCutscenes = sqliteTable("challenge_cutscenes", {
+  user: text("user").notNull().references(() => students.id),
+  challenge: text("challenge").notNull(),
+  phase: text("phase").notNull(),
+}, t => [primaryKey({ columns: [t.user, t.challenge, t.phase] }),
+  check("challenge_cutscenes_phase", sql`${t.phase} IN ('discovery', 'solve')`)]);
+
+export const earnedRewards = sqliteTable("earned_rewards", {
+  user: text("user").notNull().references(() => students.id),
+  challenge: text("challenge").notNull(),
+  payload: text("payload").notNull(),
+}, t => [primaryKey({columns: [t.user, t.challenge]})]);
+export const unlockedTransports = sqliteTable("unlocked_transports", {
+  user: text("user").notNull().references(() => students.id),
+  transport: text("transport").notNull(),
+  signature: text("signature").notNull(),
+}, t => [primaryKey({columns: [t.user, t.transport]})]);
 
 export const teams = sqliteTable("teams", {
   id: text("id").primaryKey(),
@@ -100,6 +119,7 @@ export const writtenResponses = sqliteTable(
     question: text("question").notNull(),
     object: text("object").notNull(),
     maxPoints: integer("max_points").notNull(),
+    rewardsPayload: text("rewards_payload").notNull().default('{"keys":[],"incantations":[]}'),
     hintCost: integer("hint_cost").notNull(),
     submittedAt: integer("submitted_at").notNull(),
     submittedTeam: text("submitted_team"),
@@ -252,3 +272,8 @@ export const teamPointAwards = sqliteTable("team_point_awards", {
   index("idx_team_point_awards_team_created").on(t.team, t.createdAt),
   check("team_point_awards_points_check", sql`${t.points} BETWEEN 1 AND 10000`),
 ]);
+
+export const entityActivations = sqliteTable("entity_activations", {
+  user: text("user").notNull().references(() => students.id),
+  entity: text("entity").notNull(),
+}, (t) => [primaryKey({ columns: [t.user, t.entity] })]);

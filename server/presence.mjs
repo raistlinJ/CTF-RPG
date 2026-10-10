@@ -1,3 +1,4 @@
+import { playerMilestones } from "./progression.mjs";
 import { challengeSettings, visibleChallenges } from "./challenge-visibility.mjs";
 import {
   teamFeatures,
@@ -69,7 +70,7 @@ export async function handlePresence(
   const body = await req.json(),
     engine = createWorld(theme.world);
   if (body.themeRevision !== themeRevision)
-    return reply({ error: "The map changed. Reload the game." }, 409);
+    return reply({ error: "The map changed. Reload the game.", themeRevision }, 409);
   if (
     typeof body.map !== "string" ||
     !Number.isInteger(body.x) ||
@@ -101,13 +102,14 @@ export async function handlePresence(
   const currentCatalog = catalog ? await catalog() : {challenges:[],revision:0};
   const settings = await challengeSettings(db);
   const completions = (await db.prepare("SELECT challenge,points FROM solved WHERE user=? ORDER BY challenge").bind(u.id).all()).results;
-  const challengeSolves = visibleChallenges(currentCatalog.challenges, settings, admin, new Set(completions.map((r) => r.challenge))).map((c) => ({
+  const milestones = await playerMilestones(db, u.id, completions.map(r => r.challenge));
+  const challengeSolves = visibleChallenges(currentCatalog.challenges, settings, admin, milestones).map((c) => ({
     id: c.id, map: c.map, x: c.location.x, y: c.location.y,
     count: counts.find((r) => r.challenge === c.id)?.count || 0,
   }));
   const social = {
     challengeSolves,
-    gameRevision: `${currentCatalog.revision}:${settings.revision}:${completions.map((r) => `${r.challenge}=${r.points}`).join(",")}`,
+    gameRevision: `${themeRevision}:${currentCatalog.revision}:${settings.revision}:${[...milestones].join(",")}:${completions.map((r) => `${r.challenge}=${r.points}`).join(",")}`,
     self: { teammate: !!member, crowned: crowned(member?.team, true) },
     teamFeatures: features,
     ...(await messageStats(db, features, member?.team, u.id, admin)),

@@ -140,9 +140,13 @@ Importing a theme or content pack preserves valid, unique challenge positions fi
 
 If every map is full, the import pauses before changing data or storing assets. The admin sees the excluded question names and IDs and can cancel to choose a larger theme/reduce the content, or explicitly import only what fits. Keep the source ZIP or export current content before excluding questions. Import reports show relocated coordinates and excluded IDs. Challenge `dependsOn` connections are preserved. If a prerequisite cannot be placed, its dependent chain is also excluded and included in the preview; approving a partial import skips the entire affected chain. Accounts, teams, historical points, and written responses remain saved. Theme-only relocation updates the challenge catalog atomically with the theme; stale approvals are rejected.
 
-### Edit artwork and ground in the challenge studio
+### Edit map artwork and ground
 
-Under **Map**, open **Map artwork & reachable ground**. Upload a PNG, JPEG, WebP, or GIF up to 4 MB; the artwork stretches over the 40 × 28 tile grid. Select **Paint walkable**, **Paint blocked**, or **Set spawn**, then click or drag. Use arrow keys to select a tile and Enter or Space to apply the current tool. Fill/block controls are local edits until **Save map**. Use **Artwork** for uploads and the map name; **Advanced** contains boundaries and fill/block controls. Opening the editor hides the separate placement preview to keep one map visible.
+Open **Manage → Theme → Maps & transport** (`/admin/theme/maps`) and select a map. Under **Artwork**, choose **Replace map image** to upload a PNG, JPEG, WebP, or GIF up to 4 MB. Preview it on the map, then click **Replace image**. This image-only update preserves all challenge positions, ground, obstacles, boundaries, spawns, doors, portals, and locks. Save or reset other map edits before selecting an image.
+
+**Cancel upload** clears the selected file. **Reset image** restores the artwork from before the first replacement, or cancels an unsaved upload. Reset remains available after reloads and repeated replacements. The original artwork is retained with `originalBackground` in theme packs and full backups and counts toward the 8 MB theme asset limit. Image changes do not change the challenge catalog or relocate questions.
+
+Artwork fills the 40 × 28 tile grid. Ground is edited separately: select **Paint walkable**, **Paint blocked**, or **Set spawn**, then click or drag. Use arrow keys to select a tile and Enter or Space to apply the current tool. Fill/block controls are local edits until **Save map**. **Artwork** also contains the map name; **Advanced** contains boundaries and fill/block controls. Use **Place challenges on this map** to return to challenge placement. Switching maps or leaving with unsaved map edits asks before discarding changes.
 
 Green tiles are reachable from the yellow spawn. In the painter, amber tiles are painted walkable but disconnected (portal tiles also have a cyan outline); gray tiles are blocked. The placement preview grays out all locations that cannot hold challenges. Cyan outlines mark portals. Artwork and portals stay in place; saves reject blocked spawns or unreachable door/exit approaches. Map saves are blocked when any saved challenge is on unusable ground or shares a tile. Select **Move challenge**, choose a challenge by its star or dropdown, then click a free reachable destination. Terrain and explicit challenge moves are saved atomically. Theme/content pack imports still use automatic placement repair. Map artwork and painted ground belong to the theme and travel with theme export/import and full backups. Keep the total theme assets within the 8 MB pack limit.
 
@@ -156,9 +160,33 @@ Painting fills skipped pointer positions with a continuous, connected stroke. Wa
 
 The map editor marks challenge positions with gold stars (red when invalid). **Reset** also discards pending challenge moves. Invalid map saves are rejected before storing uploaded artwork, including requests attempting to bypass the disabled Save button.
 
+### Non-player entities
+
+**Theme → Maps & transport → Non-Player Entities** configures placed characters and branching conversations. Theme YAML stores them in optional `world.entities` (default `[]`). Each entity has `id`, `name`, `characterId` (a theme character’s ID), `map`, `location`, `startNode`, `nodes`, and optional `dependsOn` (default `[]`). Nodes have an `id`, `text`, and `choices`; each choice has `id`, `label`, and `to` (the response node ID). IDs and locations must be unique, and response/appearance references must exist. A node without choices is an ending; loops are supported. Theme packs and full backups retain all dialogue definitions and the appearance assets already included for theme characters. Challenge IDs in `dependsOn` require solving those challenges; `npe:<entity-id>` references require speaking to those entities. Set connections under **Challenges → Dependencies**; combined imports validate references and reject mixed dependency loops. Players receive only currently unlocked entity locations, and dialogue becomes available when speaking nearby. See [the map guide](MAP_GUIDE.md#non-player-entities-and-dialogue) for authoring and player interaction.
+
+
+For example, add this entry under `world.entities` in an existing theme. The `intro-quest` challenge must exist in the matching content catalog:
+
+```yaml
+entities:
+  - id: trail-guide
+    name: Trail guide
+    characterId: web
+    map: town
+    location: {x: 16, y: 20}
+    dependsOn: [intro-quest]
+    startNode: greeting
+    nodes:
+      - id: greeting
+        text: "The path ahead is open. Search for the next discovery."
+        choices: []
+```
+
+To unlock a later challenge when the player speaks to this guide, add `dependsOn: ["npe:trail-guide"]` to that challenge's definition. Preserve entity IDs to retain activation history. When moving the activity between installations, import the matching theme and content together; theme/content packs carry definitions, while full backups also carry player activations.
+
 ### Transport tiles
 
-Open **Map artwork & reachable ground → Transport**, choose a different destination map, and click a free reachable tile. **Save map** activates the link; **Remove** deletes it, while **Reset** discards pending edits. Transport tiles appear purple with a double arrow in the editor and game.
+Open **Theme → Maps & transport → Transport**, choose a different destination map, and click a free reachable tile. **Save map** activates the link; **Remove** deletes it, while **Reset** discards pending edits. Transport tiles appear purple with a double arrow in the editor and game.
 
 Touching a transport takes the player to the destination map's current spawn. That spawn becomes the return tile: step off it and back onto it to return to the source map's spawn. Arrival itself never triggers a return, so there is no immediate bounce. Several transports can share a destination; the player returns to the source they used. Nested trips remember up to 30 recent transport journeys during the current expedition. Travel history clears on login/reload or a normal building doorway transition.
 

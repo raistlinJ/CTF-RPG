@@ -1,5 +1,8 @@
 import { unzipSync, zipSync, strToU8 } from "fflate";
 import { z } from "zod";
+import { lockSchema } from "../lib/inventory.mjs";
+import { entitiesSchema } from "../lib/non-player-entities.mjs";
+import { challengeLocationAvailable } from "../lib/challenge-placement.mjs";
 import { createWorld, themePortals } from "../lib/world-data.mjs";
 import { stringify } from "yaml";
 import { parseTheme, themeAssetPaths } from "../lib/theme-schema.mjs";
@@ -40,91 +43,125 @@ export async function updateMap(req, state) {
     );
   const patch = JSON.parse(String(form.get("map"))),
     next = structuredClone(state.theme);
-  const restoring = form.get("action") === "restore";
-  if (!Array.isArray(patch.ground) && !(restoring && patch.ground === null))
+  const action = form.get("action");
+  if (action && !["restore", "replace-artwork", "reset-artwork", "update-entities"].includes(action))
+    throw Error("Unknown map action.");
+  const restoring = action === "restore";
+  const artworkOnly = action === "replace-artwork" || action === "reset-artwork";
+  const entitiesOnly = action === "update-entities";
+  const isolated = artworkOnly || entitiesOnly;
+  if (isolated) {
+    z.object({ id: z.string() }).strict().parse(patch);
+    const allowed = ["action", "map", "themeRevision", "contentRevision", ...(entitiesOnly ? ["entities"] : []), ...(action === "replace-artwork" ? ["image"] : [])];
+    if ([...form.keys()].some(key => !allowed.includes(key)))
+      throw Error("This update cannot change other map settings or placements.");
+  }
+  if (!isolated && !Array.isArray(patch.ground) && !(restoring && patch.ground === null))
     throw Error("Specify walkable ground tiles.");
   const index = next.world.maps.findIndex((m) => m.id === patch.id);
   if (index < 0) throw Error("Unknown map.");
-  if (
-    Object.keys(patch).some(
-      (k) =>
-        !(
-          restoring
-            ? [
-                "id",
-                "name",
-                "bounds",
-                "spawn",
-                "ground",
-                "background",
-                "exit",
-                "floor",
-                "wall",
-                "obstacles",
-              ]
-            : ["id", "name", "bounds", "spawn", "ground"]
-        ).includes(k),
-    )
-  )
-    throw Error("Unsupported map setting.");
-  next.world.maps[index] = {
-    ...next.world.maps[index],
-    ...patch,
-    obstacles: restoring ? patch.obstacles : [],
-  };
-  if (form.has("transports")) {
-    const requested = z
-      .array(
-        z
-          .object({
-            id: z.string(),
-            map: z.string(),
-            location: z.object({ x: z.number(), y: z.number() }).strict(),
-            to: z.string(),
-          })
-          .strict(),
-      )
-      .max(200)
-      .parse(JSON.parse(String(form.get("transports"))));
-    const before = state.theme.world.transports || [];
+  if (!isolated) {
     if (
-      JSON.stringify(requested.filter((t) => t.map !== patch.id)) !==
-      JSON.stringify(before.filter((t) => t.map !== patch.id))
-    )
-      throw Error("Edit transport tiles from their source map.");
-    next.world.transports = requested;
-  }
-  if (form.has("portalOverrides")) {
-    const requested = z
-      .array(
-        z
-          .object({
-            id: z.string(),
-            location: z.object({ x: z.number(), y: z.number() }).strict(),
-            to: z.string(),
-          })
-          .strict(),
+      Object.keys(patch).some(
+        (k) =>
+          !(
+            restoring
+              ? [
+                  "id",
+                  "name",
+                  "bounds",
+                  "spawn",
+                  "ground",
+                  "background",
+                  "originalBackground",
+                  "exit",
+                  "floor",
+                  "wall",
+                  "obstacles",
+                ]
+              : ["id", "name", "bounds", "spawn", "ground"]
+          ).includes(k),
       )
-      .max(58)
-      .parse(JSON.parse(String(form.get("portalOverrides"))));
-    const defaults = themePortals({
-      ...state.theme.world,
-      portalOverrides: [],
-    });
-    const belongs = (o) =>
-      defaults.find((p) => p.id === o.id)?.map === patch.id;
-    if (
-      requested.some((o) => !defaults.some((p) => p.id === o.id)) ||
-      JSON.stringify(requested.filter((o) => !belongs(o))) !==
-        JSON.stringify(
-          (state.theme.world.portalOverrides || []).filter((o) => !belongs(o)),
+    )
+      throw Error("Unsupported map setting.");
+    next.world.maps[index] = {
+      ...next.world.maps[index],
+      ...patch,
+      obstacles: restoring ? patch.obstacles : [],
+    };
+    if (restoring && !Object.hasOwn(patch, "originalBackground"))
+      delete next.world.maps[index].originalBackground;
+    if (form.has("transports")) {
+      const requested = z
+        .array(
+          z
+            .object({
+              id: z.string(),
+              map: z.string(),
+              location: z.object({ x: z.number(), y: z.number() }).strict(),
+              to: z.string(),
+              lock: lockSchema.nullable().optional(),
+            })
+            .strict(),
         )
-    )
-      throw Error("Edit predefined transports from their source map.");
-    next.world.portalOverrides = requested;
+        .max(200)
+        .parse(JSON.parse(String(form.get("transports"))));
+      const before = state.theme.world.transports || [];
+      if (
+        JSON.stringify(requested.filter((t) => t.map !== patch.id)) !==
+        JSON.stringify(before.filter((t) => t.map !== patch.id))
+      )
+        throw Error("Edit transport tiles from their source map.");
+      next.world.transports = requested;
+    }
+    if (form.has("portalOverrides")) {
+      const requested = z
+        .array(
+          z
+            .object({
+              id: z.string(),
+              location: z.object({ x: z.number(), y: z.number() }).strict(),
+              to: z.string(),
+              lock: lockSchema.nullable().optional(),
+            })
+            .strict(),
+        )
+        .max(58)
+        .parse(JSON.parse(String(form.get("portalOverrides"))));
+      const defaults = themePortals({
+        ...state.theme.world,
+        portalOverrides: [],
+      });
+      const belongs = (o) =>
+        defaults.find((p) => p.id === o.id)?.map === patch.id;
+      if (
+        requested.some((o) => !defaults.some((p) => p.id === o.id)) ||
+        JSON.stringify(requested.filter((o) => !belongs(o))) !==
+          JSON.stringify(
+            (state.theme.world.portalOverrides || []).filter((o) => !belongs(o)),
+          )
+      )
+        throw Error("Edit predefined transports from their source map.");
+      next.world.portalOverrides = requested;
+    }
+  }
+  if (entitiesOnly && !form.has("entities")) throw Error("Specify the non-player entities.");
+  if (!artworkOnly && form.has("entities")) {
+    const requested = entitiesSchema.parse(JSON.parse(String(form.get("entities"))));
+    if (JSON.stringify(requested.filter(e => e.map !== patch.id)) !== JSON.stringify((state.theme.world.entities || []).filter(e => e.map !== patch.id)))
+      throw Error("Edit non-player entities from their own map.");
+    next.world.entities = requested;
   }
   const image = form.get("image");
   let imageBytes, imagePath;
+  if (action === "replace-artwork" && (!image || typeof image.arrayBuffer !== "function" || !image.size))
+    throw Error("Choose a replacement map image.");
+  if (action === "reset-artwork") {
+    const map = next.world.maps[index];
+    if (!Object.hasOwn(map, "originalBackground")) throw Error("No replaced image to reset on this map.");
+    map.background = map.originalBackground;
+    delete map.originalBackground;
+  }
   if (image && typeof image.arrayBuffer === "function" && image.size) {
     if (image.size > 4 * 1024 * 1024)
       throw Error("Map image must be at most 4 MB.");
@@ -133,7 +170,9 @@ export async function updateMap(req, state) {
       throw Error("Use a PNG, JPEG, WebP or GIF image.");
     imageBytes = new Uint8Array(await image.arrayBuffer());
     assertAsset(imageBytes, ext);
-    imagePath = `/maps/upload-${patch.id}.${ext}`;
+    imagePath = `/maps/upload-${patch.id}-${crypto.randomUUID()}.${ext}`;
+    if (!Object.hasOwn(next.world.maps[index], "originalBackground"))
+      next.world.maps[index].originalBackground = state.theme.world.maps[index].background;
     next.world.maps[index].background = imagePath;
   }
   parseTheme(next); // Validate spawn and portals before storing anything.
@@ -162,7 +201,7 @@ export async function updateMap(req, state) {
   );
   const engine = createWorld(next.world),
     invalid = challenges.filter(
-      (c) => !engine.canPlaceChallenge(c.map, c.location.x, c.location.y),
+      (c) => !challengeLocationAvailable(engine, [], c.map, c.location.x, c.location.y, c.id),
     );
   if (invalid.length)
     throw Error(
@@ -215,7 +254,7 @@ export async function updateMap(req, state) {
     if (form.has(key)) packed.set(key, String(form.get(key)));
   const result = await importPacks(
     new Request(req.url, { method: "POST", body: packed }),
-    state,
+    { ...state, preservePlacements: isolated },
     "theme",
   );
   const explicitMoves = challenges.flatMap((c) => {

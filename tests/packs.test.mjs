@@ -1025,3 +1025,112 @@ test("predefined theme transport edits are source-map scoped, preserve defaults,
   );
   sqlite.close();
 });
+
+test("image-only replacement and reset preserve map layout, locked routes and challenge placements across reloads and packs", async () => {
+  const { sqlite, config, client } = setup(), admin = client();
+  try {
+    await admin("/api/auth", { mode: "login", username: "teacher", password: "teacher-password", hero: "web" });
+    let state = (await admin("/api/admin/packs")).data;
+    const theme = custom(config);
+    theme.world.maps[0].obstacles = [{ x: 25, y: 8, w: 2, h: 2 }];
+    theme.world.maps[1].ground = [];
+    for (let y = 6; y <= 24; y++) for (let x = 10; x <= 29; x++) theme.world.maps[1].ground.push([x, y]);
+    theme.world.transports = [{ id: "key-route", map: "island", location: { x: 23, y: 20 }, to: "lodge", lock: { type: "key", color: "blue" } }];
+    theme.world.portalOverrides = [{ id: "entrance-lodge", location: { x: 21, y: 12 }, to: "lodge", lock: { type: "incantation", phrase: "cobalt moon" } }];
+    const installed = await admin("/api/admin/packs?kind=theme", form(themeZip(theme), state, contentZip(content)));
+    assert.equal(installed.status, 200, JSON.stringify(installed.data));
+    state = (await admin("/api/admin/packs")).data;
+    const collection = (await admin("/api/admin/challenges")).data.challenges;
+    for (const id of ["island", "lodge"]) {
+      const before = structuredClone(state), original = before.theme.world.maps.find(m => m.id === id);
+      const artwork = (action, bytes) => {
+        const f = new FormData();
+        f.set("action", action); f.set("map", JSON.stringify({ id }));
+        f.set("themeRevision", String(state.themeRevision)); f.set("contentRevision", String(state.contentRevision));
+        if (bytes) f.set("image", new Blob([bytes]), "replacement.png");
+        return f;
+      };
+      for (const file of ["public/sprites/web.png", "public/sprites/shield.png"]) {
+        const bytes = new Uint8Array(readFileSync(file));
+        const saved = await admin("/api/admin/maps", artwork("replace-artwork", bytes));
+        assert.equal(saved.status, 200, JSON.stringify(saved.data));
+        assert.deepEqual(saved.data.placement.moved, []);
+        assert.deepEqual(saved.data.placement.excluded, []);
+        state = (await admin("/api/admin/packs")).data;
+        const current = state.theme.world.maps.find(m => m.id === id);
+        assert.equal(current.originalBackground, original.background);
+        assert.deepEqual((await admin(current.background)).bytes, bytes);
+        const layout = structuredClone(state.theme.world);
+        layout.maps = layout.maps.map(m => m.id === id ? { ...m, background: original.background } : m);
+        delete layout.maps.find(m => m.id === id).originalBackground;
+        assert.deepEqual(layout, before.theme.world);
+        assert.equal(state.contentRevision, before.contentRevision);
+        assert.deepEqual((await admin("/api/admin/challenges")).data.challenges, collection);
+      }
+      const pack = await admin("/api/admin/packs?kind=theme");
+      const entries = unzipSync(pack.bytes), manifest = parse(strFromU8(entries["theme.yaml"]));
+      const exportedMap = manifest.world.maps.find(m => m.id === id);
+      if (original.background) assert.ok(entries["assets" + exportedMap.originalBackground]);
+      else assert.equal(exportedMap.originalBackground, null);
+      if (original.background) {
+        const backup = await admin("/api/admin/backup");
+        assert.equal(backup.status, 200, JSON.stringify(backup.data));
+        const backedUp = unzipSync(backup.bytes);
+        const snapshot = JSON.parse(strFromU8(backedUp["backup.json"]));
+        const resetPath = snapshot.theme.world.maps.find(m => m.id === id).originalBackground;
+        assert.equal(resetPath, original.background);
+        assert.ok(backedUp["data/pack-assets/" + resetPath.slice("/api/assets/".length)]);
+      }
+      const imported = await admin("/api/admin/packs?kind=theme", form(pack.bytes, state));
+      assert.equal(imported.status, 200, JSON.stringify(imported.data));
+      state = (await admin("/api/admin/packs")).data;
+      const freshAdmin = client();
+      await freshAdmin("/api/auth", { mode: "login", username: "teacher", password: "teacher-password", hero: "web" });
+      const restored = await freshAdmin("/api/admin/maps", artwork("reset-artwork"));
+      assert.equal(restored.status, 200, JSON.stringify(restored.data));
+      state = (await admin("/api/admin/packs")).data;
+      assert.deepEqual(state.theme.world, before.theme.world);
+      assert.equal(state.contentRevision, before.contentRevision);
+      assert.deepEqual((await admin("/api/admin/challenges")).data.challenges, collection);
+      assert.equal((await admin("/api/admin/maps", artwork("reset-artwork"))).status, 400);
+    }
+  } finally { sqlite.close(); }
+});
+
+test("artwork-only actions reject stale edits, layout changes, invalid uploads and non-admin access without storing assets", async () => {
+  const { sqlite, client, files } = setup(), admin = client(), student = client(), anonymous = client();
+  try {
+    await admin("/api/auth", { mode: "login", username: "teacher", password: "teacher-password", hero: "web" });
+    await student("/api/auth", { mode: "register", username: "alice", password: "student-password", hero: "web" });
+    let state = (await admin("/api/admin/packs")).data;
+    const make = () => {
+      const f = new FormData(); f.set("action", "replace-artwork"); f.set("map", JSON.stringify({ id: "town" }));
+      f.set("themeRevision", String(state.themeRevision)); f.set("contentRevision", String(state.contentRevision));
+      f.set("image", new Blob([readFileSync("public/sprites/web.png")]), "new.png"); return f;
+    };
+    assert.equal((await anonymous("/api/admin/maps", make())).status, 401);
+    assert.equal((await student("/api/admin/maps", make())).status, 403);
+    const before = files.size;
+    const invalid = [];
+    for (const key of ["moves", "transports", "portalOverrides"]) { const f = make(); f.set(key, "[]"); invalid.push(f); }
+    const layout = make(); layout.set("map", JSON.stringify({ id: "town", spawn: { x: 1, y: 1 } })); invalid.push(layout);
+    const missing = make(); missing.delete("image"); invalid.push(missing);
+    const fake = make(); fake.set("image", new Blob(["not an image"]), "fake.png"); invalid.push(fake);
+    const huge = make(); huge.set("image", new Blob([new Uint8Array(4 * 1024 * 1024 + 1)]), "large.png"); invalid.push(huge);
+    for (const request of invalid) {
+      assert.equal((await admin("/api/admin/maps", request)).status, 400);
+      assert.equal(files.size, before);
+      assert.deepEqual((await admin("/api/admin/packs")).data.theme, state.theme);
+    }
+    const stale = make(), saved = await admin("/api/admin/maps", make());
+    assert.equal(saved.status, 200, JSON.stringify(saved.data));
+    state = (await admin("/api/admin/packs")).data;
+    const savedAssets = files.size;
+    assert.equal((await admin("/api/admin/maps", stale)).status, 400);
+    assert.equal(files.size, savedAssets);
+    assert.deepEqual((await admin("/api/admin/packs")).data.theme, state.theme);
+    const contentStale = make(); contentStale.set("contentRevision", String(state.contentRevision + 1));
+    assert.equal((await admin("/api/admin/maps", contentStale)).status, 400);
+    assert.equal(files.size, savedAssets);
+  } finally { sqlite.close(); }
+});

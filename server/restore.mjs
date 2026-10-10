@@ -62,6 +62,10 @@ try {
       "sessions",
       "written_responses",
       "discovered_challenges",
+      "challenge_cutscenes",
+      "entity_activations",
+      "earned_rewards",
+      "unlocked_transports",
       "solved",
       "purchased_hints",
       "team_point_awards",
@@ -138,6 +142,10 @@ try {
       "INSERT INTO discovered_challenges(user,challenge) VALUES(?,?)",
     );
     for (const d of snapshot.discoveries) discovered.run(d.user, d.challenge);
+    const activation = sqlite.prepare("INSERT INTO entity_activations(user,entity) VALUES(?,?)");
+    for (const a of snapshot.entityActivations) activation.run(a.user, a.entity);
+    const cutscene = sqlite.prepare("INSERT INTO challenge_cutscenes(user,challenge,phase) VALUES(?,?,?)");
+    for (const c of snapshot.cutscenes) cutscene.run(c.user, c.challenge, c.phase);
     const features = snapshot.teamFeatures || snapshot.config.teams.features;
     const everyone = features.everyone || features;
     sqlite
@@ -169,10 +177,16 @@ try {
       "INSERT INTO solved(user,challenge,points) VALUES(?,?,?)",
     );
     for (const r of snapshot.solved) solved.run(r.user, r.challenge, r.points);
+    const rewards = sqlite.prepare("INSERT INTO earned_rewards(user,challenge,payload) VALUES(?,?,?)");
+    for (const r of snapshot.earnedRewards) rewards.run(r.user,r.challenge,JSON.stringify(r.rewards));
+    // Older backups retain their completed scores without awarding new inventory retroactively.
+    sqlite.exec(`INSERT OR IGNORE INTO earned_rewards(user,challenge,payload) SELECT user,challenge,'{"keys":[],"incantations":[]}' FROM solved`);
+    const unlocks = sqlite.prepare("INSERT INTO unlocked_transports(user,transport,signature) VALUES(?,?,?)");
+    for (const r of snapshot.unlockedTransports) unlocks.run(r.user,r.transport,r.signature);
     for (const r of snapshot.writtenResponses)
       sqlite
         .prepare(
-          "INSERT INTO written_responses(user,challenge,answer,question,object,max_points,hint_cost,submitted_at,submitted_team,revision,grade,feedback,reviewer,graded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+          "INSERT INTO written_responses(user,challenge,answer,question,object,max_points,rewards_payload,hint_cost,submitted_at,submitted_team,revision,grade,feedback,reviewer,graded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         )
         .run(
           r.user,
@@ -181,6 +195,7 @@ try {
           r.question,
           r.object,
           r.maxPoints,
+          JSON.stringify(r.rewards),
           r.hintCost,
           r.submittedAt,
           r.submittedTeam ?? null,
@@ -197,10 +212,10 @@ try {
     const attempts = sqlite.prepare("INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at) VALUES(?,?,?,?,?,?,?,?,?)");
     for (const a of snapshot.answerAttempts) attempts.run(a.id,a.user,a.challenge,a.answer,a.question,a.object,a.correct,a.submitted_team,a.submitted_at);
     const hints = sqlite.prepare(
-      "INSERT INTO purchased_hints(user,challenge,hint,cost) VALUES(?,?,?,?)",
+      "INSERT INTO purchased_hints(user,challenge,hint,cost,reward_cost) VALUES(?,?,?,?,?)",
     );
     for (const r of snapshot.purchasedHints)
-      hints.run(r.user, r.challenge, r.hint, r.cost);
+      hints.run(r.user, r.challenge, r.hint, r.cost, JSON.stringify(r.rewardCost));
     sqlite
       .prepare(
         "INSERT INTO challenge_catalog(id,payload,revision) VALUES('active',?,1)",

@@ -121,6 +121,15 @@ test("standalone server: YAML accounts, sprite/music config, persistence and pro
   };
   try {
     assert.equal((await call("/")).status, 200);
+    // Deep links and reloads must serve the app shell as well as navigation from /admin.
+    for (const route of ["/admin/theme/maps", "/admin/theme/library", "/admin/challenges/import", "/admin/teams/players", "/admin/teams/scoreboard"]) {
+      for (const suffix of ["", "/", "?map=castle"]) {
+        const page = await call(route + suffix);
+        assert.equal(page.status, 200, route + suffix);
+        assert.match(page.headers.get("content-type"), /text\/html/);
+        assert.match(page.data, /id="root"/);
+      }
+    }
     let r = await call("/api/config");
     assert.equal(r.data.characters[0].id, "custom-hero");
     assert.ok(!JSON.stringify(r.data).includes("password"));

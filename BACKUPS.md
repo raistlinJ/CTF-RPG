@@ -2,7 +2,7 @@
 
 ## Scoreboard
 
-Open **Scores** from the game to view the scoreboard in a modal, or visit `/scoreboard`. Players see team names and totals, including team gifts. Administrators can toggle **User scores** / **Team scores** without changing the player view. Access (**all signed-in players** or **admins only**) and the default admin view are set under **Manage → Teams → Configuration → Scoreboard**. Server checks enforce private access. Individual scores are stored earned points after hint costs, with completed-treasure counts and character names. Ties share competition ranks (1, 1, 3). Admins and disabled accounts do not contribute earned points. Scores refresh automatically every five seconds while visible, on focus, or using **Refresh scores**.
+Open **Scores** from the game to view the scoreboard in a modal, or visit `/scoreboard`. Players see team names and totals, including team gifts. Administrators can toggle **User scores** / **Team scores** without changing the player view. Access (**all signed-in players** or **admins only**) and the default admin view are set under **Manage → Teams → Scoreboard**. Server checks enforce private access. Individual scores are stored earned points after hint costs, with completed-treasure counts and character names. Ties share competition ranks (1, 1, 3). Admins and disabled accounts do not contribute earned points. Scores refresh automatically every five seconds while visible, on focus, or using **Refresh scores**.
 
 ## User management
 
@@ -30,7 +30,7 @@ Use **Full backup** in either admin screen. `/api/admin/backup` is admin-only an
 - Effective `content/game.yaml` configuration and the current challenge set, including flags, hints, costs, file links, and challenge dependencies.
 - Deleted-user markers, which prevent deleted YAML accounts from returning after restore.
 - Every active account, including YAML accounts that have not signed in, roles, assigned heroes and starting positions, disabled state, salted password hashes, and account IDs.
-- Awarded scores/completions, purchased hints with their recorded costs, and team point gifts with comments.
+- Awarded scores/completions, purchased hints with their recorded point and item costs, earned inventory, unlocked transports, cutscene playback history, entity activations, and team point gifts with comments.
 - `backup.json`, the restore program, and a short `RESTORE.md` guide.
 
 Existing passwords work after restore. Plaintext account passwords are converted to salted hashes; raw account passwords and active login sessions are not exported. External file URLs are preserved as links and remain dependent on their external hosts. The export removes the original Sites project ID, so recreating it does not point at the original site's deployment. Environment secrets, machine-specific settings, and installed `node_modules` are excluded; use the supplied lockfile to install dependencies.
@@ -73,7 +73,7 @@ Self-hosting adds account-management columns automatically on startup. Cloudflar
 
 Students create a team with a name and password, or join an existing team after signing in. Team passwords have 8–128 characters and are stored as salted hashes. Team names are unique ignoring case. Membership persists across logins; students cannot leave or switch teams. Only admins may disband a team, which releases its members to choose again without changing individual scores.
 
-Admins use **Manage** in the game header. **Teams → Configuration** (`/admin/teams/configuration`) contains team-size, scoreboard, player-visibility, and messaging settings. **Teams → Manage** (`/admin/teams`) shows teams, point gifts, and disband controls. Set the maximum team size from 1–100 (default 4, initially configured by `teams.maxMembers` in `content/game.yaml`). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. Both pages enforce admin authorization.
+Admins use **Manage** in the game header. **Teams → Team size** (`/admin/teams/configuration`) sets the team limit. **Players & messages** (`/admin/teams/players`) controls player visibility and team messaging; **Scoreboard** (`/admin/teams/scoreboard`) controls ranking access and defaults. **Teams → Manage teams** (`/admin/teams`) shows teams, point gifts, and disband controls. Set the maximum team size from 1–100 (default 4, initially configured by `teams.maxMembers` in `content/game.yaml`). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. All management pages enforce admin authorization.
 
 Use **Gift points** on a team to award 1–10,000 whole points with a required comment. Gifts count once toward the team total and remain separate from individual earned points. Members see **+N pts added** on the game screen; hover, focus, or tap to read the comment. Manage shows gift history. Full backups preserve gifts and comments. Disbanding a team removes its gifts; members retain individual progress.
 
@@ -89,7 +89,7 @@ Every challenge supports `grading: automatic` (the default) or `grading: manual`
 
 Admins use `/admin/review` (**Manage → Review answers**) to award a whole-number grade from 0 to the submission's saved maximum and provide feedback. Recorded hint costs are subtracted, with a minimum final award of 0. Regrading updates the existing award and scoreboard. Response revisions prevent stale edits or grades from overwriting newer work. Full backups retain responses/grades/feedback; theme and content packs exclude them. Use new IDs for new tests; grading mode cannot be changed after responses or awards exist.
 
-The built-in **Agentic Circuit** theme is available under **Theme → Import / Export**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
+The built-in **Agentic Circuit** theme is available under **Theme → Theme library**. See [the course theme guide](themes/agentic-circuit/README.md) for activation, maps, and test preparation.
 
 Full backups also retain the classroom player-visibility setting. Temporary online positions are excluded; players appear again as they reconnect. Older backups without starting positions or visibility settings use the theme’s default spawn and teammate visibility.
 
@@ -101,6 +101,6 @@ Full backups also preserve chat mute status, shared instructor conversations, di
 
 ## Challenge dependencies
 
-Challenge definitions preserve `dependsOn` prerequisites in YAML exports, content packs, and full backups. Old definitions default to no prerequisites. Restore and import validate IDs and reject dependency loops. If an import cannot place a prerequisite, its dependent chain is included in the overflow preview and excluded together when skipping is authorized. Players unlock challenges from their own completed progress; written prerequisites unlock after grading. Edit connections under **Challenges → Dependencies** and save to apply them to active games.
+Challenge definitions preserve `dependsOn` prerequisites in YAML exports, content packs, and full backups. Old definitions default to no prerequisites. Restore and import validate IDs and reject dependency loops. If an import cannot place a prerequisite, its dependent chain is included in the overflow preview and excluded together when skipping is authorized. Players unlock challenges from their own completed progress; written prerequisites unlock after grading. Edit connections under **Challenges → Dependencies** and save to apply them to active games. Entity prerequisites use `npe:<entity-id>` references. Full backups retain both entity prerequisites and per-player entity activation history; legacy backups default to no activations. Theme/content imports validate the complete mixed graph against the resulting world. Removing a referenced entity requires removing its connections in Dependencies or importing matching content.
 
 Standard CTFd prerequisites become native `dependsOn` connections on new imports and survive backup restore alongside original CTFd requirements and import history. Missing references retain the original requirements and keep the challenge hidden for review. Existing CTFd imports are not retroactively changed.

@@ -1,0 +1,1 @@
+ALTER TABLE `purchased_hints` ADD `reward_cost` text DEFAULT '{"keys":[],"incantations":[]}' NOT NULL;

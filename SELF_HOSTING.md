@@ -108,6 +108,14 @@ docker compose up --build -d
 
 Open `http://localhost:3000`. The default port binds to loopback. For direct HTTP access from other computers, use `APP_BIND=0.0.0.0 docker compose up --build -d`; set `APP_PORT` to change port 3000. Configure your accounts in `content/game.yaml` before starting. To use the ignored private config, copy the example to `content/game.local.yaml` and set `GAME_CONFIG=/app/content/game.local.yaml` in a local `.env` file. Use your own admin password.
 
+To run Docker on port 3001 and rebuild after application changes:
+
+```sh
+APP_PORT=3001 docker compose up -d --build ctf-rpg
+```
+
+Open `http://localhost:3001`. For a restart after YAML-only changes, use `docker compose restart ctf-rpg`. You can also save `APP_PORT=3001` in your local `.env` file.
+
 The `ctf-rpg` service mounts `content/` and `public/` read-only. SQLite and uploaded pack assets persist in the `quest-data` volume; the legacy volume name is retained for compatibility. After changing YAML, run `docker compose restart ctf-rpg`. Sprite/MIDI files are read directly. Do not run `docker compose down -v` on your installation when you want to preserve accounts and scores. When upgrading from the old `quest` service, stop the old Compose stack without `-v`, keep the same directory/project name, then start this configuration so it reuses the existing data volume.
 
 ### Optional Nginx HTTPS frontend
@@ -148,7 +156,7 @@ docker compose -f compose.yaml -f compose.https.yaml down
 
 ## Backups and verification
 
-Back up configuration, `public/sprites`, `public/audio`, and the SQLite database. Stop the service before copying its database (including any `-wal`/`-shm` files), or use SQLite's online backup mechanism. Keep `data/` writable by the server account. Build output is disposable and can be regenerated.
+Back up configuration, `public/sprites`, `public/audio`, and the SQLite database. Stop the service before copying its database (including any `-wal`/`-shm` files), or use SQLite's online backup mechanism. Keep `data/` writable by the server account. Build output is disposable and can be regenerated. Entity activation, cutscene playback history, inventory, and transport unlocks live in the same database as challenge progress. SQLite creates new tables automatically when the upgraded application starts; Cloudflare/D1 installations need migrations through `0021_entity_activations.sql`, as listed in [README.md](README.md#run-the-cloudflare-preview-locally).
 
 ```sh
 npm run build:selfhost

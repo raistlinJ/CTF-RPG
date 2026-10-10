@@ -1,6 +1,12 @@
 "use client";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
+import ChallengeCutscene, { type Cutscene } from "./challenge-cutscene";
+import { EntityConversation, EntityMarker } from "./entity-dialogue";
+import type { EntitySummary } from "@/lib/non-player-entities";
+import { clientUuid } from "@/lib/client-uuid.mjs";
+import { KEY_PALETTE, hintCostLabel } from "@/lib/inventory-data.mjs";
+import { PlayerInventory, TransportUnlock, type Inventory, type LockedTransport } from "./player-inventory";
 import { usePlayerPresence, type NearbyPlayer, type SolveShine } from "./use-player-presence";
 import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useRef, useState } from "react";
@@ -32,6 +38,7 @@ import {
   canPlaceChallenge,
   transportTiles,
   portalTiles,
+  transitionAt,
 } from "@/lib/world-data.mjs";
 
 type Place = {
@@ -61,7 +68,7 @@ type GameConfig = {
     title: string;
     badge: "snowflake" | "cpu" | "compass";
     description: string;
-    world: typeof activeWorld;
+    world: typeof activeWorld & { entities?: EntitySummary[] };
   };
   themeRevision: number;
   scoreboard: { visibility: "admins" | "all"; mode: string };
@@ -94,16 +101,27 @@ type Challenge = {
     id: string;
     label: string;
     cost: number;
+    rewardCost: { keys: string[]; incantationCount: number };
+    available: boolean;
     unlocked: boolean;
     text?: string;
   }[];
   downloads: { name: string; url: string; filename?: string }[];
+  discoveryVideo?: string | null;
+  solveVideo?: string | null;
+  discoveryCutsceneSeen?: boolean;
+  solveCutsceneSeen?: boolean;
+  rewards?: { keys: string[]; incantationCount: number };
 };
 type GameState = {
+  entities?: EntitySummary[];
   challenges: Challenge[];
   solved: string[];
   score: number;
   discovered: string[];
+  inventory: Inventory;
+  unlockedTransports: string[];
+  expeditionComplete: boolean;
 };
 type GameResponse = GameState & {
   error?: string;
@@ -267,9 +285,14 @@ export function World({
   solved,
   onMove,
   onSearch,
+  onInventory,
+  inventoryCount = 0,
   onSelect,
   selectionAllowed,
   selectionLabel,
+  selectedChallengeId,
+  onChallengeDrop,
+  entities = [],
   players = [],
   characters = [],
   onPlayerSelect,
@@ -277,6 +300,7 @@ export function World({
   messageCount = 0,
   solveShines = [],
   selfMarkers = { teammate: false, crowned: false },
+  unlockedTransports = [],
 }: {
   hero: Character;
   map: string;
@@ -285,9 +309,14 @@ export function World({
   solved: string[];
   onMove: (x: number, y: number) => void;
   onSearch: () => void;
+  onInventory?: () => void;
+  inventoryCount?: number;
   onSelect?: (x: number, y: number) => void;
   selectionAllowed?: (map: string, x: number, y: number) => boolean;
   selectionLabel?: string;
+  selectedChallengeId?: string;
+  onChallengeDrop?: (id: string, x: number, y: number) => void;
+  entities?: EntitySummary[];
   players?: NearbyPlayer[];
   characters?: Character[];
   onPlayerSelect?: (x: number, y: number) => void;
@@ -295,8 +324,21 @@ export function World({
   messageCount?: number;
   solveShines?: SolveShine[];
   selfMarkers?: { teammate: boolean; crowned: boolean };
+  unlockedTransports?: string[];
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const drag = useRef<{ id: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
+  const suppressClick = useRef(false);
+  const [dragPreview, setDragPreview] = useState<{ id: string; x: number; y: number } | null>(null);
+  function tileAt(canvas: HTMLCanvasElement, clientX: number, clientY: number) {
+    const r = canvas.getBoundingClientRect();
+    return { x: Math.floor((clientX - r.left) / r.width * 40), y: Math.floor((clientY - r.top) / r.height * 28) };
+  }
+  function cancelDrag() {
+    if (drag.current?.active) suppressClick.current = true;
+    drag.current = null;
+    setDragPreview(null);
+  }
   const image = useSprite(hero.sprite);
   const background = useSprite(mapInfo(map)?.background || null);
   useEffect(() => {
@@ -344,6 +386,8 @@ export function World({
             ctx.fillRect(x * t, y * t, t, t);
     }
     const portals = portalTiles(map).map((p) => p.location);
+    ctx.strokeStyle = "#77d8e3";
+    ctx.lineWidth = 2;
     for (const p of portals) {
       ctx.strokeRect(p.x * t + 2, p.y * t + 2, t - 4, t - 4);
     }
@@ -358,10 +402,22 @@ export function World({
       ctx.textAlign = "center";
       ctx.fillText("⇄", p.x * t + 12, p.y * t + 18);
     }
+    for (const p of [...portalTiles(map).map(p => ({...p,...p.location})), ...transportTiles(map)]) {
+      if (!p.lock) continue;
+      const open = unlockedTransports.includes(p.id);
+      ctx.fillStyle = open ? "#4ade80" : p.lock.type === "key" ? KEY_PALETTE[p.lock.color as keyof typeof KEY_PALETTE] : "#c084fc";
+      ctx.strokeStyle = ctx.fillStyle;
+      ctx.lineWidth = 2;
+      ctx.fillRect(p.x * t + 6, p.y * t + 10, 12, 10);
+      ctx.beginPath(); ctx.arc(p.x * t + 12, p.y * t + 10, 5, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = "#102532"; ctx.font = "bold 10px Arial"; ctx.textAlign = "center";
+      ctx.fillText(open ? "✓" : "•", p.x * t + 12, p.y * t + 18);
+    }
     for (const q of challenges) {
       if (q.map !== map || solved.includes(q.id)) continue;
-      const a = q.location.x * t + 12,
-        b = q.location.y * t + 12;
+      const location = dragPreview?.id === q.id ? dragPreview : q.location;
+      const a = location.x * t + 12,
+        b = location.y * t + 12;
       const distance =
         Math.abs(pos.x - q.location.x) + Math.abs(pos.y - q.location.y);
       ctx.fillStyle = distance <= 3 ? "#d6a44e" : "#bed5db";
@@ -391,6 +447,13 @@ export function World({
       ctx.strokeStyle = "#eab950";
       ctx.lineWidth = 3;
       ctx.strokeRect(pos.x * t + 1, pos.y * t + 1, t - 2, t - 2);
+      if (dragPreview) {
+        const valid = (selectionAllowed || canPlaceChallenge)(map, dragPreview.x, dragPreview.y);
+        ctx.fillStyle = valid ? "#4ade8055" : "#f8717155";
+        ctx.fillRect(dragPreview.x * t, dragPreview.y * t, t, t);
+        ctx.strokeStyle = valid ? "#4ade80" : "#f87171";
+        ctx.strokeRect(dragPreview.x * t + 1, dragPreview.y * t + 1, t - 2, t - 2);
+      }
     } else drawCharacter(ctx, pos.x * t + 12, pos.y * t + 12, hero, image, 42);
     ctx.fillStyle = "#264954";
     ctx.fillRect(pos.x * t + 9, pos.y * t + 34, 6, 3);
@@ -404,18 +467,55 @@ export function World({
     solved,
     onSelect,
     selectionAllowed,
+    unlockedTransports,
+    dragPreview,
   ]);
   return (
-    <div className="world">
+    <div className={onSelect ? "world world-editor" : "world"}>
       <div className="world-surface">
         <canvas
           ref={ref}
           width={960}
           height={672}
+          className={onChallengeDrop ? "challenge-drag-enabled" : undefined}
+          style={dragPreview ? { cursor: "grabbing" } : undefined}
           tabIndex={onSelect ? 0 : undefined}
+          onPointerDown={onChallengeDrop ? e => {
+            suppressClick.current = false;
+            if (e.button !== 0 || !e.isPrimary) return;
+            const tile = tileAt(e.currentTarget, e.clientX, e.clientY);
+            const selected = challenges.find(c => c.id === selectedChallengeId && c.map === map && c.location.x === tile.x && c.location.y === tile.y);
+            if (!selected) return;
+            e.currentTarget.focus({ preventScroll: true });
+            drag.current = { id: selected.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } : undefined}
+          onPointerMove={onChallengeDrop ? e => {
+            const current = drag.current;
+            if (!current || e.pointerId !== current.pointerId) return;
+            if (!current.active && Math.hypot(e.clientX - current.startX, e.clientY - current.startY) < 4) return;
+            current.active = true;
+            e.preventDefault();
+            setDragPreview({ id: current.id, ...tileAt(e.currentTarget, e.clientX, e.clientY) });
+          } : undefined}
+          onPointerUp={onChallengeDrop ? e => {
+            const current = drag.current;
+            if (!current || e.pointerId !== current.pointerId) return;
+            drag.current = null;
+            setDragPreview(null);
+            if (current.active) {
+              suppressClick.current = true;
+              const tile = tileAt(e.currentTarget, e.clientX, e.clientY);
+              onChallengeDrop(current.id, tile.x, tile.y);
+            }
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+          } : undefined}
+          onPointerCancel={onChallengeDrop ? cancelDrag : undefined}
+          onLostPointerCapture={onChallengeDrop ? cancelDrag : undefined}
           onClick={
             onSelect
               ? (e) => {
+                  if (suppressClick.current) { suppressClick.current = false; return; }
                   const r = e.currentTarget.getBoundingClientRect();
                   onSelect(
                     Math.min(
@@ -433,6 +533,8 @@ export function World({
           onKeyDown={
             onSelect
               ? (e) => {
+                  if (e.key === "Escape" && drag.current) { e.preventDefault(); cancelDrag(); return; }
+                  if (drag.current) return;
                   const dirs: Record<string, number[]> = {
                     ArrowUp: [0, -1],
                     ArrowDown: [0, 1],
@@ -452,13 +554,14 @@ export function World({
           }
           aria-label={
             onSelect
-              ? `${selectionLabel || "Challenge location picker"}: ${mapName(map)}. Click a tile or use arrow keys to choose a location.`
+              ? `${selectionLabel || "Challenge location picker"}: ${mapName(map)}. Click a tile or use arrow keys to choose a location.${onChallengeDrop ? " Select a challenge, then drag it to move. Escape cancels a drag." : ""}`
               : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
           }
         />
         {!onSelect && solveShines.map((shine) => (
           <div key={shine.key} className="challenge-solve-shine" role="status" aria-label="A challenge was solved" style={{ left: `${((shine.x + 0.5) / 40) * 100}%`, top: `${((shine.y + 0.5) / 28) * 100}%` }}>✦</div>
         ))}
+        <div className="entity-map-layer">{entities.filter(e => e.map === map).map(e => <EntityMarker key={e.id} entity={e} character={characters.find(c => c.id === e.characterId)} />)}</div>
         {!onSelect && selfPlayer && (
           <div className="nearby-player-layer" aria-label="Players on this map">
             {messageCount > 0 && (
@@ -552,9 +655,14 @@ export function World({
           <MapPin size={15} /> {pos.x}, {pos.y}
         </span>
         {!onSelect && (
-          <button onClick={onSearch}>
-            <Sparkles size={16} /> Search nearby <kbd>E</kbd>
-          </button>
+          <div className="map-actions">
+            {onInventory && <button type="button" className="map-inventory-link" aria-haspopup="dialog" onClick={onInventory}>
+              Inventory{inventoryCount > 0 ? ` (${inventoryCount})` : ""}
+            </button>}
+            <button type="button" onClick={onSearch}>
+              <Sparkles size={16} /> Search nearby <kbd>E</kbd>
+            </button>
+          </div>
         )}
       </div>
       {!onSelect && (
@@ -626,6 +734,63 @@ export default function Game() {
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
   const [discovered, setDiscovered] = useState<string[]>([]);
+  const [inventory, setInventory] = useState<Inventory>({keys:[],incantations:[]});
+  const [unlockedTransports, setUnlockedTransports] = useState<string[]>([]);
+  const [expeditionComplete, setExpeditionComplete] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [lockedTransport, setLockedTransport] = useState<LockedTransport | null>(null);
+  const [talkingTo, setTalkingTo] = useState<EntitySummary | null>(null);
+  const [nearbyOptions, setNearbyOptions] = useState<{ entities: EntitySummary[]; challenges: Challenge[] } | null>(null);
+  const [cutsceneQueue, setCutsceneQueue] = useState<Cutscene[]>([]);
+  const cutsceneRequests = useRef(new Set<string>());
+  const playbackSession = useRef(0);
+  const cutscene = cutsceneQueue[0];
+  const cutsceneOpen = !!cutscene;
+  async function playCutscene(q: Challenge, phase: "discovery" | "solve", replay = false) {
+    const key = `${q.id}:${phase}`;
+    if (!replay && cutsceneRequests.current.has(key)) return;
+    if (!replay) cutsceneRequests.current.add(key);
+    const session = playbackSession.current;
+    try {
+      const r = await fetch("/api/game", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cutscene", id: q.id, phase, replay }),
+      });
+      const d = await r.json() as { play: boolean; url?: string; error?: string };
+      if (!r.ok) throw Error(d.error || "The cutscene could not be opened.");
+      if (session === playbackSession.current && d.play && d.url) {
+        const url = d.url;
+        setCutsceneQueue(queue => [...queue, { id: q.id, object: q.object, phase, url, playbackId: clientUuid() }]);
+      }
+    } catch (e) {
+      if (session === playbackSession.current) {
+        cutsceneRequests.current.delete(key);
+        setNotice((e as Error).message);
+      }
+    }
+  }
+  function openChallenge(q: Challenge) {
+    setNearbyOptions(null);
+    const session = playbackSession.current;
+    setActive(q);
+    setAnswer(q.submission?.answer || "");
+    setFeedback("");
+    setHintMessage("");
+    void (async () => {
+      try {
+        const r = await fetch("/api/game", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: q.id, action: "discover" }),
+        });
+        const d = await r.json() as GameResponse;
+        if (session !== playbackSession.current) return;
+        if (!r.ok) throw Error(d.error || "Could not save discovery. Open this challenge again to retry.");
+        const latest = d.challenges.find(c => c.id === q.id);
+        if (latest?.discoveryVideo && !latest.discoveryCutsceneSeen) await playCutscene(latest, "discovery");
+        if (session === playbackSession.current) applyGame(d);
+      } catch (e) { if (session === playbackSession.current) setNotice((e as Error).message); }
+    })();
+  }
   const [scoreboardOpen, setScoreboardOpen] = useState(false);
   const [team, setTeam] = useState<Team | null>(null);
   const [playerTile, setPlayerTile] = useState<{
@@ -647,7 +812,12 @@ export default function Game() {
     pos,
     config?.themeRevision,
   );
+  const [entities, setEntities] = useState<EntitySummary[]>([]);
   function applyGame(d: GameState) {
+    setEntities(d.entities || []);
+    setInventory(d.inventory || {keys:[],incantations:[]});
+    setUnlockedTransports(d.unlockedTransports || []);
+    setExpeditionComplete(!!d.expeditionComplete);
     setChallenges(d.challenges);
     setSolved(d.solved);
     setDiscovered((ids) =>
@@ -657,15 +827,26 @@ export default function Game() {
     setActive((previous) =>
       previous ? d.challenges.find((c) => c.id === previous.id) || null : null,
     );
+    for (const q of d.challenges) {
+      if (d.solved.includes(q.id) && q.solveVideo && !q.solveCutsceneSeen) void playCutscene(q, "solve");
+    }
   }
+  useEffect(() => {
+    if (cutsceneOpen) void music.current?.mute();
+    else if (!muted) void music.current?.play().catch(e => {
+      setAudioError((e as Error).message);
+      setMuted(true);
+    });
+  }, [cutsceneOpen, muted]);
   useEffect(() => {
     if (user && presence.gameRevision !== undefined) void loadGame().catch((e) => setNotice(e.message));
   }, [presence.gameRevision]);
   async function loadGame() {
+    const session = playbackSession.current;
     const r = await fetch("/api/game");
     const d = (await r.json()) as GameResponse;
     if (!r.ok) throw Error(d.error || "Could not load expedition.");
-    applyGame(d);
+    if (session === playbackSession.current) applyGame(d);
   }
   useEffect(() => {
     Promise.all([
@@ -784,35 +965,43 @@ export default function Game() {
     );
   }, [map, place.travel]);
   function move(dx: number, dy: number) {
-    if (active) return;
-    setPlace((p) => step(p, dx, dy));
+    if (active || cutscene || inventoryOpen || lockedTransport || talkingTo || nearbyOptions) return;
+    const link = transitionAt(map,pos.x+dx,pos.y+dy);
+    if (link?.lock && !unlockedTransports.includes(link.id)) {
+      setLockedTransport({id:link.id,name:link.name || `${mapName(map)} → ${mapName(link.to)}`,lock:link.lock,map,x:pos.x,y:pos.y,dx,dy});
+      return;
+    }
+    setPlace((p) => step(p, dx, dy, unlockedTransports));
+  }
+  async function unlockRoute(phrase: string) {
+    if (!lockedTransport) return;
+    const target = lockedTransport;
+    const session = playbackSession.current;
+    const r = await fetch("/api/game", { method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"unlock-transport",id:target.id,phrase}) });
+    const d = await r.json() as GameResponse;
+    if (!r.ok) throw Error(d.error || "This route could not be unlocked.");
+    if (session !== playbackSession.current) return;
+    applyGame(d);
+    setPlace(p => p.map === target.map && p.pos.x === target.x && p.pos.y === target.y ? step(p,target.dx,target.dy,d.unlockedTransports) : p);
+    setLockedTransport(null);
   }
   function search() {
-    const q = challenges.find(
+    if (active || cutscene || inventoryOpen || lockedTransport || talkingTo || nearbyOptions) return;
+    const nearbyChallenges = challenges.filter(
       (c) =>
         c.map === map &&
         !solved.includes(c.id) &&
         Math.abs(c.location.x - pos.x) + Math.abs(c.location.y - pos.y) <= 2,
     );
+    const nearbyEntities = entities.filter(e => e.map === map && Math.abs(e.location.x - pos.x) + Math.abs(e.location.y - pos.y) <= 2);
+    if (nearbyEntities.length) {
+      if (nearbyEntities.length + nearbyChallenges.length > 1) setNearbyOptions({ entities: nearbyEntities, challenges: nearbyChallenges });
+      else setTalkingTo(nearbyEntities[0]);
+      sound(); return;
+    }
+    const q = nearbyChallenges[0];
     if (q) {
-      setDiscovered((ids) => (ids.includes(q.id) ? ids : [...ids, q.id]));
-      void fetch("/api/game", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: q.id, action: "discover" }),
-      })
-        .then(async (r) => {
-          if (!r.ok)
-            throw Error(
-              "Could not save discovery. Search this challenge again to retry.",
-            );
-        })
-        .catch((e) => setNotice(e.message));
-      setActive(q);
-      void loadGame().catch((e) => setNotice(e.message));
-      setAnswer(q.submission?.answer || "");
-      setFeedback("");
-      setHintMessage("");
+      openChallenge(q);
       sound();
     } else if (
       config?.theme.title === "North Pole Quest" &&
@@ -825,9 +1014,9 @@ export default function Game() {
       sound();
     } else
       setNotice(
-        solved.length === challenges.length
+        expeditionComplete
           ? "All treasures found! Your expedition is complete."
-          : "Nothing here yet. Search near a sparkle.",
+          : "Nothing here yet. Search near a sparkle or a character’s speech bubble.",
       );
   }
   useEffect(() => {
@@ -868,6 +1057,14 @@ export default function Game() {
   }, [
     user,
     active,
+    cutscene,
+    inventoryOpen,
+    lockedTransport,
+    talkingTo,
+    entities,
+    nearbyOptions,
+    config,
+    unlockedTransports,
     map,
     pos,
     challenges,
@@ -931,9 +1128,12 @@ export default function Game() {
           "Response saved for admin review. You can update it until graded.",
         );
       } else if (d.correct) {
+        const gainedKeys = (d.inventory?.keys || []).filter(color => !inventory.keys.includes(color));
+        const gainedPhrases = (d.inventory?.incantations || []).filter(phrase => !inventory.incantations.includes(phrase));
+        const gained = [...gainedKeys.map(color => `${color} key`), ...(gainedPhrases.length ? [`${gainedPhrases.length} incantation${gainedPhrases.length === 1 ? "" : "s"}`] : [])];
         applyGame(d);
         sound();
-        setFeedback(`Treasure collected! +${d.awardedPoints} points`);
+        setFeedback(`Treasure collected! +${d.awardedPoints} points${gained.length ? `. Added to Inventory: ${gained.join(", ")}.` : ""}`);
         setNotice(`${active.object} collected. Keep exploring!`);
       } else setFeedback("Not quite. Take another look and try again.");
     } catch (e) {
@@ -964,8 +1164,8 @@ export default function Game() {
         .find((c) => c.id === active.id)
         ?.hints.find((h) => h.id === hintId);
       setHintMessage(
-        h?.cost
-          ? `Hint unlocked. ${h.cost} points deducted from this challenge’s reward.`
+        h && hintCostLabel(h.cost, h.rewardCost) !== "Free"
+          ? `Hint unlocked. Cost: ${hintCostLabel(h.cost, h.rewardCost)}, deducted once from this challenge’s completion rewards.`
           : "Free hint unlocked.",
       );
     } catch (e) {
@@ -1099,6 +1299,16 @@ export default function Game() {
                 try {
                   const r = await fetch("/api/auth", { method: "DELETE" });
                   if (!r.ok) throw Error();
+                  playbackSession.current += 1;
+                  cutsceneRequests.current.clear();
+                  setCutsceneQueue([]);
+                  setInventory({keys:[],incantations:[]});
+                  setUnlockedTransports([]);
+                  setExpeditionComplete(false);
+                  setInventoryOpen(false);
+                  setLockedTransport(null);
+                  setTalkingTo(null);
+                  setNearbyOptions(null);
                   setUser(null);
                   setTeamPanelOpen(false);
                   setPlayerTile(null);
@@ -1294,12 +1504,16 @@ export default function Game() {
               selfPlayer={selfPlayer}
               onPlayerSelect={(x, y) => setPlayerTile({ map, x, y })}
               characters={heroes}
+              entities={entities}
               map={map}
               pos={pos}
               challenges={challenges}
               solved={solved}
+              unlockedTransports={unlockedTransports}
               onMove={move}
               onSearch={search}
+              onInventory={() => setInventoryOpen(true)}
+              inventoryCount={inventory.keys.length + inventory.incantations.length}
             />
             <div className="avatar-marker-legend">
               <span>
@@ -1327,13 +1541,13 @@ export default function Game() {
               <span>
                 <kbd>E</kbd> search nearby
               </span>
-              <span>Look for ✦ sparkles</span>
+              <span>Look for ✦ sparkles and character speech bubbles</span>
             </div>
             <div className="message" role="status">
               <span className="message-icon">✦</span>
               <div>
                 <b>
-                  {solved.length === challenges.length && challenges.length
+                  {expeditionComplete
                     ? "Expedition complete"
                     : "A note from the expedition"}
                 </b>
@@ -1411,19 +1625,9 @@ export default function Game() {
                           ? " · Awaiting review"
                           : ""}
                       </small>
-                      {q.submission && (
-                        <button
-                          className="text-button"
-                          onClick={() => {
-                            setActive(q);
-                            setAnswer(q.submission!.answer);
-                            setFeedback("");
-                            setHintMessage("");
-                          }}
-                        >
-                          View response
-                        </button>
-                      )}
+                      <button className="text-button" onClick={() => openChallenge(q)}>
+                        {q.submission ? "View response" : "Open challenge"}
+                      </button>
                     </div>
                     <span>
                       {solved.includes(q.id) ? "✓" : `+${q.remainingPoints}`}
@@ -1444,6 +1648,15 @@ export default function Game() {
           </aside>
         </section>
       ) : null}
+      {talkingTo && config && <EntityConversation key={talkingTo.id} entity={talkingTo} character={heroes.find(c => c.id === talkingTo.characterId)} themeRevision={config.themeRevision} map={map} pos={pos} onGameChange={applyGame} onClose={() => setTalkingTo(null)} />}
+      <Dialog open={!!nearbyOptions} onOpenChange={open => { if (!open) setNearbyOptions(null); }}>
+        <DialogContent className="entity-dialogue" aria-describedby="nearby-interaction-help">
+          <DialogTitle>Search nearby</DialogTitle><p id="nearby-interaction-help">Choose a character to speak with or a challenge to open.</p>
+          <div className="entity-dialogue-choices">{nearbyOptions?.entities.map(e => <button type="button" className="secondary-button" key={e.id} onClick={() => { setNearbyOptions(null); setTalkingTo(e); }}>Talk to {e.name}</button>)}
+            {nearbyOptions?.challenges.map(q => <button type="button" className="secondary-button" key={q.id} onClick={() => openChallenge(q)}>Open {q.object}</button>)}
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={scoreboardOpen} onOpenChange={setScoreboardOpen}>
         <DialogContent className="scoreboard-modal" showCloseButton={false} aria-describedby={undefined} onCloseAutoFocus={(e) => { e.preventDefault(); document.getElementById("scores-button")?.focus(); }}>
           <div className="scoreboard-modal-header"><DialogTitle>Scoreboard</DialogTitle><DialogClose className="secondary-button">Close</DialogClose></div>
@@ -1451,7 +1664,7 @@ export default function Game() {
         </DialogContent>
       </Dialog>
       <Dialog
-        open={!!active}
+        open={!!active && !cutscene}
         onOpenChange={(v) => {
           if (!v) setActive(null);
         }}
@@ -1467,6 +1680,11 @@ export default function Game() {
             </span>
           </div>
           <p className="question">{active?.text}</p>
+          {active?.rewards && (active.rewards.keys.length > 0 || active.rewards.incantationCount > 0) && <p className="challenge-inventory-rewards">Inventory rewards: {[...active.rewards.keys.map(color => `${color} key`), ...(active.rewards.incantationCount ? [`${active.rewards.incantationCount} incantation${active.rewards.incantationCount === 1 ? "" : "s"}`] : [])].join(" · ")}</p>}
+          {active && (active.discoveryVideo || active.solveVideo) && <div className="cutscene-replays" aria-label="Replay cutscenes">
+            {active.discoveryVideo && <button type="button" className="text-button" onClick={() => void playCutscene(active, "discovery", true)}>Replay discovery cutscene</button>}
+            {solved.includes(active.id) && active.solveVideo && <button type="button" className="text-button" onClick={() => void playCutscene(active, "solve", true)}>Replay solve cutscene</button>}
+          </div>}
           <p className="reward-details">
             {active?.grading === "manual"
               ? "Written response · admin review"
@@ -1561,7 +1779,7 @@ export default function Game() {
           {!!active?.hints.length && (
             <section className="challenge-hints" aria-label="Challenge hints">
               <h3>
-                Hints <small>Costs reduce this challenge’s reward.</small>
+                Hints <small>Point costs reduce your completion points. Selected rewards are withheld when you complete this challenge.</small>
               </h3>
               {active.hints.map((h) => (
                 <div className="challenge-hint" key={h.id}>
@@ -1569,9 +1787,7 @@ export default function Game() {
                     <b>{h.label}</b>
                     {h.unlocked ? (
                       <span>
-                        {h.cost
-                          ? `${h.cost} points · unlocked`
-                          : "Free · unlocked"}
+                        {hintCostLabel(h.cost, h.rewardCost)} · unlocked
                       </span>
                     ) : (
                       <button
@@ -1579,16 +1795,16 @@ export default function Game() {
                         disabled={
                           busy ||
                           solved.includes(active.id) ||
-                          !!active.submission
+                          !!active.submission ||
+                          !h.available
                         }
                         onClick={() => unlockHint(h.id)}
                       >
-                        {h.cost
-                          ? `Unlock · ${h.cost} points`
-                          : "Reveal free hint"}
+                        {hintCostLabel(h.cost, h.rewardCost) === "Free" ? "Reveal free hint" : `Unlock · ${hintCostLabel(h.cost, h.rewardCost)}`}
                       </button>
                     )}
                   </div>
+                  {!h.unlocked && !h.available && !solved.includes(active.id) && !active.submission && <p>A reward required by this hint has already been used for another hint.</p>}
                   {h.unlocked && <p>{h.text}</p>}
                 </div>
               ))}
@@ -1606,6 +1822,9 @@ export default function Game() {
           )}
         </DialogContent>
       </Dialog>
+      {cutscene && <ChallengeCutscene key={cutscene.playbackId} scene={cutscene} onDone={() => setCutsceneQueue(queue => queue.slice(1))} />}
+      <PlayerInventory open={inventoryOpen && !cutscene} onOpenChange={setInventoryOpen} items={inventory} />
+      {lockedTransport && !cutscene && <TransportUnlock key={lockedTransport.id} target={lockedTransport} items={inventory} onClose={() => setLockedTransport(null)} onUnlock={unlockRoute} />}
     </main>
   );
 }

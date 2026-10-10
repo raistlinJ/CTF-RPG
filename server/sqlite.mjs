@@ -78,7 +78,11 @@ CREATE INDEX IF NOT EXISTS idx_notification_recipient_username ON notification_r
 CREATE TABLE IF NOT EXISTS notification_reads(notification TEXT NOT NULL REFERENCES notifications(id),user TEXT NOT NULL REFERENCES students(id),read_at INTEGER NOT NULL,PRIMARY KEY(notification,user));
 CREATE TABLE IF NOT EXISTS ctfd_imports(id TEXT PRIMARY KEY,digest TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,report TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS entity_activations(user TEXT NOT NULL REFERENCES students(id),entity TEXT NOT NULL,PRIMARY KEY(user,entity));
 CREATE TABLE IF NOT EXISTS discovered_challenges(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,PRIMARY KEY(user,challenge));
+CREATE TABLE IF NOT EXISTS challenge_cutscenes(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,phase TEXT NOT NULL CHECK(phase IN ('discovery','solve')),PRIMARY KEY(user,challenge,phase));
+CREATE TABLE IF NOT EXISTS earned_rewards(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(user,challenge));
+CREATE TABLE IF NOT EXISTS unlocked_transports(user TEXT NOT NULL REFERENCES students(id),transport TEXT NOT NULL,signature TEXT NOT NULL,PRIMARY KEY(user,transport));
 CREATE TABLE IF NOT EXISTS solved(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,points INTEGER NOT NULL,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS purchased_hints(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,hint TEXT NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(user,challenge,hint));
 CREATE TABLE IF NOT EXISTS answer_attempts(id TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,answer TEXT NOT NULL,question TEXT NOT NULL,object TEXT NOT NULL,correct INTEGER NOT NULL,submitted_team TEXT NOT NULL,submitted_at INTEGER NOT NULL);
@@ -88,6 +92,9 @@ CREATE TABLE IF NOT EXISTS written_responses(user TEXT NOT NULL REFERENCES stude
 CREATE TABLE IF NOT EXISTS theme_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);`);
   if (!sqlite.prepare("PRAGMA table_info(written_responses)").all().some(c=>c.name==="submitted_team")) sqlite.exec("ALTER TABLE written_responses ADD COLUMN submitted_team TEXT");
+  if (!sqlite.prepare("PRAGMA table_info(written_responses)").all().some(c=>c.name==="rewards_payload")) sqlite.exec(`ALTER TABLE written_responses ADD COLUMN rewards_payload TEXT NOT NULL DEFAULT '{"keys":[],"incantations":[]}'`);
+  if (!sqlite.prepare("PRAGMA table_info(purchased_hints)").all().some(c=>c.name==="reward_cost")) sqlite.exec(`ALTER TABLE purchased_hints ADD COLUMN reward_cost TEXT NOT NULL DEFAULT '{"keys":[],"incantations":[]}'`);
+  sqlite.exec(`INSERT OR IGNORE INTO earned_rewards(user,challenge,payload) SELECT user,challenge,'{"keys":[],"incantations":[]}' FROM solved`);
   const socialColumns = sqlite
     .prepare("PRAGMA table_info(team_social_settings)")
     .all()

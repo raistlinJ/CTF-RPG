@@ -56,7 +56,7 @@ export async function bulkUserAction(body, { db, config, viewer, accountList }) 
     statements.push(db.prepare(`DELETE FROM player_presence WHERE user IN (${ids})`).bind(expected));
   } else {
     statements.push(db.prepare("INSERT INTO deleted_accounts(username,deleted_at) SELECT json_extract(value,'$.username'),? FROM json_each(?) WHERE true ON CONFLICT(username) DO UPDATE SET deleted_at=excluded.deleted_at").bind(Date.now(), expected));
-    for (const table of ['sessions','solved','purchased_hints','written_responses','answer_attempts','discovered_challenges','team_members','player_presence','notification_reads']) {
+    for (const table of ['sessions','solved','purchased_hints','written_responses','answer_attempts','discovered_challenges','challenge_cutscenes','entity_activations','earned_rewards','unlocked_transports','team_members','player_presence','notification_reads']) {
       statements.push(db.prepare(`DELETE FROM ${table} WHERE user IN (${ids})`).bind(expected));
     }
     statements.push(db.prepare(`UPDATE team_messages SET sender_user=NULL WHERE sender_user IN (${ids})`).bind(expected));
