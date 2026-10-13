@@ -120,7 +120,7 @@ export default function Admin() {
     [firstHero, setFirstHero] = useState("web");
   const [editorPanel, setEditorPanel] = useState("challenge");
   const [themeRevision, setThemeRevision] = useState(0);
-  const [mapEntities, setMapEntities] = useState<EntitySummary[]>([]);
+  const [mapEntities, setMapEntities] = useState<(EntitySummary & {dependsOn?: string[]})[]>([]);
   const [themeCharacters, setThemeCharacters] = useState<EntityCharacter[]>([]);
   const [moveFeedback, setMoveFeedback] = useState<{ text: string; error: boolean } | null>(null);
   const editorPanels = [
@@ -131,6 +131,7 @@ export default function Admin() {
   ];
   const [challengeQuery, setChallengeQuery] = useState("");
   const [useRegex, setUseRegex] = useState(false);
+  const [checkedChallenges, setCheckedChallenges] = useState<string[]>([]);
   const [listMap, setListMap] = useState("all");
   const [studioView, setStudioView] = useState<"list" | "editor">("list");
   const [uploadingVideo, setUploadingVideo] = useState<"discoveryVideo" | "solveVideo" | null>(null);
@@ -143,9 +144,26 @@ export default function Admin() {
   }
   const scopedChallenges = catalog.filter(c => listMap === "all" || c.map === listMap);
   const matchingChallenges = filterError ? [] : scopedChallenges.filter(c => {
-    const fields = [c.id, c.object, c.text, c.region, c.map, mapName(c.map)];
+    const fields = [c.id, c.object, c.text, c.region, c.map, mapName(c.map), ...(c.dependsOn || []).flatMap(id=>[id,dependencyName(id)]), ...dependencyTargets(c.id)];
     return !challengeQuery || fields.some(value => pattern ? pattern.test(value) : value.toLocaleLowerCase().includes(challengeQuery.toLocaleLowerCase()));
   });
+  const selectedChallenges = matchingChallenges.filter(c => checkedChallenges.includes(c.id));
+  useEffect(() => setCheckedChallenges([]), [challengeQuery, useRegex, listMap, catalog]);
+  function dependencyName(id: string) { return id.startsWith("npe:") ? "Character: " + (mapEntities.find(e => `npe:${e.id}` === id)?.name || id) : catalog.find(c => c.id === id)?.object || id; }
+  function dependencyTargets(id: string) { return [...catalog.filter(q=>q.dependsOn?.includes(id)).map(q=>q.object),...mapEntities.filter(e=>e.dependsOn?.includes(id)).map(e=>"Character: "+e.name)]; }
+  async function setSelectedVisibility(visibility: "visible" | "hidden") {
+    if (!selectedChallenges.length || !canDiscard()) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const r = await fetch("/api/admin/challenges", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"bulk-visibility",ids:selectedChallenges.map(c=>c.id),visibility,revision,themeRevision})});
+      const d = await r.json() as {challenges:Definition[];revision:number;updated:number;error?:string};
+      if (!r.ok) throw Error(d.error || "Could not update challenges.");
+      setCatalog(d.challenges); setRevision(d.revision); setCheckedChallenges([]);
+      const saved = d.challenges.find(c=>c.id===editingId);
+      if (saved) choose(toDraft(saved), saved.id);
+      setMessage(`${d.updated} challenges ${visibility === "visible" ? "enabled" : "disabled"}.`);
+    } catch(e) { setError((e as Error).message); } finally {setBusy(false);}
+  }
   const dirty =
     !!draft &&
     Boolean(
@@ -496,22 +514,36 @@ export default function Admin() {
                     <small id="challenge-filter-help">Case-insensitive matching. Regex example: compass|lantern</small>
                     {filterError && <p className="error" role="alert">{filterError}</p>}
                   </div>
+                  <div className="challenge-bulk-actions">
+                    <label><input type="checkbox" aria-label="Select all filtered challenges" disabled={busy || !matchingChallenges.length} checked={!!matchingChallenges.length && selectedChallenges.length === matchingChallenges.length} ref={el=>{if(el)el.indeterminate=selectedChallenges.length>0 && selectedChallenges.length<matchingChallenges.length;}} onChange={e=>setCheckedChallenges(e.target.checked?matchingChallenges.map(c=>c.id):[])} />Select filtered</label>
+                    <span>{selectedChallenges.length} selected</span>
+                    <button type="button" className="secondary-button" disabled={busy || !selectedChallenges.length} onClick={()=>void setSelectedVisibility("visible")}>Enable selected</button>
+                    <button type="button" className="secondary-button" disabled={busy || !selectedChallenges.length} onClick={()=>void setSelectedVisibility("hidden")}>Disable selected</button>
+                    <button type="button" className="text-button" disabled={busy} onClick={()=>void load(true).catch(e=>setError(e.message))}>Reload collection</button>
+                  </div>
+                  <small>Enabled = visible; disabled = hidden. Global availability and prerequisites still apply.</small>
+                  {error && <p className="error" role="alert">{error}</p>}{message && <p className="success" role="status">{message}</p>}
                   <div className="admin-challenge-list">
                     {matchingChallenges.map((c) => (
+                        <div key={c.id} className="challenge-select-row">
+                        <input type="checkbox" aria-label={`Select challenge ${c.object}`} checked={checkedChallenges.includes(c.id)} disabled={busy} onChange={e=>setCheckedChallenges(ids=>e.target.checked?[...ids,c.id]:ids.filter(id=>id!==c.id))} />
                         <button
                           className={c.id === editingId ? "active" : ""}
-                          key={c.id}
+                          disabled={busy}
                           onClick={() => selectExisting(c)}
                         >
                           <span>✦</span>
                           <div>
                             <b>{c.object}</b>
                             <small>
-                              {c.region} · {c.location.x}, {c.location.y} · {c.visibility === "hidden" ? "Hidden" : "Visible"}
+                              {c.region} · {c.location.x}, {c.location.y} · {c.visibility === "hidden" ? "Disabled" : "Enabled"}
                             </small>
+                            <small className="challenge-dependency-row"><b>From (requires):</b> {(c.dependsOn || []).map(dependencyName).join(" · ") || "None"}</small>
+                            <small className="challenge-dependency-row"><b>To (unlocks):</b> {dependencyTargets(c.id).join(" · ") || "None"}</small>
                           </div>
                           <strong>{c.points} pts</strong>
                         </button>
+                        </div>
                       ))}
                     {!filterError && !matchingChallenges.length && (
                       <p>{scopedChallenges.length ? "No challenges match this filter." : "No challenges here yet. Choose New challenge to add one."}</p>

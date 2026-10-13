@@ -1,3 +1,4 @@
+import { bulkChallengeVisibility } from "./challenge-bulk.mjs";
 import { playerMilestones } from "./progression.mjs";
 import { entityReference, entityUnlocked, validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { handleChallengeDependencies } from "./challenge-dependencies.mjs";
@@ -878,6 +879,7 @@ function createRequestApi({
             },
             409,
           );
+        if (body.action === "bulk-visibility") return bulkChallengeVisibility(body, {db,current,themeRevision});
         if (body.action !== undefined) {
           if (body.action !== "move") return json({ error: "Unknown challenge action." }, 400);
           if (body.themeRevision !== themeRevision)
