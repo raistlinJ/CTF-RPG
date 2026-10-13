@@ -32,6 +32,7 @@ Use **Full backup** in either admin screen. `/api/admin/backup` is admin-only an
 - Effective `content/game.yaml` configuration and the current challenge set, including flags, hints, costs, file links, and challenge dependencies.
 - Deleted-user markers, which prevent deleted YAML accounts from returning after restore.
 - Every active account, including YAML accounts that have not signed in, roles, assigned heroes and starting positions, disabled state, salted password hashes, and account IDs.
+- Integration token hashes and names, so configured integrations continue to work after restore. Raw token values are never exported.
 - Awarded scores/completions, purchased hints with their recorded point and item costs, earned inventory, unlocked transports, cutscene playback history, entity activations, and team point gifts with comments.
 - `backup.json`, the restore program, and a short `RESTORE.md` guide.
 

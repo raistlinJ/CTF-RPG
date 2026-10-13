@@ -360,6 +360,8 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       200,
     );
     assert.equal((await admin("/api/admin/registration", { allowRegistration: false, revision: 0 })).status, 200);
+    const integration = await admin("/api/admin/integration-tokens", { name: "SCE-web" });
+    assert.equal(integration.status, 201);
     const alice = makeClient();
     await alice("/api/auth", {
       username: "alice",
@@ -378,6 +380,8 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       challenges: baseline,
     });
     assert.equal(snapshot.registrationSettings.allowRegistration, false);
+    assert.equal(snapshot.integrationTokens.length, 1);
+    assert.ok(!JSON.stringify(snapshot).includes(integration.data.token));
     assert.ok(snapshot.accounts.some((a) => a.username === "pending01"));
     assert.ok(
       !JSON.stringify(snapshot).includes("private-pending-pass-unique"),
@@ -432,12 +436,15 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       );
       assert.equal(restoredConfig.accounts.allowRegistration, false);
       assert.equal(restored.prepare("SELECT allow_registration FROM registration_settings WHERE id='active'").get().allow_registration, 0);
+      assert.equal(restored.prepare("SELECT COUNT(*) AS n FROM integration_tokens").get().n, 1);
       const api = createApi({
         db: createSQLiteAdapter(restored),
         config: restoredConfig,
         challenges: baseline,
       });
       const restoredAlice = client(api);
+      const integrationCheck = await api(new Request("https://quest.test/api/integrations/v1/me", { headers: { Authorization: `Bearer ${integration.data.token}` } }));
+      assert.equal(integrationCheck.status, 200);
       assert.equal((await restoredAlice("/api/config")).data.allowRegistration, false);
       assert.equal(
         (
