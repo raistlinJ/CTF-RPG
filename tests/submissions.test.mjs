@@ -18,3 +18,40 @@ test('submission feed protects answers, records correct/incorrect attempts, filt
  const root=mkdtempSync(resolve(tmpdir(),'ctf-submission-restore-'));try{for(const dir of ['server','lib'])cpSync(dir,resolve(root,dir),{recursive:true});symlinkSync(resolve('node_modules'),resolve(root,'node_modules'),'dir');writeFileSync(resolve(root,'backup.json'),JSON.stringify(snapshot));const database=resolve(root,'data/quest.sqlite');const restored=spawnSync(process.execPath,[resolve(root,'server/restore.mjs'),resolve(root,'backup.json')],{env:{...process.env,DATABASE_PATH:database},encoding:'utf8'});assert.equal(restored.status,0,restored.stderr);const recovered=new DatabaseSync(database);assert.equal(recovered.prepare('SELECT COUNT(*) AS n FROM answer_attempts').get().n,2);assert.equal(recovered.prepare('SELECT submitted_team FROM written_responses').get().submitted_team,'Original team');recovered.close();}finally{rmSync(root,{recursive:true,force:true});}
 }finally{s.sqlite.close();}});
 test('submission feed paginates attempts and hides answer data from non-admins',async()=>{const s=setup();try{const admin=s.client(),a=s.client();await login(admin,'teacher');await login(a,'alice');const uid=s.sqlite.prepare("SELECT id FROM students WHERE username='alice'").get().id;const insert=s.sqlite.prepare('INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at) VALUES(?,?,?,?,?,?,?,?,?)');for(let i=0;i<62;i++)insert.run(String(i).padStart(3,'0'),uid,'test','answer','Question','Object',i%2,'Team',i);const first=(await admin('/api/admin/submissions')).data;assert.equal(first.total,62);assert.equal(first.submissions.length,50);assert.equal(first.submissions[0].submittedAt,61);const second=(await admin('/api/admin/submissions?offset=50')).data;assert.equal(second.submissions.length,12);assert.equal((await admin('/api/admin/submissions?status=correct')).data.total,31);assert.equal((await a('/api/admin/submissions?status=all')).data.submissions,undefined);}finally{s.sqlite.close();}});
+
+test('submission text search covers all pages, combines status, and treats wildcard and SQL text literally',async()=>{const s=setup();try{
+ const admin=s.client(),a=s.client();await login(admin,'teacher');await login(a,'alice');const uid=s.sqlite.prepare("SELECT id FROM students WHERE username='alice'").get().id;
+ const insert=s.sqlite.prepare('INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at) VALUES(?,?,?,?,?,?,?,?,?)');for(let i=0;i<70;i++)insert.run('search-'+i,uid,'sample','Ordinary answer','Question','Object',i%2,'Some team',i+1);
+ insert.run('search-target',uid,'special-id','Needle_100% exact','Question text','Download puzzle',0,'Team Quokka',0);
+ assert.equal((await admin('/api/admin/submissions?search=needle_100%25')).data.total,1);
+ for(const text of ['QUOKKA','special-id','Download puzzle','alice','Question text'])assert.ok((await admin('/api/admin/submissions?search='+encodeURIComponent(text))).data.total>0,text);
+ assert.equal((await admin('/api/admin/submissions?search=quokka&status=correct')).data.total,0);
+ assert.equal((await admin('/api/admin/submissions?search=quokka&status=incorrect')).data.total,1);
+ assert.equal((await admin('/api/admin/submissions?search='+encodeURIComponent("' OR 1=1 --"))).data.total,0);
+ assert.equal((await admin('/api/admin/submissions?search='+encodeURIComponent('x'.repeat(1001)))).status,400);
+ await a('/api/game',{id:'written',answer:'Written match sentinel',revision:0});const review=(await admin('/api/admin/review?status=all')).data.responses[0];await admin('/api/admin/review',{user:uid,challenge:'written',revision:review.revision,grade:50,feedback:'Specific feedback zircon'});
+ for(const text of ['zircon','written match','Partial credit','Written answer'])assert.equal((await admin('/api/admin/submissions?search='+encodeURIComponent(text))).data.total,1,text);
+}finally{s.sqlite.close();}});
+
+test('checkbox deletion resets each user/challenge atomically, removes all attempts, and permits resubmission',async()=>{const s=setup();try{
+ const admin=s.client(),a=s.client(),bob=s.client(),anon=s.client();await login(admin,'teacher');await login(a,'alice');await login(bob,'bob');const c={...s.challenges[0]},uid=s.sqlite.prepare("SELECT id FROM students WHERE username='alice'").get().id;
+ // Give the automatic challenge a reward to verify inventory reset as well as points.
+ s.challenges[0].rewards={keys:['red'],incantations:['Test phrase']};
+ await a('/api/game',{id:c.id,answer:'wrong'});await a('/api/game',{id:c.id,action:'hint',hintId:c.hints[0].id});await a('/api/game',{id:c.id,action:'discover'});await a('/api/game',{id:c.id,answer:c.flags[0]});await bob('/api/game',{id:c.id,answer:c.flags[0]});
+ await a('/api/game',{id:'written',answer:'My explanation',revision:0});let review=(await admin('/api/admin/review?status=all')).data.responses[0];await admin('/api/admin/review',{user:uid,challenge:'written',revision:review.revision,grade:70,feedback:'Reviewed'});
+ s.sqlite.prepare('INSERT INTO challenge_cutscenes(user,challenge,phase) VALUES(?,?,?)').run(uid,c.id,'solve');
+ let all=(await admin('/api/admin/submissions')).data.submissions;const automatic=all.find(r=>r.username==='alice'&&r.grading==='automatic'),manual=all.find(r=>r.username==='alice'&&r.grading==='manual');const token=r=>({id:r.id,revision:r.revision,submittedAt:r.submittedAt});
+ const request={action:'delete',submissions:[token(automatic),token(manual)]};assert.equal((await anon('/api/admin/submissions',request)).status,401);assert.equal((await a('/api/admin/submissions',request)).status,403);
+ assert.equal((await admin('/api/admin/submissions',{...request,submissions:[token(automatic),{...token(manual),revision:manual.revision-1}]})).status,409);assert.equal(s.sqlite.prepare('SELECT COUNT(*) AS n FROM answer_attempts WHERE user=?').get(uid).n,2);
+ // Concurrent grading after the read must abort the entire batch, including the automatic reset.
+ const batch=s.db.batch.bind(s.db);let raced=false;s.db.batch=async statements=>{if(!raced){raced=true;s.sqlite.prepare('UPDATE written_responses SET revision=revision+1 WHERE user=?').run(uid);}return batch(statements);};
+ assert.equal((await admin('/api/admin/submissions',request)).status,409);assert.equal(s.sqlite.prepare('SELECT COUNT(*) AS n FROM solved WHERE user=?').get(uid).n,2);s.db.batch=batch;
+ all=(await admin('/api/admin/submissions')).data.submissions;const fresh=all.filter(r=>r.username==='alice'&&r.grading==='manual')[0];request.submissions[1]=token(fresh);
+ const deleted=await admin('/api/admin/submissions',request);assert.equal(deleted.status,200);assert.equal(deleted.data.reset,2);
+ for(const table of ['answer_attempts','written_responses','solved','purchased_hints','earned_rewards','discovered_challenges','challenge_cutscenes'])assert.equal(s.sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE user=?`).get(uid).n,0,table);
+ assert.equal((await admin('/api/admin/submissions')).data.total,1);assert.equal((await bob('/api/game')).data.score,c.points);
+ const state=(await a('/api/game')).data;assert.equal(state.score,0);assert.deepEqual(state.inventory.keys,[]);assert.ok(!state.solved.includes(c.id));
+ assert.equal((await admin('/api/admin/submissions',request)).status,409);
+ assert.equal((await a('/api/game',{id:c.id,answer:c.flags[0]})).data.correct,true);assert.equal((await a('/api/game',{id:'written',answer:'New explanation',revision:0})).data.submitted,true);
+ assert.equal((await admin('/api/admin/submissions',{action:'delete',submissions:[]})).status,400);
+}finally{s.sqlite.close();}});

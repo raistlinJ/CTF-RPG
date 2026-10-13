@@ -238,3 +238,11 @@ In each challenge editor, choose **Map icon → Star** (the existing marker) or 
 Challenge YAML uses `icon: star` or `icon: boss` with `iconSize: 1`, `2`, or `3`. Omitted fields retain the original 1×1 star.
 
 The player sidebar lists only solved challenges. Discovered but unsolved challenges and pending written submissions are reached through Search nearby on the map. Solved stars and bosses remain on the map with a small green check; click the completed marker to see its name.
+
+### Search and delete submissions
+
+On **Challenges → Submissions**, **Search submissions** matches literal text (case insensitive for English text) across usernames, submission teams, challenge IDs/names, questions, answers, feedback, grading/status labels, grades, and timestamps. It searches the full collection, combines with the status dropdown, and paginates matching results. `%` and `_` are literal characters, not wildcards.
+
+Check individual submissions or **Select page**, then **Delete selected**. Selection clears when changing pages or filters. The confirmation names affected users/challenges. Deletion resets every selected user/challenge pair: all answer attempts (including unchecked attempts for that pair), written response/grade, completion/points, earned rewards, purchased hints, discovery, and cutscene history are removed. Team totals recalculate from remaining awards. Other users, other challenges, direct team point awards, and previously unlocked routes are preserved. Students can submit again; refresh their game if an old pending response or hint remains visible. Export a full backup beforehand if you need to retain deleted records.
+
+Admin REST: `GET /api/admin/submissions?status=all&search=literal-text&offset=0`; `POST /api/admin/submissions` with `{ "action": "delete", "submissions": [{ "id": "the-row-id", "revision": 0, "submittedAt": 1234567890 }] }`. Use row tokens from the GET response; at most 100 selections per request. Origin and admin access are enforced. A changed/deleted selection rejects the entire reset with HTTP 409.
