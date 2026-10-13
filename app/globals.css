@@ -2605,3 +2605,10 @@ input::placeholder {
 .dependency-entity-dialog { max-height: 88vh; overflow-y: auto; }
 .dependency-entity-dialog > label { display: grid; gap: .4rem; }
 .dependency-connection-list li { flex-wrap: wrap; gap: .8rem; }
+
+/* Completed challenge icons stay on the map; names appear only on activation. */
+.solved-challenge-layer { position:absolute; inset:0; pointer-events:none; }
+.solved-challenge-marker { position:absolute; pointer-events:auto; padding:0; border:0; border-radius:3px; background:transparent; cursor:pointer; }
+.solved-challenge-marker:hover { background:rgba(74,222,128,.12); }
+.solved-challenge-marker:focus-visible { outline:2px solid #4ade80; outline-offset:1px; }
+.solved-challenge-check { position:absolute; top:-3px; right:-3px; width:clamp(9px,1.35vw,14px); height:clamp(9px,1.35vw,14px); pointer-events:none; }

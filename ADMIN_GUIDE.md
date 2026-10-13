@@ -236,3 +236,5 @@ Challenge rewards are configured in **New discovery / Edit discovery → Rewards
 In each challenge editor, choose **Map icon → Star** (the existing marker) or **Boss**, then choose **Boss size → 1 × 1, 2 × 2, or 3 × 3 tiles**. The location is the top-left corner. All covered tiles must be reachable, usable, and free of other challenges, characters, doors, and transport. Players can search near any edge of the boss. Theme relocation respects the entire footprint; icons survive content exports and full backups.
 
 Challenge YAML uses `icon: star` or `icon: boss` with `iconSize: 1`, `2`, or `3`. Omitted fields retain the original 1×1 star.
+
+The player sidebar lists only solved challenges. Discovered but unsolved challenges and pending written submissions are reached through Search nearby on the map. Solved stars and bosses remain on the map with a small green check; click the completed marker to see its name.

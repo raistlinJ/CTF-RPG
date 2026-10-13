@@ -15,7 +15,7 @@ import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useRef, useState } from "react";
 import ScoresPanel from "./scoreboard/scores-panel";
 import TeamPointGifts from "./team-point-gifts";
-import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import NotificationsInbox from "./notifications-inbox";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
 import {
@@ -292,6 +292,8 @@ export function World({
   selfMarkers?: { teammate: boolean; crowned: boolean };
   unlockedTransports?: string[];
 }) {
+  const [selectedSolvedId, setSelectedSolvedId] = useState<string | null>(null);
+  const selectedSolved = challenges.find(q => q.id === selectedSolvedId && q.map === map && solved.includes(q.id));
   const ref = useRef<HTMLCanvasElement>(null);
   const drag = useRef<{ id: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -380,7 +382,7 @@ export function World({
       ctx.fillText(open ? "✓" : "•", p.x * t + 12, p.y * t + 18);
     }
     for (const q of challenges) {
-      if (q.map !== map || solved.includes(q.id)) continue;
+      if (q.map !== map) continue;
       const location = dragPreview?.id === q.id ? dragPreview : q.location;
       const a = location.x * t + 12,
         b = location.y * t + 12;
@@ -528,6 +530,16 @@ export function World({
               : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
           }
         />
+        {!onSelect && <div className="solved-challenge-layer" aria-label="Solved challenges on this map">
+          {challenges.filter(q => q.map === map && solved.includes(q.id)).map(q => (
+            <button key={q.id} type="button" className="solved-challenge-marker"
+              aria-label={`Show solved challenge name at ${q.location.x}, ${q.location.y}`}
+              aria-haspopup="dialog" onClick={() => setSelectedSolvedId(q.id)}
+              style={{left:`${q.location.x / 40 * 100}%`,top:`${q.location.y / 28 * 100}%`,width:`${challengeSize(q) / 40 * 100}%`,height:`${challengeSize(q) / 28 * 100}%`}}>
+              <svg className="solved-challenge-check" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#102c25"/><path d="M4 8l3 3 5-6" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+          ))}
+        </div>}
         {!onSelect && solveShines.map((shine) => (
           <div key={shine.key} className="challenge-solve-shine" role="status" aria-label="A challenge was solved" style={{ left: `${((shine.x + 0.5) / 40) * 100}%`, top: `${((shine.y + 0.5) / 28) * 100}%` }}>✦</div>
         ))}
@@ -616,6 +628,9 @@ export function World({
           </div>
         )}
       </div>
+      {!onSelect && <Dialog open={!!selectedSolved} onOpenChange={open => { if (!open) setSelectedSolvedId(null); }}>
+        <DialogContent className="challenge-dialog"><DialogHeader><DialogTitle>{selectedSolved?.object}</DialogTitle><DialogDescription>You have solved this challenge.</DialogDescription></DialogHeader></DialogContent>
+      </Dialog>}
       <div className="map-label">
         <span className="live-dot" /> {mapName(map).toUpperCase()}{" "}
         <span>{map === activeWorld.startMap ? "WORLD MAP" : "INTERIOR"}</span>
@@ -693,7 +708,6 @@ export default function Game() {
   const [audioBusy, setAudioBusy] = useState(false);
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
-  const [discovered, setDiscovered] = useState<string[]>([]);
   const [inventory, setInventory] = useState<Inventory>({keys:[],incantations:[]});
   const [unlockedTransports, setUnlockedTransports] = useState<string[]>([]);
   const [expeditionComplete, setExpeditionComplete] = useState(false);
@@ -780,9 +794,6 @@ export default function Game() {
     setExpeditionComplete(!!d.expeditionComplete);
     setChallenges(d.challenges);
     setSolved(d.solved);
-    setDiscovered((ids) =>
-      Array.from(new Set([...ids, ...(d.discovered || [])])),
-    );
     setScore(d.score);
     setActive((previous) =>
       previous ? d.challenges.find((c) => c.id === previous.id) || null : null,
@@ -1274,7 +1285,6 @@ export default function Game() {
                   setPlayerTile(null);
                   setReadMessagesAt(0);
                   setActive(null);
-                  setDiscovered([]);
                   setTeam(null);
                   setCanAdmin(false);
                   setPlace({
@@ -1557,7 +1567,7 @@ export default function Game() {
             {team && <TeamPointGifts team={team} />}
             <div className="journal">
               <div className="journal-title">
-                <h2>Treasure journal</h2>
+                <h2>Solved challenges</h2>
                 <span>{solved.length} solved</span>
               </div>
               <p>
@@ -1566,13 +1576,8 @@ export default function Game() {
                 Add a little magic to your journey.
               </p>
               {challenges
-                .filter(
-                  (q) =>
-                    solved.includes(q.id) ||
-                    q.submission ||
-                    discovered.includes(q.id),
-                )
-                .map((q, i) => (
+                .filter(q => solved.includes(q.id))
+                .map((q) => (
                   <div
                     className={
                       "journal-item " + (solved.includes(q.id) ? "found" : "")
@@ -1580,9 +1585,7 @@ export default function Game() {
                     key={q.id}
                   >
                     <span className="item-icon">
-                      {solved.includes(q.id)
-                        ? "✦"
-                        : String(i + 1).padStart(2, "0")}
+                      ✓
                     </span>
                     <div>
                       <b>{q.object}</b>
@@ -1597,7 +1600,7 @@ export default function Game() {
                       </button>
                     </div>
                     <span>
-                      {solved.includes(q.id) ? "✓" : `+${q.remainingPoints}`}
+                      ✓
                     </span>
                   </div>
                 ))}
