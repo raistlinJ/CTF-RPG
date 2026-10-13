@@ -513,7 +513,7 @@ export default function Admin() {
                     characters={themeCharacters}
                     map={draft.map}
                     pos={draft.location}
-                    challenges={catalog
+                    challenges={[...catalog.filter(c => c.id !== editingId), {...draft, flags: []}]
                       .filter((c) => c.map === draft.map)
                       .map((c) => ({
                         ...c,
