@@ -1,0 +1,438 @@
+[
+  {
+    "id": "ac-demo-v2-starter",
+    "map": "town",
+    "object": "Binary welcome",
+    "icon": "star",
+    "iconSize": 1,
+    "location": {
+      "x": 18,
+      "y": 19
+    },
+    "region": "Circuit Campus",
+    "text": "Binary 10 represents which decimal number? Answer with a number. Solve this to earn the red key for the Reasoning Core.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "2",
+      "two"
+    ],
+    "caseSensitive": false,
+    "points": 100,
+    "hints": [
+      {
+        "id": "starter-nudge",
+        "label": "Small nudge",
+        "text": "Binary place values from right to left begin 1, 2, 4, 8.",
+        "cost": 10,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "red"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ac-demo-v2-phrase",
+    "map": "town",
+    "object": "Prompt terminal",
+    "icon": "star",
+    "iconSize": 1,
+    "location": {
+      "x": 11,
+      "y": 19
+    },
+    "region": "Circuit Campus",
+    "text": "What do we call the instructions or question we give an AI model? Answer with one word. Your reward is an incantation for the shortcut at (16,21).",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "prompt",
+      "a prompt"
+    ],
+    "caseSensitive": false,
+    "points": 75,
+    "hints": [
+      {
+        "id": "phrase-nudge",
+        "text": "It starts with P.",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": [
+        "open circuit"
+      ]
+    }
+  },
+  {
+    "id": "ac-demo-v2-small-boss",
+    "map": "toy-workshop",
+    "object": "Tool Gremlin",
+    "icon": "boss",
+    "iconSize": 1,
+    "location": {
+      "x": 15,
+      "y": 15
+    },
+    "region": "Tool Workshop",
+    "text": "An agent calls a calculator to multiply numbers. Is the calculator a tool or a memory?",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ac-demo-v2-starter"
+    ],
+    "flags": [
+      "tool",
+      "a tool"
+    ],
+    "caseSensitive": false,
+    "points": 125,
+    "hints": [
+      {
+        "id": "small-nudge",
+        "text": "The calculator performs an action for the agent.",
+        "cost": 10,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "gold"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ac-demo-v2-bonus",
+    "map": "bakery",
+    "object": "Evaluation counter",
+    "icon": "star",
+    "iconSize": 1,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Evaluation Lab",
+    "text": "A test has 10 checks. An agent passes 8. How many checks passed?",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "8",
+      "eight"
+    ],
+    "caseSensitive": false,
+    "points": 50,
+    "hints": [
+      {
+        "id": "bonus-free",
+        "label": "Free nudge",
+        "text": "Read the number of checks passed in the question.",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      },
+      {
+        "id": "bonus-answer",
+        "label": "Reveal answer (gives up bonus key)",
+        "text": "The answer is 8.",
+        "cost": 5,
+        "rewardCost": {
+          "keys": [
+            "green"
+          ],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "green"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ac-demo-v2-memory",
+    "map": "cocoa-cottage",
+    "object": "Memory cache",
+    "icon": "star",
+    "iconSize": 1,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Memory Lab",
+    "text": "What is the usual word for stored information an agent can use later? Answer with one word.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "memory"
+    ],
+    "caseSensitive": false,
+    "points": 75,
+    "hints": [
+      {
+        "id": "memory-nudge",
+        "text": "It starts with M.",
+        "cost": 5,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ac-demo-v2-file",
+    "map": "post-office",
+    "object": "API trace",
+    "icon": "star",
+    "iconSize": 1,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "API Gateway",
+    "text": "Download the tiny tool trace. Copy its completion flag exactly, including capital letters and braces.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "FLAG{TOOLS}"
+    ],
+    "caseSensitive": true,
+    "points": 100,
+    "hints": [
+      {
+        "id": "file-nudge",
+        "text": "Find the line beginning with FLAG{ and copy it exactly.",
+        "cost": 10,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [
+      {
+        "name": "Tool trace",
+        "url": "/downloads/agentic-demo-trace.txt",
+        "filename": "agentic-demo-trace.txt"
+      }
+    ],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ac-demo-v2-medium-boss",
+    "map": "elf-house",
+    "object": "Guardrail Guardian",
+    "icon": "boss",
+    "iconSize": 2,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Safety Lab",
+    "text": "An agent wants to delete an important file. What should it request from a human first: approval or silence?",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ac-demo-v2-small-boss",
+      "ac-demo-v2-phrase"
+    ],
+    "flags": [
+      "approval",
+      "human approval"
+    ],
+    "caseSensitive": false,
+    "points": 150,
+    "hints": [
+      {
+        "id": "medium-nudge",
+        "text": "A human should be able to approve an important action.",
+        "cost": 15,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "purple"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ac-demo-v2-final-boss",
+    "map": "castle",
+    "object": "Runaway Reasoning Core",
+    "icon": "boss",
+    "iconSize": 3,
+    "location": {
+      "x": 19,
+      "y": 10
+    },
+    "region": "Reasoning Core",
+    "text": "Complete the loop: plan → act → observe → ____. Which step comes next?",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ac-demo-v2-medium-boss",
+      "ac-demo-v2-file"
+    ],
+    "flags": [
+      "plan",
+      "planning"
+    ],
+    "caseSensitive": false,
+    "points": 200,
+    "hints": [
+      {
+        "id": "final-nudge",
+        "text": "The loop starts again using what the agent observed.",
+        "cost": 20,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "silver"
+      ],
+      "incantations": [
+        "reasoning restored"
+      ]
+    }
+  },
+  {
+    "id": "ac-demo-v2-reflection",
+    "map": "castle",
+    "object": "Instructor reflection",
+    "icon": "star",
+    "iconSize": 1,
+    "location": {
+      "x": 25,
+      "y": 18
+    },
+    "region": "Reasoning Core",
+    "text": "In one sentence, explain why an agent should check a tool’s result before choosing its next action. Your instructor will grade this written answer.",
+    "grading": "manual",
+    "visibility": "visible",
+    "dependsOn": [
+      "ac-demo-v2-final-boss"
+    ],
+    "flags": [],
+    "caseSensitive": false,
+    "points": 50,
+    "hints": [
+      {
+        "id": "reflection-guide",
+        "text": "Describe the steps you took or explain what you checked. There is no single exact answer.",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ac-demo-v2-hidden-example",
+    "map": "town",
+    "object": "Hidden practice terminal",
+    "icon": "star",
+    "iconSize": 1,
+    "location": {
+      "x": 29,
+      "y": 8
+    },
+    "region": "Circuit Campus",
+    "text": "Optional instructor example: how many bits are in one byte?",
+    "grading": "automatic",
+    "visibility": "hidden",
+    "dependsOn": [],
+    "flags": [
+      "8",
+      "eight"
+    ],
+    "caseSensitive": false,
+    "points": 25,
+    "hints": [],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  }
+]

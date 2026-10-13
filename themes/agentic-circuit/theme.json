@@ -2,7 +2,7 @@
   "format": "quest-theme",
   "version": 1,
   "title": "Agentic Circuit",
-  "description": "Agentic AI \u00b7 digital assessment campus",
+  "description": "Explore Circuit Campus and its six labs. Includes guide dialogue and a separate beginner demo with boss encounters, rewards, and locked routes.",
   "world": {
     "startMap": "town",
     "renderer": "tiles",
@@ -239,7 +239,60 @@
         "color": "#146983"
       }
     ],
-    "trees": []
+    "trees": [],
+    "entities": [
+      {
+        "id": "ac-demo-v2-guide",
+        "name": "Campus Guide",
+        "characterId": "web",
+        "map": "town",
+        "location": {
+          "x": 18,
+          "y": 17
+        },
+        "startNode": "welcome",
+        "nodes": [
+          {
+            "id": "welcome",
+            "text": "In the optional demo adventure: Welcome to Circuit Campus! These practice questions are intentionally simple. Search near the starter at (18,19) for the red key. Visit the Tool Workshop for the gold key, then the Safety Lab, and finish in the Reasoning Core.",
+            "choices": [
+              {
+                "id": "route",
+                "label": "How do rewards work?",
+                "to": "route"
+              },
+              {
+                "id": "grading",
+                "label": "How do I submit answers?",
+                "to": "grading"
+              }
+            ]
+          },
+          {
+            "id": "route",
+            "text": "In the optional demo adventure: Correct answers can award colored keys and incantations. A red key opens the castle/core; a gold key opens the elf house/safety lab. The compass/prompt challenge gives the incantation for the shortcut at (16,21). Keys and incantations are personal. Point totals contribute to your team.",
+            "choices": [
+              {
+                "id": "back",
+                "label": "Back",
+                "to": "welcome"
+              }
+            ]
+          },
+          {
+            "id": "grading",
+            "text": "In the optional demo adventure: Walk near a star or boss and Search nearby. Short answers are checked automatically. The reflection after the final boss is instructor graded. Hints may cost points; one optional hint also gives up a bonus green key. Bosses unlock after their prerequisites are solved.",
+            "choices": [
+              {
+                "id": "back",
+                "label": "Back",
+                "to": "welcome"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   "characters": [
     {
@@ -267,7 +320,17 @@
   "audio": {
     "midi": "/themes/agentic-circuit/audio/circuit.mid",
     "loop": true,
-    "volume": 0.08
+    "volume": 0.08,
+    "playlist": [
+      {
+        "name": "Circuit Campus",
+        "midi": "/themes/agentic-circuit/audio/circuit.mid"
+      },
+      {
+        "name": "Reflection Loop",
+        "midi": "/themes/agentic-circuit/audio/reflection.mid"
+      }
+    ]
   },
   "badge": "cpu"
 }

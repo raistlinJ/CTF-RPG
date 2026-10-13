@@ -218,3 +218,7 @@ spawn:
 ```
 
 Map IDs match the active theme; tile coordinates are zero-based on the 40 × 28 grid. Omit `spawn` or use `spawn: null` for the theme’s default. Admin edits take precedence over YAML for managed accounts.
+
+## Included demo adventures
+
+Both **North Pole** and **Agentic Circuit** are available in the admin Theme library. Each has **Use this theme** for artwork/world only, plus **Load demo adventure** for a confirmed paired import of world and ten practice challenges. Demo worlds demonstrate locked transport, NPC dialogue/progression, boss footprints, key and incantation rewards, hint reward costs, and shuffled two-track audio. Companion content is exported separately and never included in the theme ZIP. See [North Pole](themes/north-pole/README.md) and [Agentic Circuit](themes/agentic-circuit/README.md) for the route and portable pack names. `npm run themes:build` validates and rebuilds all six packs and the generated runtime content JSON; app builds run it automatically.

@@ -26,6 +26,8 @@ type State = {
     title: string;
     description: string;
     preview: string;
+    locations: string[];
+    demoCount: number;
   }[];
 };
 type Placement = {
@@ -106,13 +108,13 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
       }
     }
   }
-  async function preparePreset(id: string) {
+  async function preparePreset(id: string, demo = false) {
     setPreparingPreset(id);
     setBusy(true);
     setError("");
     try {
       const r = await fetch(
-        "/api/admin/packs?kind=theme&preset=" + encodeURIComponent(id),
+        "/api/admin/packs?kind=theme&preset=" + encodeURIComponent(id) + (demo ? "&demo=true" : ""),
       );
       if (!r.ok) {
         const d = (await r.json()) as { error?: string };
@@ -121,7 +123,11 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
       setTheme(
         new File([await r.blob()], id + ".zip", { type: "application/zip" }),
       );
-      setPaired(null);
+      if (demo) {
+        const contentResponse = await fetch("/api/admin/packs?kind=content&preset=" + encodeURIComponent(id));
+        if (!contentResponse.ok) throw Error("Could not load demo challenges.");
+        setPaired(new File([await contentResponse.blob()], id + "-demo-content.zip", {type:"application/zip"}));
+      } else setPaired(null);
       setOverflow(null);
       setPending("theme");
     } catch (e) {
@@ -197,12 +203,11 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
               <section className="preset-card" key={p.id}>
                 <img src={p.preview} alt={p.title + " world preview"} />
                 <div>
-                  <span className="eyebrow">COURSE THEME</span>
+                  <span className="eyebrow">ADVENTURE THEME</span>
                   <h2>{p.title}</h2>
                   <p>{p.description}</p>
                   <p>
-                    Reasoning Core · Tool Workshop · Memory Lab · API Gateway ·
-                    Evaluation Lab · Safety Lab
+                    {p.locations.join(" · ")}
                   </p>
                   <div className="admin-actions">
                     <button
@@ -221,6 +226,13 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
                       Download theme ZIP
                     </a>
                   </div>
+                  <div className="admin-actions">
+                    <button className="secondary-button" disabled={busy} onClick={() => void preparePreset(p.id, true)}>Load demo adventure</button>
+                    <a className="secondary-button" href={"/api/admin/packs?kind=theme&preset=" + p.id + "&demo=true"}>Demo theme ZIP</a>
+                    <a className="secondary-button" href={"/api/admin/packs?kind=content&preset=" + p.id}>Demo content ZIP</a>
+                  </div>
+                  <p><strong>{p.demoCount} beginner examples</strong> · 1×1, 2×2, and 3×3 bosses · keys and incantations · locked routes · hints and files · instructor reflection. One example starts hidden.</p>
+                  <small>Load demo adventure replaces the world and challenges together after confirmation. Accounts and recorded scores stay saved. Use this theme changes only the world.</small>
                   {preparingPreset === p.id && (
                     <p role="status">
                       Loading the theme. A confirmation will appear when it is

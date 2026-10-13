@@ -1,0 +1,296 @@
+# CTF-RPG — Copyright Jaime C Acosta 2026
+# Beginner practice adventure; imports replace the active challenge collection.
+# Companion demo-theme.json includes the matching locks, shortcut, and dialogue.
+challenges:
+  - id: np-demo-v2-starter
+    map: town
+    location:
+      x: 18
+      y: 19
+    object: Elf’s packing list
+    region: The North Pole
+    text: An elf packs 6 boxes with 4 gifts in each. How many gifts are there? Solve
+      this to earn the red key for Santa’s castle.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - "24"
+      - twenty four
+      - twenty-four
+    caseSensitive: false
+    points: 100
+    hints:
+      - id: starter-nudge
+        label: Small nudge
+        text: Multiply 6 by 4.
+        cost: 10
+    downloads:
+      - name: Elf’s packing list
+        url: /downloads/packing-list.txt
+        filename: packing-list.txt
+    dependsOn: []
+    rewards:
+      keys:
+        - red
+      incantations: []
+  - id: np-demo-v2-phrase
+    map: town
+    location:
+      x: 11
+      y: 19
+    object: Silver compass
+    region: The North Pole
+    text: Which direction is opposite to north? Your reward is an incantation for
+      the shortcut at (16,21).
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - south
+      - s
+    caseSensitive: false
+    points: 75
+    hints:
+      - id: phrase-nudge
+        text: Think of north, east, south, west.
+        cost: 0
+    downloads: []
+    dependsOn: []
+    rewards:
+      keys: []
+      incantations:
+        - jingle bells
+  - id: np-demo-v2-small-boss
+    map: toy-workshop
+    location:
+      x: 15
+      y: 15
+    object: Toy Gremlin
+    region: Toy Workshop
+    text: An elf wraps 5 gifts each hour. How many gifts can the elf wrap in 3 hours?
+    grading: automatic
+    visibility: visible
+    icon: boss
+    iconSize: 1
+    flags:
+      - "15"
+      - fifteen
+    caseSensitive: false
+    points: 125
+    hints:
+      - id: small-nudge
+        text: Multiply 5 by 3.
+        cost: 10
+    downloads: []
+    dependsOn:
+      - np-demo-v2-starter
+    rewards:
+      keys:
+        - gold
+      incantations: []
+  - id: np-demo-v2-bonus
+    map: bakery
+    location:
+      x: 20
+      y: 12
+    object: Cookie counter
+    region: Gingerbread Bakery
+    text: The baker has 3 star cookies and 5 snowflake cookies. How many cookies are
+      there altogether?
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - "8"
+      - eight
+    caseSensitive: false
+    points: 50
+    hints:
+      - id: bonus-free
+        label: Free nudge
+        text: Add the two cookie groups.
+        cost: 0
+      - id: bonus-answer
+        label: Reveal answer (gives up bonus key)
+        text: The answer is 8.
+        cost: 5
+        rewardCost:
+          keys:
+            - green
+          incantations: []
+    downloads: []
+    dependsOn: []
+    rewards:
+      keys:
+        - green
+      incantations: []
+  - id: np-demo-v2-memory
+    map: cocoa-cottage
+    location:
+      x: 20
+      y: 12
+    object: Cocoa shelf
+    region: Cocoa Cottage
+    text: There are 4 mugs of cocoa and 2 more arrive. How many mugs are there now?
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - "6"
+      - six
+    caseSensitive: false
+    points: 75
+    hints:
+      - id: memory-nudge
+        text: Add 4 and 2.
+        cost: 5
+    downloads: []
+    dependsOn: []
+    rewards:
+      keys: []
+      incantations: []
+  - id: np-demo-v2-file
+    map: post-office
+    location:
+      x: 20
+      y: 12
+    object: Sleigh dispatch
+    region: North Pole Post Office
+    text: Download the sleigh dispatch note. Copy its delivery flag exactly,
+      including capital letters and braces.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{SLEIGH}
+    caseSensitive: true
+    points: 100
+    hints:
+      - id: file-nudge
+        text: Find the line beginning with FLAG{ and copy it exactly.
+        cost: 10
+    downloads:
+      - name: Sleigh dispatch note
+        url: /downloads/north-pole-demo-note.txt
+        filename: north-pole-demo-note.txt
+    dependsOn: []
+    rewards:
+      keys: []
+      incantations: []
+  - id: np-demo-v2-medium-boss
+    map: elf-house
+    location:
+      x: 20
+      y: 12
+    object: Snow Guardian
+    region: Evergreen Elf House
+    text: "What is the next number in the sequence: 3, 6, 9, 12, ...?"
+    grading: automatic
+    visibility: visible
+    icon: boss
+    iconSize: 2
+    flags:
+      - "15"
+      - fifteen
+    caseSensitive: false
+    points: 150
+    hints:
+      - id: medium-nudge
+        text: Add 3 to the last number.
+        cost: 15
+    downloads: []
+    dependsOn:
+      - np-demo-v2-small-boss
+      - np-demo-v2-phrase
+    rewards:
+      keys:
+        - purple
+      incantations: []
+  - id: np-demo-v2-final-boss
+    map: castle
+    location:
+      x: 19
+      y: 10
+    object: Frost Dragon
+    region: Santa’s Christmas Castle
+    text: Santa’s sleigh travels 10 kilometers each minute. How many kilometers will
+      it travel in 3 minutes?
+    grading: automatic
+    visibility: visible
+    icon: boss
+    iconSize: 3
+    flags:
+      - "30"
+      - thirty
+    caseSensitive: false
+    points: 200
+    hints:
+      - id: final-nudge
+        text: Multiply 10 by 3.
+        cost: 20
+    downloads: []
+    dependsOn:
+      - np-demo-v2-medium-boss
+      - np-demo-v2-file
+    rewards:
+      keys:
+        - silver
+      incantations:
+        - sleigh restored
+  - id: np-demo-v2-reflection
+    map: castle
+    location:
+      x: 25
+      y: 18
+    object: Santa’s reflection
+    region: Santa’s Christmas Castle
+    text: In one sentence, describe how you solved one of today’s puzzles. Your
+      instructor will grade this written answer.
+    grading: manual
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags: []
+    caseSensitive: false
+    points: 50
+    hints:
+      - id: reflection-guide
+        text: Describe the steps you took or explain what you checked. There is no
+          single exact answer.
+        cost: 0
+    downloads: []
+    dependsOn:
+      - np-demo-v2-final-boss
+    rewards:
+      keys: []
+      incantations: []
+  - id: np-demo-v2-hidden-example
+    map: town
+    location:
+      x: 29
+      y: 8
+    object: Hidden northern star
+    region: The North Pole
+    text: "Optional instructor example: water freezes at what temperature in degrees
+      Celsius?"
+    grading: automatic
+    visibility: hidden
+    icon: star
+    iconSize: 1
+    flags:
+      - "0"
+      - zero
+    caseSensitive: false
+    points: 25
+    hints: []
+    downloads: []
+    dependsOn: []
+    rewards:
+      keys: []
+      incantations: []

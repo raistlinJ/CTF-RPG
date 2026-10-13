@@ -3,7 +3,7 @@
   "version": 1,
   "title": "North Pole Quest",
   "badge": "snowflake",
-  "description": "The winter expedition",
+  "description": "Explore the winter town, Santa’s castle, and six cozy interiors. Includes guide dialogue and a separate beginner demo with boss encounters, rewards, and locked routes.",
   "world": {
     "startMap": "town",
     "renderer": "tiles",
@@ -671,6 +671,59 @@
         24,
         8
       ]
+    ],
+    "entities": [
+      {
+        "id": "np-demo-v2-guide",
+        "name": "Elf Guide",
+        "characterId": "web",
+        "map": "town",
+        "location": {
+          "x": 18,
+          "y": 17
+        },
+        "startNode": "welcome",
+        "nodes": [
+          {
+            "id": "welcome",
+            "text": "In the optional demo adventure: Welcome to the North Pole! These practice questions are intentionally simple. Search near the packing list at (18,19) for the red key. Visit the Toy Workshop for the gold key, then the Elf House, and finish in Santa’s castle.",
+            "choices": [
+              {
+                "id": "route",
+                "label": "How do rewards work?",
+                "to": "route"
+              },
+              {
+                "id": "grading",
+                "label": "How do I submit answers?",
+                "to": "grading"
+              }
+            ]
+          },
+          {
+            "id": "route",
+            "text": "In the optional demo adventure: Correct answers can award colored keys and incantations. A red key opens the castle/core; a gold key opens the elf house/safety lab. The compass/prompt challenge gives the incantation for the shortcut at (16,21). Keys and incantations are personal. Point totals contribute to your team.",
+            "choices": [
+              {
+                "id": "back",
+                "label": "Back",
+                "to": "welcome"
+              }
+            ]
+          },
+          {
+            "id": "grading",
+            "text": "In the optional demo adventure: Walk near a star or boss and Search nearby. Short answers are checked automatically. The reflection after the final boss is instructor graded. Hints may cost points; one optional hint also gives up a bonus green key. Bosses unlock after their prerequisites are solved.",
+            "choices": [
+              {
+                "id": "back",
+                "label": "Back",
+                "to": "welcome"
+              }
+            ]
+          }
+        ]
+      }
     ]
   },
   "characters": [
@@ -699,6 +752,16 @@
   "audio": {
     "midi": "/audio/north-pole.mid",
     "loop": true,
-    "volume": 0.15
+    "volume": 0.15,
+    "playlist": [
+      {
+        "name": "North Pole",
+        "midi": "/audio/north-pole.mid"
+      },
+      {
+        "name": "Workshop Waltz",
+        "midi": "/audio/workshop.mid"
+      }
+    ]
   }
 }

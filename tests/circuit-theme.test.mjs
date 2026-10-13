@@ -91,6 +91,6 @@ test("course preset downloads are admin-only and contain no challenges, accounts
   );
   assert.ok(!entries["content.yaml"]);
   assert.ok(!entries["backup.json"]);
-  assert.equal(Object.keys(entries).length, 8);
+  assert.equal(Object.keys(entries).length, themeAssetPaths(themePresets[0].theme).length + 1);
   sqlite.close();
 });

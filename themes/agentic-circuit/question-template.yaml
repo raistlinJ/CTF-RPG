@@ -1,3 +1,4 @@
+# For a playable beginner example, see demo-challenges.yaml and its paired demo theme.
 # Authoring examples only. Replace text/flags and IDs before using an actual test.
 # Wrap/import these entries in a quest-content manifest or copy into your challenge YAML.
 challenges:

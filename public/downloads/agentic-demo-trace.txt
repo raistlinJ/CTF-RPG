@@ -1,0 +1,5 @@
+CTF-RPG practice tool trace — Jaime C Acosta 2026
+Step 1: plan a calculation
+Step 2: calculator tool computes 2 + 2 = 4
+Step 3: observe and check the result
+Completion flag: FLAG{TOOLS}

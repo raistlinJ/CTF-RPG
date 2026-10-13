@@ -18,7 +18,8 @@
     "postbuild:selfhost": "node scripts/make-recreation-kit.mjs",
     "prebuild": "npm run build:selfhost",
     "restore": "node server/restore.mjs",
-    "themes:build": "node scripts/build-theme-packs.mjs"
+    "themes:build": "node scripts/build-theme-packs.mjs",
+    "prebuild:selfhost": "npm run themes:build"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

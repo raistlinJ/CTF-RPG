@@ -347,12 +347,12 @@ function createRequestApi({
           preset = presetId
             ? themePresets.find((p) => p.id === presetId)
             : null;
-        if (presetId && (!preset || kind !== "theme" || method !== "GET"))
+        if (presetId && (!preset || method !== "GET"))
           return json({ error: "Unknown theme preset." }, 400);
         if (method === "GET")
           return await exportPack(
             kind,
-            { theme: preset?.theme || theme, challenges: current.challenges },
+            { theme: preset ? (new URL(req.url).searchParams.get("demo") === "true" ? preset.demoTheme : preset.theme) : theme, challenges: preset?.challenges || current.challenges },
             assetStore,
             readBaseAsset,
           );
