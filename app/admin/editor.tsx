@@ -131,7 +131,8 @@ export default function Admin() {
   ];
   const [challengeQuery, setChallengeQuery] = useState("");
   const [useRegex, setUseRegex] = useState(false);
-  const [searchAllMaps, setSearchAllMaps] = useState(false);
+  const [listMap, setListMap] = useState("all");
+  const [studioView, setStudioView] = useState<"list" | "editor">("list");
   const [uploadingVideo, setUploadingVideo] = useState<"discoveryVideo" | "solveVideo" | null>(null);
   const placementWorld = createWorld(activeWorld);
   let filterError = "";
@@ -140,7 +141,7 @@ export default function Admin() {
     try { pattern = new RegExp(challengeQuery, "i"); }
     catch { filterError = "Invalid regular expression. Check the pattern or use string matching."; }
   }
-  const scopedChallenges = catalog.filter(c => searchAllMaps || c.map === draft?.map);
+  const scopedChallenges = catalog.filter(c => listMap === "all" || c.map === listMap);
   const matchingChallenges = filterError ? [] : scopedChallenges.filter(c => {
     const fields = [c.id, c.object, c.text, c.region, c.map, mapName(c.map)];
     return !challengeQuery || fields.some(value => pattern ? pattern.test(value) : value.toLocaleLowerCase().includes(challengeQuery.toLocaleLowerCase()));
@@ -190,6 +191,7 @@ export default function Admin() {
     setThemeCharacters(d.theme.characters);
     setAccess("ready");
     if (preserveDraft) return;
+    if (!keepSelection && new URLSearchParams(window.location.search).has("map")) setStudioView("editor");
     const selected = keepSelection
       ? d.challenges.find((c) => c.id === editingId)
       : undefined;
@@ -261,8 +263,10 @@ export default function Admin() {
     }
   }
   function newChallenge() {
-    if (canDiscard())
+    if (canDiscard()) {
       choose(fresh(draft?.map, draft?.location.x, draft?.location.y));
+      setStudioView("editor");
+    }
   }
   function selectTile(x: number, y: number) {
     if (!draft || busy || uploadingVideo) return;
@@ -274,8 +278,9 @@ export default function Admin() {
     } else patch({ location: { x, y } });
   }
   function selectExisting(c: Definition) {
-    if (c.id === editingId) return;
-    if (canDiscard()) choose(toDraft(c), c.id);
+    if (!canDiscard()) return;
+    choose(toDraft(c), c.id);
+    setStudioView("editor");
   }
   async function moveChallenge(map: string, location?: { x: number; y: number }) {
     if (!draft || !editingId || busy || uploadingVideo) return;
@@ -430,10 +435,9 @@ export default function Admin() {
             <div className="admin-heading">
               <div>
                 <span className="eyebrow">BUILD THE TREASURE HUNT</span>
-                <h1>Challenge studio</h1>
+                <h1>{studioView === "list" ? "All challenges" : "Discovery editor"}</h1>
                 <p>
-                  Choose a map, click a tile, and give your discovery a
-                  challenge.
+                  {studioView === "list" ? "Browse and filter your challenge collection. Select a challenge to edit it." : "Choose a map, click a tile, and edit this discovery’s challenge."}
                 </p>
               </div>
               <div className="admin-actions">
@@ -463,7 +467,57 @@ export default function Admin() {
                 <ChallengeVisibilityControls />
               </div>
             </div>
-            <div className="admin-columns">
+            <nav className="challenge-view-nav" aria-label="Challenge studio views">
+              <button type="button" className="secondary-button" aria-pressed={studioView === "list"} disabled={busy || !!uploadingVideo} onClick={() => {
+                if (!canDiscard()) return;
+                const saved = catalog.find(c => c.id === editingId);
+                if (saved) choose(toDraft(saved), saved.id); else choose(fresh(draft.map, draft.location.x, draft.location.y));
+                setStudioView("list");
+              }}>All challenges</button>
+              <button type="button" className="secondary-button" aria-pressed={studioView === "editor"} disabled={busy || !!uploadingVideo} onClick={() => setStudioView("editor")}>Edit discovery</button>
+            </nav>
+            {studioView === "list" ? <section className="challenge-collection-view">
+                  <div className="admin-list-heading">
+                    <h2>Challenge collection</h2>
+                    <span>
+                      {matchingChallenges.length} of {scopedChallenges.length} {listMap === "all" ? "across all maps" : "on this map"}
+                    </span>
+                  </div>
+                  <div className="challenge-list-filter">
+                    <label className="challenge-search-label">
+                      Filter challenges
+                      <input type="search" aria-label="Filter challenges" value={challengeQuery} maxLength={200} placeholder="Name, ID, text, location or map…" onChange={e => setChallengeQuery(e.target.value)} aria-invalid={!!filterError} aria-describedby="challenge-filter-help" />
+                    </label>
+                    <div className="challenge-filter-options">
+                      <label><input type="checkbox" checked={useRegex} onChange={e => setUseRegex(e.target.checked)} />Regular expression</label>
+                      <label>Map <select aria-label="Filter challenges by map" value={listMap} onChange={e => setListMap(e.target.value)}><option value="all">All maps</option>{MAP_IDS.map(map => <option key={map} value={map}>{mapName(map)}</option>)}</select></label>
+                      {challengeQuery && <button type="button" className="text-button" onClick={() => setChallengeQuery("")}>Clear</button>}
+                    </div>
+                    <small id="challenge-filter-help">Case-insensitive matching. Regex example: compass|lantern</small>
+                    {filterError && <p className="error" role="alert">{filterError}</p>}
+                  </div>
+                  <div className="admin-challenge-list">
+                    {matchingChallenges.map((c) => (
+                        <button
+                          className={c.id === editingId ? "active" : ""}
+                          key={c.id}
+                          onClick={() => selectExisting(c)}
+                        >
+                          <span>✦</span>
+                          <div>
+                            <b>{c.object}</b>
+                            <small>
+                              {c.region} · {c.location.x}, {c.location.y} · {c.visibility === "hidden" ? "Hidden" : "Visible"}
+                            </small>
+                          </div>
+                          <strong>{c.points} pts</strong>
+                        </button>
+                      ))}
+                    {!filterError && !matchingChallenges.length && (
+                      <p>{scopedChallenges.length ? "No challenges match this filter." : "No challenges here yet. Choose New challenge to add one."}</p>
+                    )}
+                  </div>
+            </section> : <div className="admin-columns">
               <div className="admin-map-panel">
                 <div className="admin-map-toolbar">
                   <label>
@@ -550,46 +604,6 @@ export default function Admin() {
                   <p className="admin-map-help">
                     Select a star, then drag it or use Move to…; moves save immediately. Gray tiles are unavailable. Other draft edits use Save challenge.
                   </p>
-                  <div className="admin-list-heading">
-                    <h2>Saved discoveries</h2>
-                    <span>
-                      {matchingChallenges.length} of {scopedChallenges.length} {searchAllMaps ? "across all maps" : "on this map"}
-                    </span>
-                  </div>
-                  <div className="challenge-list-filter">
-                    <label className="challenge-search-label">
-                      Filter challenges
-                      <input type="search" aria-label="Filter challenges" value={challengeQuery} maxLength={200} placeholder="Name, ID, text, location or map…" onChange={e => setChallengeQuery(e.target.value)} aria-invalid={!!filterError} aria-describedby="challenge-filter-help" />
-                    </label>
-                    <div className="challenge-filter-options">
-                      <label><input type="checkbox" checked={useRegex} onChange={e => setUseRegex(e.target.checked)} />Regular expression</label>
-                      <label><input type="checkbox" checked={searchAllMaps} onChange={e => setSearchAllMaps(e.target.checked)} />All maps</label>
-                      {challengeQuery && <button type="button" className="text-button" onClick={() => setChallengeQuery("")}>Clear</button>}
-                    </div>
-                    <small id="challenge-filter-help">Case-insensitive matching. Regex example: compass|lantern</small>
-                    {filterError && <p className="error" role="alert">{filterError}</p>}
-                  </div>
-                  <div className="admin-challenge-list">
-                    {matchingChallenges.map((c) => (
-                        <button
-                          className={c.id === editingId ? "active" : ""}
-                          key={c.id}
-                          onClick={() => selectExisting(c)}
-                        >
-                          <span>✦</span>
-                          <div>
-                            <b>{c.object}</b>
-                            <small>
-                              {c.region} · {c.location.x}, {c.location.y} · {c.visibility === "hidden" ? "Hidden" : "Visible"}
-                            </small>
-                          </div>
-                          <strong>{c.points} pts</strong>
-                        </button>
-                      ))}
-                    {!filterError && !matchingChallenges.length && (
-                      <p>{scopedChallenges.length ? "No challenges match this filter." : "No challenges here yet. Pick a tile to add the first."}</p>
-                    )}
-                  </div>
                 </div>
               </div>
               <form className="admin-editor" onSubmit={save} onInvalidCapture={e => {
@@ -1085,7 +1099,7 @@ export default function Admin() {
                   <small>Saving keeps previously earned student points.</small>
                 </div>
               </form>
-            </div>
+            </div>}
           </section>
         )
       )}

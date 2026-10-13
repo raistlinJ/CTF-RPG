@@ -2623,3 +2623,9 @@ input::placeholder {
 .submission-select-row > button > div { min-width:0; }
 .submission-select-row b,.submission-select-row small { display:block; overflow-wrap:anywhere; }
 .submission-reset-targets { max-height:180px; overflow:auto; font-size:13px; }
+
+.challenge-view-nav { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 20px; }
+.challenge-view-nav button[aria-pressed="true"] { color:#e8f7f0; background:#284c49; border-color:#a3e7ca; }
+.challenge-collection-view { padding:20px; border:1px solid #304652; border-radius:10px; background:#132a36; }
+.challenge-collection-view .admin-challenge-list { max-height:none; }
+.challenge-collection-view .challenge-filter-options select { width:auto; max-width:100%; }
