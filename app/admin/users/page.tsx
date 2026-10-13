@@ -46,11 +46,13 @@ type Draft = Pick<
   "username" | "hero" | "spawn" | "role" | "disabled" | "muted" | "revision"
 > & { password: string };
 type BulkAction = "disable" | "delete" | "mute" | "remove-team";
+type Registration = { allowRegistration: boolean; revision: number };
 const actionNames: Record<BulkAction, string> = { disable: "Disable", delete: "Delete", mute: "Mute chat", "remove-team": "Remove from team" };
 export default function UsersPage() {
   const [users, setUsers] = useState<Account[]>([]),
     [characters, setCharacters] = useState<Character[]>([]),
     [viewer, setViewer] = useState<string | null>(null),
+    [registration, setRegistration] = useState<Registration | null>(null),
     [draft, setDraft] = useState<Draft | null>(null),
     [editing, setEditing] = useState(false),
     [loading, setLoading] = useState(true),
@@ -73,6 +75,7 @@ export default function UsersPage() {
         viewer: string | null;
         theme: Theme;
         themeRevision: number;
+        registration: Registration;
         error?: string;
       };
       if (!r.ok) {
@@ -86,6 +89,7 @@ export default function UsersPage() {
       setSelectedUsers((selected) => selected.filter(name => d.users.some(a => a.username === name)));
       setCharacters(d.characters);
       setViewer(d.viewer);
+      setRegistration(d.registration);
       setAllowed(true);
       setError("");
     } catch (e) {
@@ -166,6 +170,28 @@ export default function UsersPage() {
       setBusy(false);
     }
   }
+  async function saveRegistration(e: React.FormEvent) {
+    e.preventDefault();
+    if (!registration || busy) return;
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const r = await fetch("/api/admin/registration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(registration),
+      });
+      const d = (await r.json()) as Registration & { error?: string };
+      if (!r.ok) throw Error(d.error || "Could not save registration settings.");
+      setRegistration(d);
+      setMessage("Registration setting saved.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const filteredUsers = users.filter(a => `${a.username} ${a.team?.name || ""}`.toLowerCase().includes(query.toLowerCase().trim()));
   const selected = users.filter(a => selectedUsers.includes(a.username));
   const allShownSelected = filteredUsers.length > 0 && filteredUsers.every(a => selectedUsers.includes(a.username));
@@ -231,6 +257,27 @@ export default function UsersPage() {
         </div>
         {allowed && error && <p className="error" role="alert">{error}</p>}
         {allowed && message && <p className="success" role="status">{message}</p>}
+        {allowed && registration && (
+          <form className="team-limit admin-editor" onSubmit={saveRegistration}>
+            <label>
+              Account creation
+              <Select
+                value={registration.allowRegistration ? "open" : "admin"}
+                onValueChange={(value) => setRegistration((current) => current && ({ ...current, allowRegistration: value === "open" }))}
+              >
+                <SelectTrigger aria-label="Account creation">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Only admin-created users</SelectItem>
+                  <SelectItem value="open">Allow users to create accounts</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+            <p>When restricted, users created here and accounts listed in the server configuration can sign in. Existing self-registered accounts without admin approval lose access.</p>
+            <button className="primary" disabled={busy}>Save account creation</button>
+          </form>
+        )}
         {allowed && (
           <section className="user-bulk-actions" aria-label="Bulk user actions">
             <div className="user-selection-heading">

@@ -102,6 +102,12 @@ export const teamSettings = sqliteTable("team_settings", {
   maxMembers: integer("max_members").notNull(),
 });
 
+export const registrationSettings = sqliteTable("registration_settings", {
+  id: text("id").primaryKey(),
+  allowRegistration: integer("allow_registration").notNull(),
+  revision: integer("revision").notNull(),
+});
+
 export const themeCatalog = sqliteTable("theme_catalog", {
   id: text("id").primaryKey(),
   payload: text("payload").notNull(),

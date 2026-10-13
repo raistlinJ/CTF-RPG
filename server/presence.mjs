@@ -7,6 +7,7 @@ import {
   teamPolicy,
 } from "./team-social.mjs";
 import { scoreboardSettings } from "./social-controls.mjs";
+import { registrationSettings } from "./registration-settings.mjs";
 import { createWorld } from "../lib/world-data.mjs";
 const modes = ["off", "team", "all"];
 const reply = (data, status = 200) =>
@@ -164,12 +165,13 @@ export async function handlePresence(
       )
       .all()
   ).results;
+  const registrationOpen = (await registrationSettings(db, config)).allowRegistration;
   const players = rows
     .filter((r) => {
       const cfg = config.accounts.users.find((a) => a.username === r.username);
       return (
         engine.reachable(body.map, r.x, r.y) &&
-        (config.accounts.allowRegistration || cfg || r.provisioned) &&
+        (registrationOpen || cfg || r.provisioned) &&
         (r.team || (r.managed ? r.role : cfg?.role) === "admin")
       );
     })

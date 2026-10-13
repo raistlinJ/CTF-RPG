@@ -1,3 +1,4 @@
+import { registrationSettings } from "./registration-settings.mjs";
 const reply = (data, status = 200) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 export async function teamFeatures(db, config) {
@@ -77,6 +78,7 @@ export async function messageStats(db, features, team, userId, admin) {
 }
 export async function teamScores(db, config) {
   const scores = new Map();
+  const registrationOpen = (await registrationSettings(db, config)).allowRegistration;
   const rows = (
     await db
       .prepare(
@@ -89,7 +91,7 @@ export async function teamScores(db, config) {
     const cfg = config.accounts.users.find((a) => a.username === r.username);
     if (
       (r.managed ? r.role : cfg?.role || "student") === "student" &&
-      (config.accounts.allowRegistration || cfg || r.provisioned)
+      (registrationOpen || cfg || r.provisioned)
     )
       scores.set(r.team, (scores.get(r.team) || 0) + r.score);
   }

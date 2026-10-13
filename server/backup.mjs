@@ -2,6 +2,7 @@ import { validateProgressionDependencies } from "../lib/challenge-dependencies.m
 import { pointAwardSchema } from "./team-points.mjs";
 import { rewardsSchema } from "../lib/inventory.mjs";
 import { challengeSettings } from "./challenge-visibility.mjs";
+import { registrationSettings } from "./registration-settings.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { scoreboardSettings } from "./social-controls.mjs";
 import { teamFeatures } from "./team-social.mjs";
@@ -125,6 +126,7 @@ export function validateSnapshot(input) {
         .max(100000)
         .default([]),
       challengeSettings: z.object({visibility:z.enum(["admins","all"]),revision:z.number().int().min(0)}).strict().optional(),
+      registrationSettings: z.object({allowRegistration:z.boolean(),revision:z.number().int().min(0)}).strict().optional(),
       scoreboardSettings: z
         .object({
           visibility: z.enum(["admins", "all"]),
@@ -379,6 +381,8 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       });
     }
   const exportConfig = JSON.parse(JSON.stringify(config));
+  const registration = await registrationSettings(db, config);
+  exportConfig.accounts.allowRegistration = registration.allowRegistration;
   exportConfig.accounts.users = config.accounts.users.filter(cfg => !deleted.has(cfg.username)).map((cfg) => {
     const a = records.find((a) => a.username === cfg.username);
     return {
@@ -444,6 +448,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
         .all()
     ).results,
     challengeSettings: await challengeSettings(db),
+    registrationSettings: registration,
     scoreboardSettings: await scoreboardSettings(db),
     playerVisibility: (await presenceSettings(db, config)).visibility,
     teamMaxMembers:

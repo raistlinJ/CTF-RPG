@@ -55,6 +55,7 @@ try {
       "answer_attempts",
       "scoreboard_settings",
       "challenge_settings",
+      "registration_settings",
       "team_messages",
       "team_social_settings",
       "player_presence",
@@ -117,6 +118,8 @@ try {
       )
       .run(snapshot.playerVisibility || snapshot.config.presence.visibility);
     sqlite.prepare("INSERT INTO challenge_settings(id,visibility,revision) VALUES('active',?,1)").run(snapshot.challengeSettings?.visibility || "all");
+    sqlite.prepare("INSERT INTO registration_settings(id,allow_registration,revision) VALUES('active',?,?)")
+      .run(+(snapshot.registrationSettings?.allowRegistration ?? snapshot.config.accounts.allowRegistration), snapshot.registrationSettings?.revision || 1);
     const scoreSettings = snapshot.scoreboardSettings || {
       visibility: "all",
       mode: "individual",

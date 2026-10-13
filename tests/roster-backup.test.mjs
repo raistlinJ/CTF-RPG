@@ -95,6 +95,47 @@ async function create(admin, username, role = "student") {
   assert.equal(r.status, 200);
   return r.data.users.find((a) => a.username === username);
 }
+test("admin registration setting restricts self-signup and survives backup", async () => {
+  const { sqlite, cfg, db, client: makeClient } = setup();
+  try {
+    const guest = makeClient();
+    assert.equal((await guest("/api/admin/registration")).status, 401);
+    const admin = makeClient();
+    await teacher(admin);
+    const previouslyRegistered = makeClient();
+    assert.equal((await previouslyRegistered("/api/auth", {
+      mode: "register", username: "oldstudent", password: "student-password", hero: "web",
+    })).status, 200);
+    assert.equal((await admin("/api/admin/registration")).data.allowRegistration, true);
+    const saved = await admin("/api/admin/registration", { allowRegistration: false, revision: 0 });
+    assert.equal(saved.status, 200);
+    assert.deepEqual(saved.data, { allowRegistration: false, revision: 1 });
+    assert.equal((await guest("/api/config")).data.allowRegistration, false);
+    assert.equal((await guest("/api/auth", {
+      mode: "register", username: "newstudent", password: "student-password", hero: "web",
+    })).status, 403);
+    assert.equal((await previouslyRegistered("/api/auth")).data.user, null);
+    assert.equal((await previouslyRegistered("/api/auth", {
+      mode: "login", username: "oldstudent", password: "student-password",
+    })).status, 401);
+    assert.equal((await admin("/api/admin/registration", { allowRegistration: true, revision: 0 })).status, 409);
+    assert.equal((await guest("/api/admin/registration", { allowRegistration: true, revision: 1 })).status, 401);
+    await create(admin, "approved");
+    assert.equal((await makeClient()("/api/auth", {
+      mode: "login", username: "approved", password: "new-student-password",
+    })).status, 200);
+    assert.equal((await makeClient()("/api/auth", {
+      mode: "login", username: "pending01", password: "private-pending-pass-unique", hero: "web",
+    })).status, 200);
+    const snapshot = await createSnapshot({ db, config: cfg, challenges: baseline });
+    assert.equal(snapshot.registrationSettings.allowRegistration, false);
+    assert.equal(snapshot.config.accounts.allowRegistration, false);
+    assert.equal((await admin("/api/admin/registration", { allowRegistration: true, revision: 1 })).status, 200);
+    assert.equal((await guest("/api/config")).data.allowRegistration, true);
+  } finally {
+    sqlite.close();
+  }
+});
 test("user management authorizes admins, resets passwords/sessions, manages roles and preserves progress", async () => {
   const { sqlite, cfg, client } = setup();
   try {
@@ -318,6 +359,7 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
         .status,
       200,
     );
+    assert.equal((await admin("/api/admin/registration", { allowRegistration: false, revision: 0 })).status, 200);
     const alice = makeClient();
     await alice("/api/auth", {
       username: "alice",
@@ -335,6 +377,7 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       config: cfg,
       challenges: baseline,
     });
+    assert.equal(snapshot.registrationSettings.allowRegistration, false);
     assert.ok(snapshot.accounts.some((a) => a.username === "pending01"));
     assert.ok(
       !JSON.stringify(snapshot).includes("private-pending-pass-unique"),
@@ -387,12 +430,15 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       const restoredConfig = parseGame(
         readFileSync(resolve(dir, "content/game.yaml"), "utf8"),
       );
+      assert.equal(restoredConfig.accounts.allowRegistration, false);
+      assert.equal(restored.prepare("SELECT allow_registration FROM registration_settings WHERE id='active'").get().allow_registration, 0);
       const api = createApi({
         db: createSQLiteAdapter(restored),
         config: restoredConfig,
         challenges: baseline,
       });
       const restoredAlice = client(api);
+      assert.equal((await restoredAlice("/api/config")).data.allowRegistration, false);
       assert.equal(
         (
           await restoredAlice("/api/auth", {

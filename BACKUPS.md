@@ -8,6 +8,8 @@ Open **Scores** from the game to view the scoreboard in a modal, or visit `/scor
 
 Open `/admin/users` or **Users** in the challenge studio. Authorized admins can:
 
+- Set **Account creation** to allow self-registration or restrict sign-in to admin-created and YAML-listed accounts. The saved choice overrides `accounts.allowRegistration` in YAML and is included in full backups.
+
 - Create student or administrator accounts with an assigned character and password.
 - Change an existing account's role, assigned character, and starting map/tile.
 - Reset a password; the previous password stops working and existing sessions are revoked.

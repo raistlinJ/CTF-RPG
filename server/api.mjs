@@ -3,6 +3,7 @@ import { playerMilestones } from "./progression.mjs";
 import { entityReference, entityUnlocked, validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { handleChallengeDependencies } from "./challenge-dependencies.mjs";
 import { bulkUserAction } from "./user-actions.mjs";
+import { registrationSettings, handleRegistrationSettings } from "./registration-settings.mjs";
 import {handleCtfdImport} from "./ctfd-import.mjs";
 import {handleNotifications} from "./notifications.mjs";
 import { handleSubmissions } from "./submissions.mjs";
@@ -92,7 +93,7 @@ function createRequestApi({
       .first();
     if (!row || row.disabled) return null;
     const cfg = await configuredAccount(row.username);
-    if (!config.accounts.allowRegistration && !cfg && !row.provisioned)
+    if (!(await registrationSettings(db, config)).allowRegistration && !cfg && !row.provisioned)
       return null;
     const account = effectiveAccount(row, cfg, config);
     if (!config.characters.some((c) => c.id === account.hero)) return null;
@@ -382,6 +383,7 @@ function createRequestApi({
     if (path === "/api/config" && method === "GET")
       return json({
         ...publicConfig(config),
+        allowRegistration: (await registrationSettings(db, config)).allowRegistration,
         theme: { ...publicTheme(theme), world: { ...publicTheme(theme).world, entities: (theme.world.entities || []).filter(e => !e.dependsOn?.length).map(publicEntity) } },
         themeRevision,
         scoreboard: await scoreboardSettings(db),
@@ -423,7 +425,7 @@ function createRequestApi({
         .bind(name)
         .first();
       if (mode === "register") {
-        if (!config.accounts.allowRegistration)
+        if (!(await registrationSettings(db, config)).allowRegistration)
           return json(
             { error: "Sign in with the account your teacher provided." },
             403,
@@ -451,7 +453,7 @@ function createRequestApi({
             403,
           );
         if (
-          !config.accounts.allowRegistration &&
+          !(await registrationSettings(db, config)).allowRegistration &&
           !configured &&
           !account?.provisioned
         )
@@ -624,6 +626,8 @@ function createRequestApi({
         }),
       });
     }
+    if (path === "/api/admin/registration")
+      return handleRegistrationSettings(req, { db, config, user, platformAdmin });
     if (path === "/api/admin/users") {
       const u = await user(req);
       if (!platformAdmin && u?.role !== "admin")
@@ -638,6 +642,7 @@ function createRequestApi({
       if (method === "GET")
         return json({
           users: await accountList(),
+          registration: await registrationSettings(db, config),
           characters: config.characters,
           viewer: u?.username || null,
           theme,

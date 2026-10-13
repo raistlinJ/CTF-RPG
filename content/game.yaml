@@ -19,7 +19,7 @@ characters:
     sprite: null
     fallback: shield
 accounts:
-  allowRegistration: true # Set false to allow only the users listed below.
+  allowRegistration: true # Set false for admin-created or listed users only. Admin UI overrides this after saving.
   users: []
   # users:
   #   - username: student01

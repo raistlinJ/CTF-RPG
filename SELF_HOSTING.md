@@ -51,7 +51,9 @@ audio:
 
 Character IDs are stable lowercase letters/digits/hyphens and must be unique. Names and subtitles are displayed in the selector and explorer panel. You can add characters beyond the original three. Keep IDs unchanged after students begin playing. Removing a selected character blocks that account's next login until an available hero is assigned in YAML. An account's optional `hero` must match a roster ID.
 
-`allowRegistration: false` allows only listed YAML users. Set it to `true` to also allow student-created accounts. Listed accounts are created on their first successful sign-in. Usernames are case-insensitive and use 3–24 letters, digits, underscores, or hyphens; passwords use 8–128 characters. The first selected hero remains bound to the account. An explicit YAML `hero` is authoritative. Changes to an existing username create a different account and do not transfer scores.
+`allowRegistration: false` allows only listed YAML users and accounts created or approved by an administrator. Set it to `true` to also allow student-created accounts. Listed accounts are created on their first successful sign-in. Usernames are case-insensitive and use 3–24 letters, digits, underscores, or hyphens; passwords use 8–128 characters. The first selected hero remains bound to the account. An explicit YAML `hero` is authoritative. Changes to an existing username create a different account and do not transfer scores.
+
+Administrators can also change **Account creation** under **Manage → Users**. Once saved, the database setting overrides this YAML value until another admin changes it; restarting the server does not reset it. Disabling registration also blocks existing self-registered accounts that have not been approved through user management.
 
 Passwords in your YAML are private server configuration. Keep that file outside publicly served directories and source repositories containing real credentials. SQLite stores salted PBKDF2 hashes, not plaintext passwords. Only character definitions and audio settings reach `/api/config`; usernames, passwords, and accepted answers do not. For a private local config outside Git:
 
