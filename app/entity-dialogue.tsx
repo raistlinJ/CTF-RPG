@@ -1,21 +1,32 @@
 "use client";
 // Raw sprite images also work in the standalone Vite app.
 /* eslint-disable @next/next/no-img-element */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { MessageCircle, UserRound } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { matchDialogueChoice, resolveEntityDialogue } from "@/lib/non-player-entities.mjs";
 import type { EntityCharacter, EntitySummary, NonPlayerEntity, PublicDialogue } from "@/lib/non-player-entities";
+import { visibleSprite } from "@/lib/visible-sprite";
 
-export function EntityPortrait({ character }: { character?: EntityCharacter }) {
+export function EntityPortrait({ character, onImageLoad, onImageError }: { character?: EntityCharacter; onImageLoad?: (image: HTMLImageElement) => void; onImageError?: () => void }) {
   const [failed, setFailed] = useState(false);
   return <span className="entity-portrait">
-    {character?.sprite && !failed ? <img src={character.sprite} alt="" onError={() => setFailed(true)} /> : <UserRound aria-hidden="true" />}
+    {character?.sprite && !failed ? <img src={character.sprite} alt="" onLoad={e => onImageLoad?.(e.currentTarget)} onError={() => { setFailed(true); onImageError?.(); }} /> : <UserRound aria-hidden="true" />}
   </span>;
 }
 export function EntityMarker({ entity, character, selected = false }: { entity: EntitySummary; character?: EntityCharacter; selected?: boolean }) {
-  return <div className={`entity-marker${selected ? " selected" : ""}`} style={{ left: `${(entity.location.x + .5) / 40 * 100}%`, top: `${(entity.location.y + .5) / 28 * 100}%` }} aria-label={`Character: ${entity.name}`}>
-    <EntityPortrait key={character?.sprite || character?.id} character={character} />
+  const [artwork, setArtwork] = useState<{ source: string; top: number; right: number; bottom: number; center: number } | null>(null);
+  const bounds = artwork?.source === character?.sprite ? artwork : null;
+  const style = {
+    left: `${(entity.location.x + .5) / 40 * 100}%`, top: `${(entity.location.y + .5) / 28 * 100}%`,
+    ...(bounds && { "--entity-visible-top": `${bounds.top}%`, "--entity-visible-right": `${bounds.right}%`, "--entity-visible-bottom": `${bounds.bottom}%`, "--entity-visible-center": `${bounds.center}%` }),
+  } as CSSProperties;
+  return <div className={`entity-marker${selected ? " selected" : ""}`} style={style} data-entity-id={entity.id} aria-label={`Character: ${entity.name}`}>
+    <EntityPortrait key={character?.sprite || character?.id} character={character} onImageError={() => setArtwork(null)} onImageLoad={image => {
+      const visible = visibleSprite(image), size = Math.max(image.naturalWidth, image.naturalHeight);
+      const offsetX = (size - image.naturalWidth) / 2, offsetY = (size - image.naturalHeight) / 2;
+      setArtwork({ source: character!.sprite!, top: (offsetY + visible.y) / size * 100, right: (offsetX + visible.x + visible.w) / size * 100, bottom: (offsetY + visible.y + visible.h) / size * 100, center: (offsetX + visible.x + visible.w / 2) / size * 100 });
+    }} />
     <MessageCircle className="entity-talk-icon" aria-hidden="true" />
     <span className="entity-map-name">{entity.name}</span>
   </div>;

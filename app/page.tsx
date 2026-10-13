@@ -1,9 +1,12 @@
 "use client";
+import { drawBossIcon, challengeSize, challengeDistance, challengeTiles } from "@/lib/challenge-icon.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
 import ChallengeCutscene, { type Cutscene } from "./challenge-cutscene";
 import { EntityConversation, EntityMarker } from "./entity-dialogue";
+import { visibleSprite } from "@/lib/visible-sprite";
 import type { EntitySummary } from "@/lib/non-player-entities";
+import { entityInInteractionRange } from "@/lib/non-player-entities.mjs";
 import { clientUuid } from "@/lib/client-uuid.mjs";
 import { KEY_PALETTE, hintCostLabel } from "@/lib/inventory-data.mjs";
 import { PlayerInventory, TransportUnlock, type Inventory, type LockedTransport } from "./player-inventory";
@@ -78,6 +81,8 @@ type Challenge = {
   id: string;
   map: string;
   object: string;
+  icon?: "star" | "boss";
+  iconSize?: 1 | 2 | 3;
   location: { x: number; y: number };
   region: string;
   text: string;
@@ -148,39 +153,6 @@ function useSprite(path: string | null) {
     };
   }, [path]);
   return image;
-}
-const spriteBounds = new WeakMap<
-  HTMLImageElement,
-  { x: number; y: number; w: number; h: number }
->();
-function visibleSprite(image: HTMLImageElement) {
-  const saved = spriteBounds.get(image);
-  if (saved) return saved;
-  let bounds = { x: 0, y: 0, w: image.width, h: image.height };
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width = image.width;
-    canvas.height = image.height;
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(image, 0, 0);
-    const data = ctx.getImageData(0, 0, image.width, image.height).data;
-    let left = image.width,
-      top = image.height,
-      right = -1,
-      bottom = -1;
-    for (let y = 0; y < image.height; y++)
-      for (let x = 0; x < image.width; x++)
-        if (data[(y * image.width + x) * 4 + 3] > 20) {
-          left = Math.min(left, x);
-          top = Math.min(top, y);
-          right = Math.max(right, x);
-          bottom = Math.max(bottom, y);
-        }
-    if (right >= left)
-      bounds = { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
-  } catch {}
-  spriteBounds.set(image, bounds);
-  return bounds;
 }
 const adminAvatar: Character = {
   id: "quest-admin",
@@ -284,9 +256,6 @@ export function World({
   challenges,
   solved,
   onMove,
-  onSearch,
-  onInventory,
-  inventoryCount = 0,
   onSelect,
   selectionAllowed,
   selectionLabel,
@@ -308,9 +277,6 @@ export function World({
   challenges: Challenge[];
   solved: string[];
   onMove: (x: number, y: number) => void;
-  onSearch: () => void;
-  onInventory?: () => void;
-  inventoryCount?: number;
   onSelect?: (x: number, y: number) => void;
   selectionAllowed?: (map: string, x: number, y: number) => boolean;
   selectionLabel?: string;
@@ -420,6 +386,10 @@ export function World({
         b = location.y * t + 12;
       const distance =
         Math.abs(pos.x - q.location.x) + Math.abs(pos.y - q.location.y);
+      if (q.icon === "boss") {
+        drawBossIcon(ctx, location.x * t, location.y * t, t * challengeSize(q));
+        continue;
+      }
       ctx.fillStyle = distance <= 3 ? "#d6a44e" : "#bed5db";
       ctx.fillRect(a - 2, b - 6, 4, 12);
       ctx.fillRect(a - 6, b - 2, 12, 4);
@@ -484,7 +454,7 @@ export function World({
             suppressClick.current = false;
             if (e.button !== 0 || !e.isPrimary) return;
             const tile = tileAt(e.currentTarget, e.clientX, e.clientY);
-            const selected = challenges.find(c => c.id === selectedChallengeId && c.map === map && c.location.x === tile.x && c.location.y === tile.y);
+            const selected = challenges.find(c => c.id === selectedChallengeId && c.map === map && challengeTiles(c).some(p => p.x === tile.x && p.y === tile.y));
             if (!selected) return;
             e.currentTarget.focus({ preventScroll: true });
             drag.current = { id: selected.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
@@ -654,16 +624,6 @@ export function World({
         <span>
           <MapPin size={15} /> {pos.x}, {pos.y}
         </span>
-        {!onSelect && (
-          <div className="map-actions">
-            {onInventory && <button type="button" className="map-inventory-link" aria-haspopup="dialog" onClick={onInventory}>
-              Inventory{inventoryCount > 0 ? ` (${inventoryCount})` : ""}
-            </button>}
-            <button type="button" onClick={onSearch}>
-              <Sparkles size={16} /> Search nearby <kbd>E</kbd>
-            </button>
-          </div>
-        )}
       </div>
       {!onSelect && (
         <div className="dpad">
@@ -991,9 +951,9 @@ export default function Game() {
       (c) =>
         c.map === map &&
         !solved.includes(c.id) &&
-        Math.abs(c.location.x - pos.x) + Math.abs(c.location.y - pos.y) <= 2,
+        challengeDistance(c, pos) <= 2,
     );
-    const nearbyEntities = entities.filter(e => e.map === map && Math.abs(e.location.x - pos.x) + Math.abs(e.location.y - pos.y) <= 2);
+    const nearbyEntities = entities.filter(e => entityInInteractionRange(e, map, pos.x, pos.y));
     if (nearbyEntities.length) {
       if (nearbyEntities.length + nearbyChallenges.length > 1) setNearbyOptions({ entities: nearbyEntities, challenges: nearbyChallenges });
       else setTalkingTo(nearbyEntities[0]);
@@ -1511,10 +1471,8 @@ export default function Game() {
               solved={solved}
               unlockedTransports={unlockedTransports}
               onMove={move}
-              onSearch={search}
-              onInventory={() => setInventoryOpen(true)}
-              inventoryCount={inventory.keys.length + inventory.incantations.length}
             />
+            <div className="world-footer">
             <div className="avatar-marker-legend">
               <span>
                 <i className="halo-key" aria-hidden="true" />
@@ -1524,6 +1482,15 @@ export default function Game() {
                 <Crown size={16} aria-hidden="true" />
                 Leading team
               </span>
+            </div>
+            <div className="map-actions">
+              <button type="button" className="map-inventory-link" aria-haspopup="dialog" onClick={() => setInventoryOpen(true)}>
+                Inventory{inventory.keys.length + inventory.incantations.length > 0 ? ` (${inventory.keys.length + inventory.incantations.length})` : ""}
+              </button>
+              <button type="button" onClick={search}>
+                <Sparkles size={16} /> Search nearby <kbd>E</kbd>
+              </button>
+            </div>
             </div>
             <p className="presence-note" role="status">
               {presence.status ||

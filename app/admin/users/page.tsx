@@ -421,7 +421,6 @@ export default function UsersPage() {
                         challenges={[]}
                         solved={[]}
                         onMove={() => {}}
-                        onSearch={() => {}}
                         selectionAllowed={canSpawn}
                         selectionLabel="User spawn picker"
                         onSelect={(x, y) => {

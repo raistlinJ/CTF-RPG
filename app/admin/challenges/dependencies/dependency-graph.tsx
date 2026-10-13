@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Maximize2, ZoomIn, ZoomOut, LayoutGrid, Trash2, Info } from "lucide-react";
+import { Maximize2, ZoomIn, ZoomOut, LayoutGrid, Trash2, Info, UsersRound } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "@/components/ui/context-menu";
 import { dependencyBounds, dependencyWorldPoint, fitDependencyCamera, zoomDependencyCamera, DEPENDENCY_NODE_WIDTH, DEPENDENCY_NODE_HEIGHT } from "@/lib/dependency-viewport.mjs";
 import type { NonPlayerEntity } from "@/lib/non-player-entities";
 export type DependencyNode = {
@@ -42,10 +43,11 @@ function curve(from: Point, to: Point) {
   const bend = Math.max(72, Math.abs(to.x - from.x) * .45);
   return `M ${from.x} ${from.y} C ${from.x + bend} ${from.y}, ${to.x - bend} ${to.y}, ${to.x} ${to.y}`;
 }
-export default function DependencyGraph({ nodes, disabled, onConnect, onRemove }: {
+export default function DependencyGraph({ nodes, disabled, onConnect, onRemove, onAddEntity }: {
   nodes: DependencyNode[]; disabled: boolean;
   onConnect: (from: string, to: string) => boolean;
   onRemove: (from: string, to: string) => void;
+  onAddEntity: () => void;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState(() => arrange(nodes));
@@ -55,6 +57,7 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove }
   const [source, setSource] = useState<string | null>(null), [pointer, setPointer] = useState<Point | null>(null),
     [selected, setSelected] = useState<string | null>(null), [infoId, setInfoId] = useState<string | null>(null);
   const infoTrigger = useRef<HTMLButtonElement | null>(null);
+  const addingEntity = useRef(false);
   const connecting = useRef<string | null>(null);
   const suppressClick = useRef(false);
   const drag = useRef<(Capture & { id: string; offset: Point }) | null>(null);
@@ -164,10 +167,16 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove }
       </div>
     </div>
     <div className="dependency-graph-hint">
-      <p role="status">{source ? `Choose a left handle to require ${nodes.find((c) => c.id === source)?.object}.` : "Drag a right handle to a left handle. Drag cards to move; drag the background to pan."}</p>
+      <p role="status">{source ? `Choose a left handle to require ${nodes.find((c) => c.id === source)?.object}.` : "Drag a right handle to a left handle. Drag cards to move; drag the background to pan. Right-click empty canvas to add an entity."}</p>
       <button type="button" className="text-button" onClick={cancel} disabled={!source} style={{ visibility: source ? "visible" : "hidden" }}>Cancel</button>
     </div>
+    <ContextMenu onOpenChange={open => { if (open) { stopGesture(); cancel(); } }}>
+    <ContextMenuTrigger asChild disabled={disabled}>
     <div className="dependency-graph-viewport" ref={viewport} role="region" aria-label="Challenge dependency graph" tabIndex={0}
+      onContextMenu={e => {
+        const target = e.target as Element;
+        if (target !== e.currentTarget && !target.hasAttribute("data-canvas-background")) e.preventDefault();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Escape") { stopGesture(); cancel(); }
         if (e.target !== e.currentTarget || disabled) return;
@@ -234,6 +243,15 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove }
           </article>)}
         </div>
     </div>
+    </ContextMenuTrigger>
+    <ContextMenuContent className="dependency-canvas-menu" onCloseAutoFocus={e => {
+      if (!addingEntity.current) return;
+      e.preventDefault(); addingEntity.current = false;
+      viewport.current?.focus({ preventScroll: true }); onAddEntity();
+    }}>
+      <ContextMenuItem disabled={disabled} onSelect={() => { addingEntity.current = true; }}><UsersRound size={17}/>Add non-player entity</ContextMenuItem>
+    </ContextMenuContent>
+    </ContextMenu>
     <Dialog open={!!info} onOpenChange={(open) => { if (!open) setInfoId(null); }}>
       <DialogContent className="dependency-info-dialog" showCloseButton={false} onCloseAutoFocus={(e) => { e.preventDefault(); infoTrigger.current?.focus({ preventScroll: true }); }}>
         <DialogTitle>{info?.object}</DialogTitle>

@@ -12,7 +12,7 @@ import { initializeSchema, createSQLiteAdapter } from '../server/sqlite.mjs';
 import { parseGame, parseChallenges } from '../lib/config-schema.mjs';
 import { defaultTheme, parseTheme } from '../lib/theme-schema.mjs';
 import { createWorld } from '../lib/world-data.mjs';
-import { entitiesSchema, resolveEntityDialogue, matchDialogueChoice } from '../lib/non-player-entities.mjs';
+import { entitiesSchema, resolveEntityDialogue, matchDialogueChoice, entityLocationAvailable, findEntityLocation, entityInInteractionRange } from '../lib/non-player-entities.mjs';
 import { findChallengeLocation, planChallengePlacement } from '../lib/challenge-placement.mjs';
 import { exportFullBackup } from '../server/backup.mjs';
 
@@ -41,7 +41,7 @@ function setup() {
   return{sqlite,db,config,theme:validTheme,challenges,client,beforeWrite(match,run){hook={match,run};}};
 }
 async function login(call,name='alice') {assert.equal((await call('/api/auth',{mode:name==='teacher'?'login':'register',username:name,password:name==='teacher'?'teacher-password':'student-password',hero:'web'})).status,200);}
-const dialogue=(choices=[],extra={})=>({action:'entity-dialogue',id:'guide',themeRevision:1,map:'town',x:18,y:20,choices,...extra});
+const dialogue=(choices=[],extra={})=>({action:'entity-dialogue',id:'guide',themeRevision:1,map:'town',x:17,y:20,choices,...extra});
 function entityUpdate(themeRevision,entities,map='town') {
   const form=new FormData();form.set('action','update-entities');form.set('map',JSON.stringify({id:map}));form.set('entities',JSON.stringify(entities));form.set('themeRevision',String(themeRevision));form.set('contentRevision','0');return form;
 }
@@ -49,7 +49,7 @@ function entityUpdate(themeRevision,entities,map='town') {
 test('entity definitions validate dialogue links, appearances and spatial rules, with legacy themes defaulting to no entities',()=>{
   const {sqlite,theme}=setup();try {
     const old=structuredClone(theme);delete old.world.entities;assert.deepEqual(parseTheme(old).world.entities,[]);
-    for(const patch of [{characterId:'missing'},{map:'missing'},{location:{x:0,y:0}},{startNode:'missing'},
+    for(const patch of [{characterId:'missing'},{map:'missing'},{location:{x:-1,y:0}},{startNode:'missing'},
       {nodes:[{id:'hello',text:'',choices:[]}]},{nodes:[{id:'hello',text:'Hello',choices:[{id:'bad',label:'Bad',to:'missing'}]}]},
       {nodes:[{id:'hello',text:'Hello',choices:[{id:'a',label:'Yes',to:'hello'},{id:'b',label:' YES ',to:'hello'}]}]}]) {
       const changed=structuredClone(theme);changed.world.entities[0]={...entity,...patch};assert.throws(()=>parseTheme(changed));
@@ -62,6 +62,77 @@ test('entity definitions validate dialogue links, appearances and spatial rules,
     const plan=planChallengePlacement(theme,[collision]);assert.equal(plan.moved.length,1);assert.notDeepEqual(plan.challenges[0].location,entity.location);
     assert.notDeepEqual(findChallengeLocation(createWorld(theme.world),[],'town',entity.location,'quest'),entity.location);
   } finally {sqlite.close();}
+});
+
+test('entities may use non-walkable map tiles while map limits and occupied locations remain protected',()=>{
+  const {sqlite,theme,challenges}=setup();try{
+    const world=createWorld(theme.world),location={x:0,y:0};
+    assert.equal(world.blocked('town',location.x,location.y),true);
+    assert.equal(entityLocationAvailable(world,challenges,theme.world.entities,'town',0,0,'guide'),true);
+    assert.deepEqual(findEntityLocation(world,challenges,theme.world.entities,'town',location,'guide'),location);
+    const placed=structuredClone(theme);placed.world.entities[0].location=location;
+    assert.deepEqual(parseTheme(placed).world.entities[0].location,location);
+    for(const [map,x,y] of [['missing',0,0],['town',-1,0],['town',40,0],['town',0,28],['town',0.5,0]])
+      assert.equal(entityLocationAvailable(world,challenges,theme.world.entities,map,x,y,'guide'),false);
+    assert.equal(entityLocationAvailable(world,challenges,theme.world.entities,'town',18,19,'guide'),false,'challenge collision');
+    assert.equal(entityLocationAvailable(world,challenges,theme.world.entities,'town',16,20,'another'),false,'entity collision');
+    const door=world.portals.find(p=>p.map==='town');
+    assert.equal(entityLocationAvailable(world,[],[],'town',door.location.x,door.location.y),false);
+    placed.world.entities[0].location=door.location;
+    assert.throws(()=>parseTheme(placed),/doors and transport/);
+    assert.equal(world.canPlaceChallenge('town',0,0),false,'challenge placement still requires walkable ground');
+  }finally{sqlite.close();}
+});
+
+test('saving a non-walkable entity preserves terrain and supports conversation from an adjacent walkable tile',async()=>{
+  const {sqlite,theme,challenges,client}=setup();try{
+    const admin=client(),student=client();await login(admin,'teacher');await login(student);
+    const world=createWorld(theme.world);
+    let placement;
+    for(let y=0;y<28&&!placement;y++)for(let x=0;x<40&&!placement;x++){
+      if(!world.blocked('town',x,y))continue;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])if(world.canPlaceChallenge('town',x+dx,y+dy)){
+        placement={location:{x,y},player:{x:x+dx,y:y+dy}};break;
+      }
+    }
+    assert.ok(placement,'a blocked tile beside a walkable tile exists');
+    const edited=structuredClone(theme.world.entities);edited[0].location=placement.location;
+    const saved=await admin('/api/admin/maps',entityUpdate(1,edited));
+    assert.equal(saved.status,200,JSON.stringify(saved.data));
+    const current=(await admin('/api/admin/challenges')).data;
+    const geometry=maps=>maps.map(({background,originalBackground,...layout})=>layout);
+    assert.deepEqual(geometry(current.theme.world.maps),geometry(theme.world.maps));
+    assert.deepEqual(current.challenges,challenges);
+    assert.deepEqual(current.theme.world.entities[0].location,placement.location);
+    const response=await student('/api/game',dialogue([],{themeRevision:2,...placement.player}));
+    assert.equal(response.status,200,JSON.stringify(response.data));
+    assert.equal(response.data.dialogue.text,entity.nodes[0].text);
+    const pack=await admin('/api/admin/packs?kind=theme');
+    const packed=parse(strFromU8(unzipSync(pack.bytes)['theme.yaml']));
+    assert.deepEqual(parseTheme(packed).world.entities[0].location,placement.location);
+    const backup=await admin('/api/admin/backup');assert.equal(backup.status,200);
+    const snapshot=JSON.parse(strFromU8(unzipSync(backup.bytes)['backup.json']));
+    const {validateSnapshot}=await import('../server/backup.mjs');
+    assert.deepEqual(validateSnapshot(snapshot).theme.world.entities[0].location,placement.location);
+  }finally{sqlite.close();}
+});
+
+test('entity interactions allow one cardinal tile and reject two tiles or a diagonal before activation',async()=>{
+  const {sqlite,client}=setup();try{
+    const student=client(),admin=client();await login(student);await login(admin,'teacher');
+    for(const pos of [{x:18,y:20},{x:16,y:22},{x:17,y:21}]){
+      assert.equal(entityInInteractionRange(entity,'town',pos.x,pos.y),false);
+      for(const call of [student,admin])assert.equal((await call('/api/game',dialogue([],pos))).status,400);
+    }
+    assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM entity_activations').get().n,0);
+    for(const pos of [{x:15,y:20},{x:17,y:20},{x:16,y:19},{x:16,y:21},{x:16,y:20}]){
+      assert.equal(entityInInteractionRange(entity,'town',pos.x,pos.y),true);
+      assert.equal((await student('/api/game',dialogue([],pos))).status,200);
+    }
+    assert.equal(entityInInteractionRange(entity,'castle',16,20),false);
+    assert.equal(entityInInteractionRange(entity,'town',16.5,20),false);
+    assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM entity_activations').get().n,1);
+  }finally{sqlite.close();}
 });
 
 test('Search conversations expose only reached dialogue, validate choices and proximity, respect locked maps, and never change rewards',async()=>{
@@ -119,6 +190,28 @@ function graphBody(graph, overrides={}, entities=graph.entities) {
   return {revision:graph.revision,themeRevision:graph.themeRevision,entities,
     dependencies:[...graph.challenges.map(c=>({id:c.id,dependsOn:overrides[c.id]??c.dependsOn})),...entities.map(e=>({id:`npe:${e.id}`,dependsOn:overrides[`npe:${e.id}`]??e.dependsOn??[]}))]};
 }
+test('dependency-only saves connect and disconnect existing entities without replacing their Theme definitions',async()=>{
+  const {sqlite,client}=setup();try{
+    const admin=client();await login(admin,'teacher');
+    let graph=(await admin('/api/admin/challenge-dependencies')).data;
+    const original=structuredClone(graph.entities);
+    const save=async overrides=>{
+      const body=graphBody(graph,overrides);delete body.entities;
+      const result=await admin('/api/admin/challenge-dependencies',body);
+      assert.equal(result.status,200,JSON.stringify(result.data));graph=result.data;
+      assert.deepEqual(graph.entities.map(({dependsOn,...definition})=>definition),original.map(({dependsOn,...definition})=>definition));
+    };
+    await save({quest:['npe:guide'],'npe:castle-guide':['quest']});
+    assert.deepEqual(graph.challenges[0].dependsOn,['npe:guide']);
+    assert.deepEqual(graph.entities.find(e=>e.id==='castle-guide').dependsOn,['quest']);
+    const invalid=graphBody(graph);delete invalid.entities;
+    invalid.dependencies=invalid.dependencies.filter(n=>n.id!=='npe:guide');
+    assert.equal((await admin('/api/admin/challenge-dependencies',invalid)).status,400);
+    await save({quest:[],'npe:castle-guide':[]});
+    assert.equal(graph.entities.length,original.length);
+    assert.ok(graph.entities.every(e=>!e.dependsOn.length));
+  }finally{sqlite.close();}
+});
 test('dependency graph adds, edits and deletes entities, validates mixed loops, and saves both catalogs atomically',async()=>{
   const {sqlite,client,beforeWrite}=setup();try{
     const admin=client(),student=client();await login(admin,'teacher');await login(student);

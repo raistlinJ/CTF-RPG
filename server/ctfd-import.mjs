@@ -1,3 +1,4 @@
+import { challengeTiles } from "../lib/challenge-icon.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import {unzipSync,strFromU8} from 'fflate';
 import {stringify} from 'yaml';
@@ -32,7 +33,7 @@ async function plan(entries,digest,options,{db,config,theme,themeRevision,challe
  for(const [rows,label] of [[sourceChallenges,'challenge'],[sourceUsers,'user'],[sourceTeams,'team']])distinct(rows,label);
  if(options.teams&&!options.users)throw Error('Import users when importing team memberships.');
  const dependencyPlan=planCtfdDependencies(sourceChallenges,prefix),placed=new Set();
- const assets=new Map(),newChallenges=[],occupied=new Set(challenges.map(c=>`${c.map}:${c.location.x},${c.location.y}`)),world=createWorld(theme.world),spaces=[];
+ const assets=new Map(),newChallenges=[],occupied=new Set(challenges.flatMap(c=>challengeTiles(c).map(p=>`${c.map}:${p.x},${p.y}`))),world=createWorld(theme.world),spaces=[];
  for(const m of theme.world.maps)for(let y=0;y<28;y++)for(let x=0;x<40;x++)if(world.canPlaceChallenge(m.id,x,y)&&!occupied.has(`${m.id}:${x},${y}`))spaces.push({map:m.id,location:{x,y}});
  let seed=parseInt(digest.slice(0,8),16)||1;const random=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return(seed>>>0)/4294967296;};for(let i=spaces.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[spaces[i],spaces[j]]=[spaces[j],spaces[i]];}
  const excluded=[];let assetSize=0;const oldPaths=new Set(challenges.flatMap(c=>c.downloads.map(d=>d.url)).filter(p=>p.startsWith('/')));

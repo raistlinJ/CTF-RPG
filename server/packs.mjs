@@ -1,3 +1,4 @@
+import { challengeLocationAvailable } from "../lib/challenge-placement.mjs";
 import { validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { planChallengePlacement } from "../lib/challenge-placement.mjs";
 import { gradingCompatible } from "./review.mjs";
@@ -58,7 +59,7 @@ export function themeContentValid(theme, challenges) {
   validateProgressionDependencies(challenges, theme.world.entities || []);
   const w = createWorld(theme.world);
   for (const c of challenges)
-    if (!w.canPlaceChallenge(c.map, c.location.x, c.location.y))
+    if (!challengeLocationAvailable(w, challenges, c.map, c.location.x, c.location.y, c.id, c))
       throw Error(
         `Challenge ${c.id} is not on reachable ground in theme map ${c.map}. Import a matching content pack alongside this theme, or move/remove the challenge first.`,
       );

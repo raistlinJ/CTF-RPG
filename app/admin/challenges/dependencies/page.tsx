@@ -6,30 +6,31 @@ import AdminHeader from "../../admin-header";
 import ChallengeNav from "../challenge-nav";
 import DependencyGraph, { type DependencyNode } from "./dependency-graph";
 import { validateChallengeDependencies } from "@/lib/challenge-dependencies.mjs";
-import EntityEditor from "../../entity-editor";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { entityReference } from "@/lib/challenge-dependencies.mjs";
-import { entitySchema, entityLocationAvailable, findEntityLocation } from "@/lib/non-player-entities.mjs";
-import { createWorld, activeWorld } from "@/lib/world-data.mjs";
-import { clientUuid } from "@/lib/client-uuid.mjs";
-import type { EntityCharacter, NonPlayerEntity } from "@/lib/non-player-entities";
-type Catalog = { challenges: DependencyNode[]; entities: NonPlayerEntity[]; world: typeof activeWorld; characters: EntityCharacter[]; revision: number; themeRevision: number; error?: string };
+import type { NonPlayerEntity } from "@/lib/non-player-entities";
+type GraphDraft = { nodes: DependencyNode[]; visibleEntityIds: string[] };
+type Catalog = { challenges: DependencyNode[]; entities: NonPlayerEntity[]; revision: number; themeRevision: number; error?: string };
 const entityNode = (entity: NonPlayerEntity): DependencyNode => ({ id: entityReference(entity.id), kind: "entity", entity, object: entity.name, map: entity.map, region: "Non-player entity", visibility: "visible", points: 0, grading: "automatic", summary: entity.nodes.find(n => n.id === entity.startNode)?.text || "", dependsOn: entity.dependsOn || [] });
-const entityDefinitions = (nodes: DependencyNode[]) => nodes.flatMap(n => n.entity ? [{ ...n.entity, dependsOn: n.dependsOn }] : []);
-const serialize = (nodes: DependencyNode[]) => JSON.stringify(nodes.map((c) => ({ id: c.id, dependsOn: [...c.dependsOn].sort(), entity: c.entity })));
+const serialize = (nodes: DependencyNode[]) => JSON.stringify(nodes.map((c) => ({ id: c.id, dependsOn: [...c.dependsOn].sort() })));
 export default function Dependencies() {
   const [nodes, setNodes] = useState<DependencyNode[]>([]), [revision, setRevision] = useState(0), [themeRevision, setThemeRevision] = useState(0),
     [initial, setInitial] = useState(""), [allowed, setAllowed] = useState(false), [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false), [error, setError] = useState(""), [message, setMessage] = useState(""),
-    [from, setFrom] = useState(""), [to, setTo] = useState(""), [history, setHistory] = useState<DependencyNode[][]>([]);
-  const [world, setWorld] = useState<typeof activeWorld | null>(null), [characters, setCharacters] = useState<EntityCharacter[]>([]), [editingEntity, setEditingEntity] = useState<NonPlayerEntity | null>(null);
+    [from, setFrom] = useState(""), [to, setTo] = useState(""), [history, setHistory] = useState<GraphDraft[]>([]);
+  const [visibleEntityIds, setVisibleEntityIds] = useState<string[]>([]), [pickingEntity, setPickingEntity] = useState(false), [selectedEntityId, setSelectedEntityId] = useState("");
   const saving = useRef(false);
+  const entityPickerTrigger = useRef<HTMLElement | null>(null);
   const dirty = allowed && serialize(nodes) !== initial;
-  const sorted = [...nodes].sort((a,b) => a.object.localeCompare(b.object) || a.id.localeCompare(b.id));
+  const graphNodes = nodes.filter(n => !n.entity || visibleEntityIds.includes(n.id));
+  const availableEntities = nodes.filter(n => n.entity && !visibleEntityIds.includes(n.id)).sort((a, b) => a.object.localeCompare(b.object) || a.id.localeCompare(b.id));
+  const sorted = [...graphNodes].sort((a,b) => a.object.localeCompare(b.object) || a.id.localeCompare(b.id));
   const edges = nodes.flatMap((c) => c.dependsOn.map((id) => ({ from: id, to: c.id })));
-  function apply(d: Catalog) {
+  function apply(d: Catalog, preserveVisibleEntities = false) {
     const combined = [...d.challenges, ...(d.entities || []).map(entityNode)];
-    setWorld(d.world); setCharacters(d.characters);
+    const connectedIds = new Set(combined.flatMap(n => n.dependsOn.length ? [n.id, ...n.dependsOn] : []));
+    setVisibleEntityIds(previous => combined.filter(n => n.entity && (connectedIds.has(n.id) || (preserveVisibleEntities && previous.includes(n.id)))).map(n => n.id));
+    setPickingEntity(false); setSelectedEntityId("");
     setNodes(combined); setRevision(d.revision); setThemeRevision(d.themeRevision);
     setInitial(serialize(combined)); setHistory([]); setAllowed(true); setFrom(""); setTo("");
   }
@@ -60,12 +61,12 @@ export default function Dependencies() {
     const updated = nodes.map((c) => c.id === target ? { ...c, dependsOn: [...c.dependsOn,source] } : c);
     try { validateChallengeDependencies(updated); }
     catch (e) { setError((e as Error).message); setMessage(""); return false; }
-    setHistory((previous) => [...previous,nodes].slice(-50)); setNodes(updated); setError(""); setMessage("");
+    setHistory((previous) => [...previous, { nodes, visibleEntityIds }].slice(-50)); setNodes(updated); setError(""); setMessage("");
     return true;
   }
   function remove(source: string, target: string) {
     if (busy) return;
-    setHistory((previous) => [...previous,nodes].slice(-50));
+    setHistory((previous) => [...previous, { nodes, visibleEntityIds }].slice(-50));
     setNodes(nodes.map((c) => c.id === target ? { ...c, dependsOn: c.dependsOn.filter((id) => id !== source) } : c));
     setError(""); setMessage("");
   }
@@ -83,38 +84,34 @@ export default function Dependencies() {
     if (saving.current) return;
     saving.current = true; setBusy(true); setError(""); setMessage("");
     try {
-      const r = await fetch("/api/admin/challenge-dependencies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revision, themeRevision, entities: entityDefinitions(nodes), dependencies: nodes.map((c) => ({ id: c.id, dependsOn: c.dependsOn })) }) });
+      const r = await fetch("/api/admin/challenge-dependencies", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ revision, themeRevision, dependencies: nodes.map((c) => ({ id: c.id, dependsOn: c.dependsOn })) }) });
       const d = await r.json() as Catalog;
       if (!r.ok) throw Error(d.error || "Could not save dependencies.");
-      apply(d); setMessage("Dependencies saved. Active games update automatically.");
+      apply(d, true); setMessage("Dependencies saved. Active games update automatically.");
     } catch (e) { setError((e as Error).message); }
     finally { saving.current = false; setBusy(false); }
   }
-  function addEntity() {
-    if (!world || !characters.length || busy) return;
-    const engine = createWorld(world);
-    const maps = [...new Set([world.startMap, ...world.maps.map(m => m.id)])];
-    const placement = maps.map(map => ({ map, location: findEntityLocation(engine, nodes.filter(n => !n.entity), entityDefinitions(nodes), map, engine.mapInfo(map)!.spawn) })).find(p => p.location);
-    if (!placement?.location) { setError("The maps have no free character locations. Free a reachable tile in Theme first."); return; }
-    const { map, location } = placement;
-    setEditingEntity({ id: "entity-" + clientUuid(), name: "New character", characterId: characters[0].id, map, location, startNode: "greeting", nodes: [{ id: "greeting", text: "Welcome, traveler.", choices: [] }], dependsOn: [] });
-  }
-  function saveEntity() {
-    if (!editingEntity || !world) return;
-    try {
-      const entity = entitySchema.parse(editingEntity);
-      if (!entityLocationAvailable(createWorld(world), nodes.filter(n => !n.entity), entityDefinitions(nodes), entity.map, entity.location.x, entity.location.y, entity.id)) throw Error("Choose an unoccupied, reachable tile away from doors, walls, and challenges.");
-      const id = entityReference(entity.id), previous = nodes.find(n => n.id === id);
-      const updated = entityNode({ ...entity, dependsOn: previous?.dependsOn || [] });
-      setHistory(h => [...h, nodes].slice(-50)); setNodes(previous ? nodes.map(n => n.id === id ? updated : n) : [...nodes, updated]);
-      setEditingEntity(null); setError(""); setMessage("Character updated in the draft. Save dependencies to apply changes.");
-    } catch (e) { setError((e as Error).message); }
-  }
-  function deleteEntity(id: string) {
+  function openEntityPicker() {
     if (busy) return;
-    setHistory(h => [...h, nodes].slice(-50));
-    setNodes(nodes.filter(n => n.id !== id).map(n => ({ ...n, dependsOn: n.dependsOn.filter(d => d !== id) })));
-    setFrom(""); setTo(""); setError(""); setMessage("Character and its connections removed from the draft. Undo is available until you save.");
+    entityPickerTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setError(""); setSelectedEntityId(availableEntities[0]?.id || ""); setPickingEntity(true);
+  }
+  function addEntity() {
+    if (busy) return;
+    const existing = availableEntities.find(n => n.id === selectedEntityId);
+    if (!existing) return;
+    setHistory(h => [...h, { nodes, visibleEntityIds }].slice(-50));
+    setVisibleEntityIds(ids => [...ids, existing.id]);
+    setPickingEntity(false); setSelectedEntityId(""); setError("");
+    setMessage(`${existing.object} added to the graph. Connect its card, then save dependencies.`);
+  }
+  function removeEntity(id: string) {
+    if (busy) return;
+    setHistory(h => [...h, { nodes, visibleEntityIds }].slice(-50));
+    setNodes(nodes.map(n => ({ ...n, dependsOn: n.id === id ? [] : n.dependsOn.filter(d => d !== id) })));
+    setVisibleEntityIds(ids => ids.filter(existing => existing !== id));
+    setFrom(""); setTo(""); setError("");
+    setMessage("Entity removed from the graph. Its character remains in Theme. Save dependencies to apply connection changes.");
   }
   return <main className="admin-studio">
     <AdminHeader active="challenges"/>
@@ -123,8 +120,7 @@ export default function Dependencies() {
       <div className="roster-heading">
         <div><span className="eyebrow">CHALLENGE PROGRESSION</span><h1>Dependencies</h1><p>Connect challenges and non-player entities. A challenge is completed by solving it; an entity is activated by speaking to it. Every prerequisite must be completed before the connected challenge or entity appears.</p></div>
         {allowed && <div className="dependency-save-actions">
-          <button type="button" className="secondary-button" disabled={busy || !world || nodes.filter(n => n.entity).length >= 100} onClick={addEntity}><UsersRound size={17}/>Add non-player entity</button>
-          <button type="button" className="secondary-button" disabled={busy || !history.length} onClick={() => { setNodes(history[history.length - 1]); setHistory(history.slice(0,-1)); setError(""); setMessage(""); }}><Undo2 size={17}/>Undo change</button>
+          <button type="button" className="secondary-button" disabled={busy || !history.length} onClick={() => { setNodes(history[history.length - 1].nodes); setVisibleEntityIds(history[history.length - 1].visibleEntityIds); setHistory(history.slice(0,-1)); setError(""); setMessage(""); }}><Undo2 size={17}/>Undo change</button>
           <button type="button" className="secondary-button" disabled={busy} onClick={() => void reload()}><RefreshCw size={17}/>Reload saved</button>
           <button type="button" className="primary" disabled={busy || !dirty} onClick={() => void save()}><Save size={17}/>{busy ? "Saving…" : "Save dependencies"}</button>
         </div>}
@@ -133,7 +129,7 @@ export default function Dependencies() {
       {message && <p role="status" className="dependency-feedback">{message}</p>}
       {loading ? <p>Loading dependency graph…</p> : !allowed ? <a href="/admin">Sign in as an admin</a> : <>
         <p className="dependency-save-note">{dirty ? "Unsaved changes — save to apply them to the game." : "Saved connections"} · Unlocks follow each player’s progress. Admins can preview every challenge and entity.</p>
-        <DependencyGraph key={nodes.map((c) => c.id).join(",")} nodes={nodes} disabled={busy} onConnect={connect} onRemove={remove}/>
+        <DependencyGraph key={graphNodes.map((c) => c.id).join(",")} nodes={graphNodes} disabled={busy} onConnect={connect} onRemove={remove} onAddEntity={openEntityPicker}/>
         <form className="dependency-connect-form admin-editor" onSubmit={(e) => { e.preventDefault(); connect(from,to); }}>
           <h2>Add a connection</h2>
           <div className="dependency-connect-fields">
@@ -142,8 +138,12 @@ export default function Dependencies() {
             <label>Unlocks<select aria-label="Unlocks" value={to} onChange={(e) => setTo(e.target.value)} disabled={busy} required><option value="">Select a challenge or entity</option>{sorted.map((c) => <option key={c.id} value={c.id}>{c.object} ({c.entity ? "Entity · spoke to" : "Challenge · solved"})</option>)}</select></label>
             <button className="primary" disabled={busy || !from || !to}>Connect prerequisites</button>
           </div>
+          <div className="dependency-entity-add-actions">
+            <button type="button" className="secondary-button" disabled={busy} onClick={openEntityPicker}><UsersRound size={17}/>Add non-player entity</button>
+            <p>Missing a character? Add an existing entity to the graph to use it in these selectors.</p>
+          </div>
         </form>
-        {!!nodes.filter(n => n.entity).length && <section className="admin-editor dependency-connection-list"><h2>Non-player entities</h2><p>These characters also appear in Theme → Maps &amp; Transport → Non-Player Entities.</p><ul>{nodes.filter(n => n.entity).map(n => <li key={n.id}><span><strong>{n.object}</strong> · {n.map} · Activated when spoken to</span><div className="entity-editor-actions"><button type="button" className="secondary-button" disabled={busy} onClick={() => { setError(""); setEditingEntity(n.entity!); }}>Edit {n.object}</button><button type="button" className="secondary-button" disabled={busy} onClick={() => deleteEntity(n.id)} aria-label={`Delete non-player entity ${n.object}`}><Trash2 size={16}/>Delete</button></div></li>)}</ul></section>}
+        {!!graphNodes.filter(n => n.entity).length && <section className="admin-editor dependency-connection-list"><h2>Non-player entities</h2><p>Create and edit characters in <a href="/admin/theme/maps">Theme → Maps &amp; Transport → Non-Player Entities</a>.</p><ul>{graphNodes.filter(n => n.entity).map(n => <li key={n.id}><span><strong>{n.object}</strong> · {n.map} · Activated when spoken to</span><div className="entity-editor-actions"><a className="secondary-button" href={`/admin/theme/maps?map=${encodeURIComponent(n.map)}`}>Edit in Theme</a><button type="button" className="secondary-button" disabled={busy} onClick={() => removeEntity(n.id)} aria-label={`Remove non-player entity ${n.object} from graph`}><Trash2 size={16}/>Remove from graph</button></div></li>)}</ul></section>}
         <details className="dependency-connection-list admin-editor">
           <summary>Connections ({edges.length})</summary>
           <ul>{edges.map((edge) => <li key={`${edge.from}>${edge.to}`}><span><strong>{nodes.find((c) => c.id === edge.from)?.object}</strong> <ArrowRight size={16} aria-hidden="true"/> {nodes.find((c) => c.id === edge.to)?.object}</span><button type="button" className="secondary-button" disabled={busy} aria-label={`Remove ${edge.from} prerequisite from ${edge.to}`} onClick={() => remove(edge.from,edge.to)}>Remove</button></li>)}</ul>
@@ -152,10 +152,10 @@ export default function Dependencies() {
         <p className="roster-note">Written prerequisites unlock after grading. Solved challenges and activated entities remain available. Admin conversations are previews and do not activate entities. Challenges marked Hidden remain hidden from players.</p>
       </>}
     </section>
-    <Dialog open={!!editingEntity} onOpenChange={open => { if (!open) setEditingEntity(null); }}><DialogContent className="entity-dialogue dependency-entity-dialog" aria-describedby="dependency-entity-help"><DialogTitle>{nodes.some(n => n.id === entityReference(editingEntity?.id || "")) ? "Edit non-player entity" : "Add non-player entity"}</DialogTitle><DialogDescription id="dependency-entity-help">Place a character and configure what they say. Connect its card to set prerequisites, then save dependencies.</DialogDescription>
-      {editingEntity && world && <><label>Map<select aria-label="Character map" value={editingEntity.map} onChange={e => { const map = e.target.value, engine = createWorld(world), location = findEntityLocation(engine, nodes.filter(n => !n.entity), entityDefinitions(nodes), map, engine.mapInfo(map)!.spawn, editingEntity.id); if (location) setEditingEntity({ ...editingEntity, map, location }); else setError("This map has no free character locations."); }}>{world.maps.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label><EntityEditor key={editingEntity.id} entity={editingEntity} characters={characters} onChange={setEditingEntity}/></>}
-      {error && <p role="alert" className="error">{error}</p>}
-      <div className="entity-editor-actions"><button type="button" className="primary" onClick={saveEntity}>Apply character</button><button type="button" className="secondary-button" onClick={() => setEditingEntity(null)}>Cancel</button></div>
+    <Dialog open={pickingEntity} onOpenChange={setPickingEntity}><DialogContent className="entity-dialogue dependency-entity-dialog" aria-describedby="dependency-entity-help" onCloseAutoFocus={e => { e.preventDefault(); const trigger = entityPickerTrigger.current; if (trigger?.isConnected) trigger.focus({ preventScroll: true }); else document.querySelector<HTMLElement>(".dependency-graph-viewport")?.focus({ preventScroll: true }); }}><DialogTitle>Add non-player entity</DialogTitle><DialogDescription id="dependency-entity-help">Choose an existing character from Theme to add to this graph. Connect its card to set prerequisites, then save dependencies.</DialogDescription>
+      {availableEntities.length ? <label>Non-player entity<select aria-label="Existing non-player entity" value={selectedEntityId} onChange={e => setSelectedEntityId(e.target.value)} disabled={busy}>{availableEntities.map(n => <option key={n.id} value={n.id}>{n.object} · {n.map}</option>)}</select></label> : <p>{nodes.some(n => n.entity) ? "All existing non-player entities are already in the graph." : "No non-player entities exist yet."}</p>}
+      <p>Create and edit characters in <a href="/admin/theme/maps">Theme → Maps &amp; Transport → Non-Player Entities</a>.</p>
+      <div className="entity-editor-actions"><button type="button" className="primary" disabled={busy || !availableEntities.some(n => n.id === selectedEntityId)} onClick={addEntity}>Add to graph</button><button type="button" className="secondary-button" onClick={() => setPickingEntity(false)}>Cancel</button></div>
     </DialogContent></Dialog>
   </main>;
 }

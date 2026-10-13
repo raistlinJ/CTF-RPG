@@ -201,7 +201,7 @@ export async function updateMap(req, state) {
   );
   const engine = createWorld(next.world),
     invalid = challenges.filter(
-      (c) => !challengeLocationAvailable(engine, [], c.map, c.location.x, c.location.y, c.id),
+      (c) => !challengeLocationAvailable(engine, [], c.map, c.location.x, c.location.y, c.id, c),
     );
   if (invalid.length)
     throw Error(

@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { drawBossIcon, challengeTiles, challengeSize } from "@/lib/challenge-icon.mjs";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Footprints,
   Ban,
@@ -48,9 +49,13 @@ type WorldData = Omit<typeof activeWorld, "maps"> & {
 type Placement = {
   id: string;
   object: string;
+  icon?: "star" | "boss";
+  iconSize?: 1 | 2 | 3;
   map: string;
   location: { x: number; y: number };
 };
+type MapItem = { kind: "entity" | "transport" | "challenge" | "spawn"; id: string; destination?: string; readOnly?: boolean };
+type ItemDrag = MapItem & { pointerId: number; startX: number; startY: number; active: boolean; target: { x: number; y: number } };
 export default function MapSettings({
   world,
   mapId,
@@ -110,12 +115,29 @@ export default function MapSettings({
     [selectedChallenge, setSelectedChallenge] = useState("");
   const [entities, setEntities] = useState<NonPlayerEntity[]>(world.entities || []);
   const [selectedEntity, setSelectedEntity] = useState("");
+  const [mapAction, setMapAction] = useState<"ground" | "entities" | "transport" | null>(null);
+  const [dragPreview, setDragPreview] = useState<(MapItem & { x: number; y: number }) | null>(null), [hoverItem, setHoverItem] = useState(false);
+  const itemDrag = useRef<ItemDrag | null>(null);
+  const mapPress = useRef<number | null>(null);
+  const capturedPointer = useRef<number | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null),
     dragging = useRef(false),
     lastPaint = useRef<{ x: number; y: number } | null>(null),
     imageInput = useRef<HTMLInputElement>(null);
+  const cancelGesture = useCallback(() => {
+    const pointerId = capturedPointer.current;
+    capturedPointer.current = null;
+    itemDrag.current = null; mapPress.current = null; dragging.current = false; lastPaint.current = null;
+    setDragPreview(null); setHoverItem(false);
+    if (pointerId !== null && canvas.current?.hasPointerCapture(pointerId)) canvas.current.releasePointerCapture(pointerId);
+  }, []);
+  useEffect(() => {
+    window.addEventListener("blur", cancelGesture);
+    return () => window.removeEventListener("blur", cancelGesture);
+  }, [cancelGesture]);
   const [initialState, setInitialState] = useState("");
   function reset() {
+    cancelGesture();
     const engine = createWorld(world),
       next = new Set<string>();
     for (let y = 0; y < 28; y++)
@@ -128,6 +150,7 @@ export default function MapSettings({
     if (imageInput.current) imageInput.current.value = "";
     setCursor({ ...original.spawn });
     setMode("allow");
+    setMapAction(null);
     setTransports(structuredClone(world.transports || []));
     setPortalOverrides(structuredClone(world.portalOverrides || []));
     setSelectedTransport("");
@@ -197,13 +220,13 @@ export default function MapSettings({
     [challenges, moves],
   );
   const invalid = placements.filter(
-    (c) => !challengeLocationAvailable(engine, [], c.map, c.location.x, c.location.y, c.id),
+    (c) => !challengeLocationAvailable(engine, [], c.map, c.location.x, c.location.y, c.id, c),
   );
   const selectedNpc = entities.find(e => e.id === selectedEntity);
   const entityValidation = entitiesSchema.safeParse(entities);
   const entityProblems = [
     ...(!entityValidation.success ? entityValidation.error.issues.map(i => `Character ${i.path[0] === undefined ? "" : Number(i.path[0]) + 1}: ${i.message}`) : []),
-    ...entities.flatMap(e => !characters.some(c => c.id === e.characterId) || !entityLocationAvailable(engine, placements, entities, e.map, e.location.x, e.location.y, e.id) ? [`${e.name || "Character"} needs a valid appearance and a separate, reachable tile away from challenges and transport.`] : []),
+    ...entities.flatMap(e => !characters.some(c => c.id === e.characterId) || !entityLocationAvailable(engine, placements, entities, e.map, e.location.x, e.location.y, e.id) ? [`${e.name || "Character"} needs a valid appearance and a separate map tile away from challenges, doors and transport.`] : []),
   ];
   function updateEntity(entity: NonPlayerEntity) {
     setEntities(all => all.map(e => e.id === entity.id ? entity : e)); setMessage(""); setError("");
@@ -213,6 +236,7 @@ export default function MapSettings({
     if (!location) { setError("This map has no available location for another character."); return; }
     const node = "dialogue-" + clientUuid(), id = "entity-" + clientUuid();
     setEntities(all => [...all, { id, name: "New character", characterId: characters[0]?.id || "web", map: mapId, location, startNode: node, nodes: [{ id: node, text: "", choices: [] }] }]);
+    setMapAction("entities");
     setSelectedEntity(id); setCursor(location); setMessage(""); setError("");
   }
   const duplicated = placements.filter((c, i) =>
@@ -220,8 +244,7 @@ export default function MapSettings({
       (d, j) =>
         j < i &&
         d.map === c.map &&
-        d.location.x === c.location.x &&
-        d.location.y === c.location.y,
+        challengeTiles(d).some(p => challengeTiles(c).some(t => t.x === p.x && t.y === p.y)),
     ),
   );
   const portalProblems = engine.portals.flatMap((p) =>
@@ -345,11 +368,14 @@ export default function MapSettings({
           : "#ff8585";
         ctx.font = "bold 20px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("✦", c.location.x * 24 + 12, c.location.y * 24 + 19);
+        const size = challengeSize(c);
+        if (c.icon === "boss") {
+          drawBossIcon(ctx, c.location.x * 24, c.location.y * 24, size * 24);
+        } else ctx.fillText("✦", c.location.x * 24 + 12, c.location.y * 24 + 19);
         if (c.id === selectedChallenge) {
           ctx.strokeStyle = "#ffe393";
           ctx.lineWidth = 3;
-          ctx.strokeRect(c.location.x * 24 + 1, c.location.y * 24 + 1, 22, 22);
+          ctx.strokeRect(c.location.x * 24 + 1, c.location.y * 24 + 1, size * 24 - 2, size * 24 - 2);
         }
       }
       for (const p of [
@@ -371,6 +397,16 @@ export default function MapSettings({
       ctx.strokeRect(cursor.x * 24 + 1, cursor.y * 24 + 1, 22, 22);
       ctx.fillStyle = "#fff4a6";
       ctx.fillRect(map.spawn.x * 24 + 5, map.spawn.y * 24 + 5, 14, 14);
+      if (dragPreview) {
+        ctx.strokeStyle = dragPreview.kind === "entity" ? "#ffe293" : "#c4adff";
+        ctx.lineWidth = 3; ctx.setLineDash([4, 3]);
+        ctx.strokeRect(dragPreview.x * 24 + 1, dragPreview.y * 24 + 1, 22, 22);
+        ctx.setLineDash([]);
+        if (dragPreview.kind !== "entity") {
+          ctx.fillStyle = ctx.strokeStyle; ctx.font = "bold 20px Arial"; ctx.textAlign = "center";
+          ctx.fillText(dragPreview.kind === "transport" ? "⇄" : dragPreview.kind === "challenge" ? "✦" : "◆", dragPreview.x * 24 + 12, dragPreview.y * 24 + 19);
+        }
+      }
     };
     const src = imageUrl || map.background;
     if (src) {
@@ -391,8 +427,9 @@ export default function MapSettings({
     cursor,
     placements,
     selectedChallenge,
+    dragPreview,
   ]);
-  function paint(x: number, y: number, continuous = false) {
+  function paint(x: number, y: number, continuous = false, moving?: MapItem) {
     if (
       !Number.isInteger(x) ||
       !Number.isInteger(y) ||
@@ -400,18 +437,22 @@ export default function MapSettings({
       x > 39 ||
       y < 0 ||
       y > 27
-    )
+    ) {
+      if (moving) setError("Drop the item inside the map grid.");
       return;
-    setCursor({ x, y });
-    if (panel === "entities") {
-      const existing = entities.find(e => e.map === mapId && e.location.x === x && e.location.y === y);
-      if (existing) { setSelectedEntity(existing.id); setError(""); return; }
-      if (!selectedNpc) { setError("Add or select a character, then click its location on the map."); return; }
-      if (!entityLocationAvailable(engine, placements, entities, mapId, x, y, selectedNpc.id)) { setError("Choose an unoccupied, reachable tile away from challenges, doors and transport."); return; }
-      updateEntity({ ...selectedNpc, location: { x, y } }); return;
     }
-    if (panel === "transport") {
-      if (!destination) {
+    setCursor({ x, y });
+    if (moving?.kind === "entity" || (!moving && panel === "entities")) {
+      const existing = entities.find(e => e.map === mapId && e.location.x === x && e.location.y === y);
+      if (existing && !moving) { setSelectedEntity(existing.id); setError(""); return; }
+      const entity = moving ? entities.find(e => e.id === moving.id) : selectedNpc;
+      if (!entity) { setError("Add or select a character, then click its location on the map."); return; }
+      if (!entityLocationAvailable(engine, placements, entities, mapId, x, y, entity.id)) { setError("Choose an unoccupied map tile away from challenges, doors and transport. Non-walkable tiles are allowed."); return; }
+      updateEntity({ ...entity, location: { x, y } }); setMapAction(null); return;
+    }
+    if (moving?.kind === "transport" || (!moving && panel === "transport")) {
+      const transportId = moving?.id || selectedTransport, to = moving?.destination || destination;
+      if (!to) {
         setError("Choose a destination map first.");
         return;
       }
@@ -421,7 +462,7 @@ export default function MapSettings({
       const existing = transports.find(
         (t) => t.map === mapId && t.location.x === x && t.location.y === y,
       );
-      if (existingPortal || existing) {
+      if ((existingPortal || existing) && !moving) {
         setSelectedTransport(
           existingPortal
             ? `portal:${existingPortal.id}`
@@ -435,7 +476,7 @@ export default function MapSettings({
         return;
       }
       if (
-        !entityLocationAvailable(engine, [], entities, mapId, x, y) ||
+        !engine.canPlaceChallenge(mapId, x, y) || !entityLocationAvailable(engine, [], entities, mapId, x, y) ||
         (x === map.spawn.x && y === map.spawn.y)
       ) {
         setError(
@@ -445,7 +486,7 @@ export default function MapSettings({
       }
       if (
         placements.some(
-          (c) => c.map === mapId && c.location.x === x && c.location.y === y,
+          (c) => c.map === mapId && challengeTiles(c).some(p => p.x === x && p.y === y),
         )
       ) {
         setError(
@@ -453,13 +494,12 @@ export default function MapSettings({
         );
         return;
       }
-      const target = world.maps.find((m) => m.id === destination)!;
+      const target = world.maps.find((m) => m.id === to)!;
       if (
         placements.some(
           (c) =>
-            c.map === destination &&
-            c.location.x === target.spawn.x &&
-            c.location.y === target.spawn.y,
+            c.map === to &&
+            challengeTiles(c).some(p => p.x === target.spawn.x && p.y === target.spawn.y),
         )
       ) {
         setError(
@@ -468,17 +508,17 @@ export default function MapSettings({
         return;
       }
       rememberTransport();
-      if (selectedTransport.startsWith("portal:")) {
-        const id = selectedTransport.slice(7);
+      if (transportId.startsWith("portal:")) {
+        const id = transportId.slice(7);
         setPortalOverrides((os) => [
           ...os.filter((o) => o.id !== id),
-          { id, location: { x, y }, to: destination, lock: engine.portals.find(p => p.id === id)?.lock as TransportLock | null },
+          { id, location: { x, y }, to, lock: engine.portals.find(p => p.id === id)?.lock as TransportLock | null },
         ]);
-      } else if (selectedTransport.startsWith("transport:")) {
+      } else if (transportId.startsWith("transport:")) {
         setTransports((ts) =>
           ts.map((t) =>
-            t.id === selectedTransport.slice(10)
-              ? { ...t, location: { x, y }, to: destination }
+            t.id === transportId.slice(10)
+              ? { ...t, location: { x, y }, to }
               : t,
           ),
         );
@@ -490,39 +530,47 @@ export default function MapSettings({
             id,
             map: mapId,
             location: { x, y },
-            to: destination,
+            to,
             lock: newLock,
           },
         ]);
         setSelectedTransport(`transport:${id}`);
       }
+      setMapAction(null);
       setError("");
       setMessage("");
       return;
     }
-    if (mode === "move") {
+    if (moving?.kind === "challenge" || (!moving && mode === "move")) {
       const clicked = placements.find(
-        (c) => c.map === mapId && c.location.x === x && c.location.y === y,
+        (c) => c.map === mapId && challengeTiles(c).some(p => p.x === x && p.y === y),
       );
-      if (clicked) {
+      if (clicked && !moving) {
         setSelectedChallenge(clicked.id);
         setError("");
         return;
       }
-      if (!selectedChallenge) {
+      const challengeId = moving?.id || selectedChallenge;
+      if (!challengeId) {
         setError(
           "Click a challenge star or choose a challenge, then click its destination.",
         );
         return;
       }
-      if (!challengeLocationAvailable(engine, [], mapId, x, y, selectedChallenge)) {
+      if (!challengeLocationAvailable(engine, placements, mapId, x, y, challengeId)) {
         setError("Choose a free, reachable tile for this challenge.");
         return;
       }
-      setMoves((s) => ({ ...s, [selectedChallenge]: { x, y } }));
+      setMoves((s) => ({ ...s, [challengeId]: { x, y } }));
       setError("");
       setMessage("");
       return;
+    }
+    if (moving?.kind === "spawn") {
+      if (!engine.canSpawn(mapId, x, y) || placements.some(c => c.map === mapId && challengeTiles(c).some(p => p.x === x && p.y === y)) || entities.some(e => e.map === mapId && e.location.x === x && e.location.y === y)) {
+        setError("Choose a free, reachable tile for the spawn."); return;
+      }
+      setMap(m => ({ ...m, spawn: { x, y } })); setError(""); setMessage(""); return;
     }
     if (
       x < map.bounds.left ||
@@ -567,12 +615,57 @@ export default function MapSettings({
       true,
     );
   }
+  function pointerTile(e: React.PointerEvent<HTMLCanvasElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: Math.floor((e.clientX - r.left) / r.width * 40), y: Math.floor((e.clientY - r.top) / r.height * 28) };
+  }
+  function itemAtTile(x: number, y: number): MapItem | null {
+    const entity = entities.find(n => n.map === mapId && n.location.x === x && n.location.y === y);
+    if (entity) return { kind: "entity", id: entity.id };
+    const portal = engine.portals.find(p => p.map === mapId && p.location.x === x && p.location.y === y);
+    if (portal) return { kind: "transport", id: `portal:${portal.id}`, destination: portal.to };
+    const transport = transports.find(t => t.map === mapId && t.location.x === x && t.location.y === y);
+    if (transport) return { kind: "transport", id: `transport:${transport.id}`, destination: transport.to };
+    if (engine.transportTiles(mapId).some((t: { kind: string; x: number; y: number }) => t.kind === "return" && t.x === x && t.y === y)) return { kind: "transport", id: "return", readOnly: true };
+    const challenge = placements.find(c => c.map === mapId && challengeTiles(c).some(p => p.x === x && p.y === y));
+    if (challenge) return { kind: "challenge", id: challenge.id };
+    if (map.spawn.x === x && map.spawn.y === y) return { kind: "spawn", id: "spawn" };
+    return null;
+  }
+  function itemAt(e: React.PointerEvent<HTMLCanvasElement>): MapItem | null {
+    const { x, y } = pointerTile(e), item = itemAtTile(x, y);
+    if (item) return item;
+    const marker = [...e.currentTarget.parentElement!.querySelectorAll<HTMLElement>(".entity-marker")].find(m => {
+      const r = m.getBoundingClientRect();
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    });
+    return marker ? { kind: "entity", id: marker.dataset.entityId! } : null;
+  }
+  function selectMapItem(item: MapItem | null, point: { x: number; y: number }) {
+    setMapAction(null);
+    setError(""); setMessage("");
+    if (item?.kind === "entity") {
+      setPanel("entities"); setSelectedEntity(item.id);
+      setCursor(entities.find(n => n.id === item.id)!.location);
+    } else if (item?.kind === "transport") {
+      setPanel("transport"); setSelectedTransport(item.readOnly ? "" : item.id);
+      if (item.destination) setDestination(item.destination);
+      setCursor(point);
+      if (item.readOnly) setMessage("This return tile follows incoming transports. Edit their links on the source map.");
+    } else {
+      setPanel("ground");
+      if (item?.kind === "challenge") { setMode("move"); setSelectedChallenge(item.id); }
+      else if (item?.kind === "spawn") setMode("spawn");
+      setCursor(point);
+    }
+  }
   async function save(restore?: {
     map: MapData;
     transports: Transport[];
     portalOverrides: PortalOverride[];
     entities: NonPlayerEntity[];
   }) {
+    cancelGesture();
     setBusy(true);
     setError("");
     setMessage("");
@@ -643,6 +736,7 @@ export default function MapSettings({
   }
   async function saveArtwork(resetImage = false) {
     if (busy || layoutDirty || (!resetImage && !image)) return;
+    cancelGesture();
     setBusy(true);
     setError("");
     setMessage("");
@@ -682,13 +776,13 @@ export default function MapSettings({
       name: "Spawn",
       label: "Set spawn",
       icon: MapPin,
-      help: "Click a reachable tile to set the player’s starting position.",
+      help: "Click a reachable tile to set the player’s starting position, or drag the spawn marker. Escape cancels a drag.",
     },
     move: {
       name: "Move challenge",
       label: "Move challenge",
       icon: Move,
-      help: "Select a star or challenge name, then click a free green destination.",
+      help: "Drag a challenge star to free green ground, or select its name and click a destination. Escape cancels a drag.",
     },
   };
   const attention = [
@@ -698,6 +792,7 @@ export default function MapSettings({
   return (
     <EditorContainer
       className={`map-settings${standalone ? " map-settings-standalone" : ""}`}
+      aria-busy={busy}
       onToggle={(e) => {
         if (standalone) return;
         const open = (e.currentTarget as HTMLDetailsElement).open;
@@ -729,7 +824,7 @@ export default function MapSettings({
               type="button"
               key={tab.id}
               aria-pressed={panel === tab.id}
-              onClick={() => setPanel(tab.id)}
+              onClick={() => { cancelGesture(); setMapAction(null); setPanel(tab.id); }}
             >
               <tab.icon size={16} />
               {tab.label}
@@ -738,10 +833,10 @@ export default function MapSettings({
         </div>
         <div className="map-settings-controls">
         {panel === "entities" && <div className="map-settings-section">
-          <p className="map-tool-help" id="entity-tool-help">Add a character, then click reachable ground to place it. Players use Search nearby to speak and choose their replies. Save map to publish your characters and dialogue.</p>
+          <p className="map-tool-help" id="entity-tool-help">Add a character, then click a free map tile to place it. Drag a character to move it; Escape cancels. Non-walkable tiles are allowed. Players use Search nearby within one tile to speak and choose their replies. Save map to publish your characters and dialogue.</p>
           <button type="button" className="secondary-button" disabled={busy || entities.length >= 100 || !characters.length} onClick={addEntity}>Add character</button>
           <div className="entity-list" aria-label="Characters on this map">{entities.filter(e => e.map === mapId).map(e => <div key={e.id}>
-            <button type="button" aria-pressed={selectedEntity === e.id} disabled={busy} onClick={() => { setSelectedEntity(e.id); setCursor({ ...e.location }); }}>{e.name || "Unnamed character"} · {e.location.x}, {e.location.y}</button>
+            <button type="button" aria-pressed={selectedEntity === e.id} disabled={busy} onClick={() => { setMapAction(null); setSelectedEntity(e.id); setCursor({ ...e.location }); }}>{e.name || "Unnamed character"} · {e.location.x}, {e.location.y}</button>
             <button type="button" className="text-button" aria-label={`Remove character ${e.name}`} disabled={busy} onClick={() => { setEntities(all => all.filter(v => v.id !== e.id)); if (selectedEntity === e.id) setSelectedEntity(""); }}>Remove</button>
           </div>)}</div>
           {!entities.some(e => e.map === mapId) && <small>No characters on this map yet.</small>}
@@ -757,9 +852,11 @@ export default function MapSettings({
                     type="button"
                     key={tool}
                     aria-label={tools[tool].label}
-                    aria-pressed={mode === tool}
+                    aria-pressed={mapAction === "ground" && mode === tool}
                     onClick={() => {
+                      cancelGesture();
                       setMode(tool);
+                      setMapAction("ground");
                       lastPaint.current = null;
                     }}
                   >
@@ -770,14 +867,14 @@ export default function MapSettings({
               })}
             </div>
             <p id="map-tool-help" className="map-tool-help">
-              {tools[mode].help}
+              {mapAction === "ground" ? tools[mode].help : "Click an item to open its section, or empty ground to select a tile. Choose a tool above to edit ground; drag an item to move it."}
             </p>
             {mode === "move" && (
               <label className="map-move-picker">
                 Challenge to move
                 <select
                   value={selectedChallenge}
-                  onChange={(e) => setSelectedChallenge(e.target.value)}
+                  onChange={(e) => { setSelectedChallenge(e.target.value); setMapAction("ground"); }}
                 >
                   <option value="">Choose a challenge</option>
                   {placements
@@ -794,6 +891,41 @@ export default function MapSettings({
         )}
         {panel === "transport" && (
           <div className="map-settings-section">
+            <div className="transport-edit-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={busy}
+                onClick={() => {
+                  cancelGesture();
+                  setSelectedTransport("");
+                  setMapAction("transport");
+                  setError("");
+                  setNewLock(null);
+                  setMessage(
+                    "Choose a destination and click a free tile to add a transport.",
+                  );
+                }}
+              >
+                New transport
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                disabled={!transportUndo.length || busy}
+                onClick={() => {
+                  const last = transportUndo.at(-1)!;
+                  setTransports(last.transports);
+                  setPortalOverrides(last.portalOverrides);
+                  setTransportUndo((h) => h.slice(0, -1));
+                  setSelectedTransport("");
+                  setError("");
+                  setMessage("Last transport edit undone.");
+                }}
+              >
+                Undo transport edit
+              </button>
+            </div>
             <label>
               Destination map
               <select
@@ -829,42 +961,12 @@ export default function MapSettings({
             </label>}
             <p className="map-tool-help">Lock settings apply to the selected transport, or to the next transport you add. Unlocks belong to each player; keys are kept after use.</p>
             <p id="transport-tool-help" className="map-tool-help">
-              Select a transport to edit its destination, then click a free tile
-              to move it. Theme entrances and exits keep their original return
+              Click a transport to edit it, or drag it to a free tile to move it.
+              Escape cancels a drag. Theme entrances and exits keep their original return
               behavior. New transports arrive at the destination spawn and
               return when students step off and back onto its purple tile.
             </p>
-            <div className="transport-edit-actions">
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => {
-                  setSelectedTransport("");
-                  setNewLock(null);
-                  setMessage(
-                    "Choose a destination and click a free tile to add a transport.",
-                  );
-                }}
-              >
-                Add new transport
-              </button>
-              <button
-                type="button"
-                className="text-button"
-                disabled={!transportUndo.length || busy}
-                onClick={() => {
-                  const last = transportUndo.at(-1)!;
-                  setTransports(last.transports);
-                  setPortalOverrides(last.portalOverrides);
-                  setTransportUndo((h) => h.slice(0, -1));
-                  setSelectedTransport("");
-                  setError("");
-                  setMessage("Last transport edit undone.");
-                }}
-              >
-                Undo transport edit
-              </button>
-            </div>
+
             {selectedTransport && (
               <p className="map-tool-help">
                 Editing{" "}
@@ -873,108 +975,10 @@ export default function MapSettings({
                       (p) => p.id === selectedTransport.slice(7),
                     )?.name
                   : "transport"}
-                . Destination changes apply immediately to the draft. Click a
-                free tile to move it.
+                . Destination changes apply immediately to the draft. Drag it to move it.
               </p>
             )}
-            <div className="transport-list" role="region" aria-label="Map transports" tabIndex={0}>
-              {engine.portals
-                .filter((p) => p.map === mapId)
-                .map((p) => (
-                  <div
-                    key={p.id}
-                    className={
-                      selectedTransport === `portal:${p.id}`
-                        ? "selected-transport"
-                        : ""
-                    }
-                  >
-                    <span>
-                      <ArrowLeftRight size={15} />
-                      {p.name} · {p.location.x}, {p.location.y} →{" "}
-                      {world.maps.find((m) => m.id === p.to)?.name}
-                      <small>Theme predefined{p.lock ? p.lock.type === "key" ? ` · ${p.lock.color} key required` : " · Incantation required" : " · No lock"}</small>
-                    </span>
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() => {
-                        setSelectedTransport(`portal:${p.id}`);
-                        setDestination(p.to);
-                        setCursor({ ...p.location });
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={
-                        !portalOverrides.some((o) => o.id === p.id) || busy
-                      }
-                      onClick={() => {
-                        rememberTransport();
-                        setPortalOverrides((os) =>
-                          os.filter((o) => o.id !== p.id),
-                        );
-                        setSelectedTransport("");
-                        setError("");
-                        setMessage(
-                          "Theme transport reset to its original location and destination. Save map to keep it.",
-                        );
-                      }}
-                    >
-                      Reset to theme
-                    </button>
-                  </div>
-                ))}
 
-              {transports
-                .filter((t) => t.map === mapId)
-                .map((t) => (
-                  <div key={t.id}>
-                    <span>
-                      <ArrowLeftRight size={15} />
-                      {t.location.x}, {t.location.y} →{" "}
-                      {world.maps.find((m) => m.id === t.to)?.name}
-                      <small>{t.lock ? t.lock.type === "key" ? `${t.lock.color} key required` : "Incantation required" : "No lock"}</small>
-                    </span>
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() => {
-                        setSelectedTransport(`transport:${t.id}`);
-                        setDestination(t.to);
-                        setCursor({ ...t.location });
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-button"
-                      aria-label={`Remove transport at ${t.location.x}, ${t.location.y}`}
-                      onClick={() => {
-                        rememberTransport();
-                        setTransports((ts) => ts.filter((v) => v.id !== t.id));
-                        setSelectedTransport("");
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              {!transports.some((t) => t.map === mapId) &&
-                !engine.portals.some((p) => p.map === mapId) && (
-                  <small>No outgoing transports on this map yet.</small>
-                )}
-            </div>
-            {transports.some((t) => t.to === mapId) && (
-              <small>
-                The purple spawn tile returns students to the map they arrived
-                from. Incoming links are managed on their source map.
-              </small>
-            )}
           </div>
         )}
         {panel === "artwork" && (
@@ -1097,8 +1101,9 @@ export default function MapSettings({
           width={960}
           height={672}
           className="ground-canvas"
+          style={{ cursor: busy ? "wait" : dragPreview ? "grabbing" : hoverItem ? "grab" : "crosshair" }}
           tabIndex={0}
-          aria-label="Reachable ground painter"
+          aria-label={panel === "entities" ? "Non-player entity placement map" : panel === "transport" ? "Transport placement map" : "Reachable ground painter"}
           aria-describedby={
             panel === "ground"
               ? "map-tool-help"
@@ -1107,32 +1112,51 @@ export default function MapSettings({
                 : panel === "entities" ? "entity-tool-help" : undefined
           }
           onPointerDown={(e) => {
-            if (!["ground", "transport", "entities"].includes(panel) || busy) return;
+            if (e.button !== 0 || !e.isPrimary || busy) return;
             e.preventDefault();
             e.currentTarget.focus();
             lastPaint.current = null;
             dragging.current = true;
+            capturedPointer.current = e.pointerId;
             e.currentTarget.setPointerCapture(e.pointerId);
-            at(e);
+            const item = itemAt(e);
+            if (item) {
+              itemDrag.current = { ...item, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false, target: pointerTile(e) };
+              // Opening the selected item's controls can shift the canvas on mobile.
+              // Keep the layout steady until the pointer is released.
+              setError("");
+            } else if (mapAction === panel) at(e);
+            else mapPress.current = e.pointerId;
           }}
           onPointerMove={(e) => {
-            if (dragging.current && panel === "ground" && mode !== "move")
+            const drag = itemDrag.current;
+            if (drag?.pointerId === e.pointerId) {
+              if (drag.readOnly) return;
+              if (!drag.active && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 4) return;
+              drag.active = true; drag.target = pointerTile(e);
+              setDragPreview({ kind: drag.kind, id: drag.id, destination: drag.destination, ...drag.target });
+              return;
+            }
+            if (dragging.current && mapAction === "ground" && mapPress.current === null && panel === "ground" && mode !== "move")
               at(e);
+            else if (!dragging.current) setHoverItem(!!itemAt(e));
           }}
-          onPointerUp={() => {
-            dragging.current = false;
-            lastPaint.current = null;
+          onPointerUp={(e) => {
+            const drag = itemDrag.current;
+            const target = pointerTile(e), pressed = mapPress.current === e.pointerId;
+            cancelGesture();
+            if (drag?.pointerId === e.pointerId) {
+              selectMapItem(drag, target);
+              if (drag.active && !drag.readOnly) paint(target.x, target.y, false, drag);
+            } else if (pressed && target.x >= 0 && target.x < 40 && target.y >= 0 && target.y < 28) selectMapItem(null, target);
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
           }}
-          onLostPointerCapture={() => {
-            dragging.current = false;
-            lastPaint.current = null;
-          }}
-          onPointerCancel={() => {
-            dragging.current = false;
-            lastPaint.current = null;
-          }}
+          onPointerLeave={() => { if (!dragging.current) setHoverItem(false); }}
+          onLostPointerCapture={cancelGesture}
+          onPointerCancel={cancelGesture}
           onKeyDown={(e) => {
-            if (!["ground", "transport", "entities"].includes(panel) || busy) return;
+            if (e.key === "Escape") { e.preventDefault(); cancelGesture(); setMapAction(null); return; }
+            if (busy) return;
             const dirs: Record<string, [number, number]> = {
               ArrowLeft: [-1, 0],
               ArrowRight: [1, 0],
@@ -1148,11 +1172,13 @@ export default function MapSettings({
               }));
             } else if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              paint(cursor.x, cursor.y);
+              const item = itemAtTile(cursor.x, cursor.y);
+              if (item || mapAction !== panel) selectMapItem(item, cursor);
+              else paint(cursor.x, cursor.y);
             }
           }}
         />
-        <div className="entity-map-layer">{entities.filter(e => e.map === mapId).map(e => <EntityMarker key={e.id} entity={e} character={characters.find(c => c.id === e.characterId)} selected={e.id === selectedEntity} />)}</div></div>
+        <div className="entity-map-layer">{entities.filter(e => e.map === mapId).map(e => <EntityMarker key={e.id} entity={dragPreview?.kind === "entity" && dragPreview.id === e.id ? { ...e, location: { x: dragPreview.x, y: dragPreview.y } } : e} character={characters.find(c => c.id === e.characterId)} selected={e.id === selectedEntity || (dragPreview?.kind === "entity" && dragPreview.id === e.id)} />)}</div></div>
         <div className="map-canvas-meta">
           <div className="map-legend">
             <span>
@@ -1177,6 +1203,114 @@ export default function MapSettings({
             Tile {cursor.x}, {cursor.y}
           </span>
         </div>
+        {panel === "transport" && <section className="map-transport-rows" aria-label="Transports on this map">
+          <h3>Transports on this map</h3>
+            <div className="transport-list" role="region" aria-label="Map transports" tabIndex={0}>
+              {engine.portals
+                .filter((p) => p.map === mapId)
+                .map((p) => (
+                  <div
+                    key={p.id}
+                    className={
+                      selectedTransport === `portal:${p.id}`
+                        ? "selected-transport"
+                        : ""
+                    }
+                  >
+                    <span>
+                      <ArrowLeftRight size={15} />
+                      {p.name} · {p.location.x}, {p.location.y} →{" "}
+                      {world.maps.find((m) => m.id === p.to)?.name}
+                      <small>Theme predefined{p.lock ? p.lock.type === "key" ? ` · ${p.lock.color} key required` : " · Incantation required" : " · No lock"}</small>
+                    </span>
+                    <div className="transport-row-actions">
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        setMapAction(null);
+                        setSelectedTransport(`portal:${p.id}`);
+                        setDestination(p.to);
+                        setCursor({ ...p.location });
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-button"
+                      disabled={
+                        !portalOverrides.some((o) => o.id === p.id) || busy
+                      }
+                      onClick={() => {
+                        cancelGesture();
+                        rememberTransport();
+                        setPortalOverrides((os) =>
+                          os.filter((o) => o.id !== p.id),
+                        );
+                        setSelectedTransport("");
+                        setError("");
+                        setMessage(
+                          "Theme transport reset to its original location and destination. Save map to keep it.",
+                        );
+                      }}
+                    >
+                      Reset to theme
+                    </button>
+                    </div>
+                  </div>
+                ))}
+
+              {transports
+                .filter((t) => t.map === mapId)
+                .map((t) => (
+                  <div key={t.id} className={selectedTransport === `transport:${t.id}` ? "selected-transport" : ""}>
+                    <span>
+                      <ArrowLeftRight size={15} />
+                      {t.location.x}, {t.location.y} →{" "}
+                      {world.maps.find((m) => m.id === t.to)?.name}
+                      <small>{t.lock ? t.lock.type === "key" ? `${t.lock.color} key required` : "Incantation required" : "No lock"}</small>
+                    </span>
+                    <div className="transport-row-actions">
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={() => {
+                        setMapAction(null);
+                        setSelectedTransport(`transport:${t.id}`);
+                        setDestination(t.to);
+                        setCursor({ ...t.location });
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-button"
+                      aria-label={`Remove transport at ${t.location.x}, ${t.location.y}`}
+                      onClick={() => {
+                        rememberTransport();
+                        setTransports((ts) => ts.filter((v) => v.id !== t.id));
+                        setSelectedTransport("");
+                      }}
+                    >
+                      Remove
+                    </button>
+                    </div>
+                  </div>
+                ))}
+              {!transports.some((t) => t.map === mapId) &&
+                !engine.portals.some((p) => p.map === mapId) && (
+                  <small>No outgoing transports on this map yet.</small>
+                )}
+            </div>
+            {transports.some((t) => t.to === mapId) && (
+              <small>
+                The purple spawn tile returns students to the map they arrived
+                from. Incoming links are managed on their source map.
+              </small>
+            )}
+        </section>}
         {attention.length > 0 && (
           <div role="alert" className="map-attention">
             <b>

@@ -39,7 +39,7 @@ import {
 } from "./packs.mjs";
 import { createWorld } from "../lib/world-data.mjs";
 import { challengeLocationAvailable, findChallengeLocation } from "../lib/challenge-placement.mjs";
-import { publicEntity, resolveEntityDialogue } from "../lib/non-player-entities.mjs";
+import { publicEntity, resolveEntityDialogue, entityInInteractionRange } from "../lib/non-player-entities.mjs";
 import { handleTeams } from "./teams.mjs";
 import {
   passwordHash,
@@ -197,6 +197,8 @@ function createRequestApi({
             : null,
           map: c.map,
           object: c.object,
+          icon: c.icon,
+          iconSize: c.iconSize,
           location: c.location,
           region: c.region,
           text: response?.question || c.text,
@@ -907,11 +909,12 @@ function createRequestApi({
           );
         }
         if (
-          !challengeLocationAvailable(createWorld(theme.world), [],
+          !challengeLocationAvailable(createWorld(theme.world), current.challenges,
             validated.map,
             validated.location.x,
             validated.location.y,
-            validated.id,
+            editingId || validated.id,
+            validated,
           )
         )
           return json(
@@ -1004,8 +1007,8 @@ function createRequestApi({
           const items = await inventoryState(db, u.id, theme);
           if (!admin && !accessibleMaps(theme, items.unlockedTransports, u.spawn.map).has(entity.map))
             return json({ error: "Unlock a route to this map before speaking with its characters." }, 403);
-          if (body.map !== entity.map || !Number.isInteger(body.x) || !Number.isInteger(body.y) || body.x < 0 || body.x > 39 || body.y < 0 || body.y > 27 || Math.abs(body.x - entity.location.x) + Math.abs(body.y - entity.location.y) > 2)
-            return json({ error: "Move near this character and Search nearby to speak." }, 400);
+          if (!entityInInteractionRange(entity, body.map, body.x, body.y))
+            return json({ error: "Move within one tile of this character and Search nearby to speak." }, 400);
           const choices = body.choices ?? [];
           if (!Array.isArray(choices) || choices.length > 100 || choices.some(c => typeof c !== "string" || c.length > 80))
             return json({ error: "Restart this conversation to continue." }, 400);

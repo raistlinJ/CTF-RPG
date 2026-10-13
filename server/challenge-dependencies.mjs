@@ -1,3 +1,4 @@
+import { challengeTiles } from "../lib/challenge-icon.mjs";
 import { z } from "zod";
 import { entityReference } from "../lib/challenge-dependencies.mjs";
 import { entitiesSchema } from "../lib/non-player-entities.mjs";
@@ -36,16 +37,16 @@ export async function handleChallengeDependencies(req, { db, user, platformAdmin
   if (body.revision !== current.revision || body.themeRevision !== themeRevision)
     return reply({ error: "Challenges or characters changed. Reload the saved graph before saving again." }, 409);
   const entities = body.entities ?? theme.world.entities ?? [];
-  const expected = [...current.challenges.map(c => c.id), ...(body.entities ? entities.map(e => entityReference(e.id)) : [])];
+  const expected = [...current.challenges.map(c => c.id), ...entities.map(e => entityReference(e.id))];
   const dependencies = new Map(body.dependencies.map((c) => [c.id, c.dependsOn]));
   if (dependencies.size !== body.dependencies.length || dependencies.size !== expected.length || expected.some(id => !dependencies.has(id)))
-    return reply({ error: "Include each current challenge and added entity exactly once." }, 400);
+    return reply({ error: "Include each current challenge and entity exactly once." }, 400);
   const updated = current.challenges.map((c) => ({ ...c, dependsOn: dependencies.get(c.id) }));
   let updatedTheme;
   try {
     updatedTheme = parseTheme({ ...theme, world: { ...theme.world, entities: entities.map(e => ({ ...e, dependsOn: dependencies.get(entityReference(e.id)) ?? e.dependsOn ?? [] })) } });
     themeContentValid(updatedTheme, updated);
-    if (updatedTheme.world.entities.some(e => updated.some(c => c.map === e.map && c.location.x === e.location.x && c.location.y === e.location.y)))
+    if (updatedTheme.world.entities.some(e => updated.some(c => c.map === e.map && challengeTiles(c).some(p => p.x === e.location.x && p.y === e.location.y))))
       throw Error("Choose a character location away from existing challenges.");
   } catch (e) { return reply({ error: e.issues?.map(i => i.message).join("; ") || e.message }, 400); }
   const payload = JSON.stringify(updated), themePayload = JSON.stringify(updatedTheme);

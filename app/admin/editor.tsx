@@ -20,6 +20,7 @@ import {
   mapInfo,
   createWorld,
 } from "@/lib/world-data.mjs";
+import { challengeTiles } from "@/lib/challenge-icon.mjs";
 import { challengeLocationAvailable, findChallengeLocation } from "@/lib/challenge-placement.mjs";
 import type { EntityCharacter, EntitySummary } from "@/lib/non-player-entities";
 import {
@@ -37,6 +38,8 @@ type Definition = {
   id: string;
   map: string;
   object: string;
+  icon?: "star" | "boss";
+  iconSize?: 1 | 2 | 3;
   location: { x: number; y: number };
   region: string;
   text: string;
@@ -71,6 +74,8 @@ const fresh = (map = "town", x = 18, y = 20): Draft => ({
   id: "treasure-" + randomId(),
   map,
   object: "",
+  icon: "star",
+  iconSize: 1,
   location: { x, y },
   region: mapName(map),
   text: "",
@@ -262,7 +267,7 @@ export default function Admin() {
   function selectTile(x: number, y: number) {
     if (!draft || busy || uploadingVideo) return;
     const existing = catalog.find(
-      (c) => c.map === draft.map && c.location.x === x && c.location.y === y,
+      (c) => c.map === draft.map && challengeTiles(c).some(p => p.x === x && p.y === y),
     );
     if (existing && existing.id !== editingId) {
       if (canDiscard()) choose(toDraft(existing), existing.id);
@@ -375,7 +380,7 @@ export default function Admin() {
     h.rewardCost.keys.some(key => !draft.rewards.keys.includes(key)) ||
     h.rewardCost.incantations.some(phrase => !draft.rewards.incantations.some(p => normalizeIncantation(p) === normalizeIncantation(phrase))));
   const validLocation =
-    !!draft && challengeLocationAvailable(placementWorld, catalog, draft.map, draft.location.x, draft.location.y, editingId);
+    !!draft && challengeLocationAvailable(placementWorld, catalog, draft.map, draft.location.x, draft.location.y, editingId, draft);
   return (
     <main className="admin-studio">
       <AdminHeader active="challenges" />
@@ -522,9 +527,8 @@ export default function Admin() {
                       }))}
                     solved={[]}
                     onMove={noop}
-                    onSearch={noop}
                     onSelect={selectTile}
-                    selectionAllowed={(map, x, y) => challengeLocationAvailable(placementWorld, catalog, map, x, y, editingId)}
+                    selectionAllowed={(map, x, y) => challengeLocationAvailable(placementWorld, catalog, map, x, y, editingId, draft)}
                     selectedChallengeId={editingId}
                     onChallengeDrop={!busy && !uploadingVideo && editingId ? (id, x, y) => {
                       if (id === editingId) void moveChallenge(draft.map, { x, y });
@@ -702,6 +706,11 @@ export default function Admin() {
                     doorways.
                   </p>
                 )}
+                <div className="form-row">
+                  <label>Map icon<select aria-label="Map icon" value={draft.icon || "star"} onChange={e => patch({icon: e.target.value as "star" | "boss", iconSize: 1})}><option value="star">Star</option><option value="boss">Boss</option></select></label>
+                  {draft.icon === "boss" && <label>Boss size<select aria-label="Boss size" value={draft.iconSize || 1} onChange={e => patch({iconSize: Number(e.target.value) as 1 | 2 | 3})}><option value={1}>1 × 1 tiles</option><option value={2}>2 × 2 tiles</option><option value={3}>3 × 3 tiles</option></select></label>}
+                </div>
+                <p className="muted">Location is the icon’s top-left tile. Every occupied tile must be usable and free.</p>
                 <label>
                   Challenge text
                   <textarea
