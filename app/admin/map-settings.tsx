@@ -57,6 +57,11 @@ type Placement = {
 };
 type MapItem = { kind: "entity" | "transport" | "challenge" | "spawn"; id: string; destination?: string; readOnly?: boolean };
 type ItemDrag = MapItem & { pointerId: number; startX: number; startY: number; offsetX: number; offsetY: number; active: boolean; target: { x: number; y: number } };
+function TransportLockDetails({ lock }: { lock?: TransportLock | null }) {
+  if (!lock) return <span className="transport-unlocked">None</span>;
+  if (lock.type === "key") return <span className="transport-required-key">{lock.color} key</span>;
+  return <><span>Incantation</span><small className="transport-required-incantation">{lock.phrase.trim() || "Not set"}</small></>;
+}
 export default function MapSettings({
   world,
   mapId,
@@ -1133,10 +1138,11 @@ export default function MapSettings({
         {panel === "transport" && <section className="map-transport-rows" aria-label="Transports on this map">
           <h3>Transports on this map</h3>
             <div className="transport-list" role="region" aria-label="Map transports" tabIndex={0}>
+              <table className="transport-table"><thead><tr><th scope="col">Transport</th><th scope="col">Locks</th><th scope="col">Actions</th></tr></thead><tbody>
               {engine.portals
                 .filter((p) => p.map === mapId)
                 .map((p) => (
-                  <div
+                  <tr
                     key={p.id}
                     className={
                       selectedTransport === `portal:${p.id}`
@@ -1144,13 +1150,13 @@ export default function MapSettings({
                         : ""
                     }
                   >
-                    <span>
+                    <td className="transport-route-cell"><span>
                       <ArrowLeftRight size={15} />
                       {p.name} · {p.location.x}, {p.location.y} →{" "}
                       {world.maps.find((m) => m.id === p.to)?.name}
-                      <small>Theme predefined{p.lock ? p.lock.type === "key" ? ` · ${p.lock.color} key required` : " · Incantation required" : " · No lock"}</small>
-                    </span>
-                    <div className="transport-row-actions">
+                    </span><small>Theme predefined</small></td>
+                    <td className="transport-lock-cell"><TransportLockDetails lock={p.lock as TransportLock | null} /></td>
+                    <td><div className="transport-row-actions">
                     <button
                       type="button"
                       className="text-button"
@@ -1184,21 +1190,21 @@ export default function MapSettings({
                     >
                       Reset to theme
                     </button>
-                    </div>
-                  </div>
+                    </div></td>
+                  </tr>
                 ))}
 
               {transports
                 .filter((t) => t.map === mapId)
                 .map((t) => (
-                  <div key={t.id} className={selectedTransport === `transport:${t.id}` ? "selected-transport" : ""}>
-                    <span>
+                  <tr key={t.id} className={selectedTransport === `transport:${t.id}` ? "selected-transport" : ""}>
+                    <td className="transport-route-cell"><span>
                       <ArrowLeftRight size={15} />
                       {t.location.x}, {t.location.y} →{" "}
                       {world.maps.find((m) => m.id === t.to)?.name}
-                      <small>{t.lock ? t.lock.type === "key" ? `${t.lock.color} key required` : "Incantation required" : "No lock"}</small>
-                    </span>
-                    <div className="transport-row-actions">
+                    </span></td>
+                    <td className="transport-lock-cell"><TransportLockDetails lock={t.lock} /></td>
+                    <td><div className="transport-row-actions">
                     <button
                       type="button"
                       className="text-button"
@@ -1223,9 +1229,10 @@ export default function MapSettings({
                     >
                       Remove
                     </button>
-                    </div>
-                  </div>
+                    </div></td>
+                  </tr>
                 ))}
+              </tbody></table>
               {!transports.some((t) => t.map === mapId) &&
                 !engine.portals.some((p) => p.map === mapId) && (
                   <small>No outgoing transports on this map yet.</small>
