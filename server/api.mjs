@@ -57,6 +57,7 @@ import {
   normalize,
   publicConfig,
   parseChallenges,
+  protectedAdminUsername,
 } from "../lib/config-schema.mjs";
 const usernamePattern = /^[a-zA-Z0-9_-]{3,24}$/;
 const json = (data, status = 200, headers = {}) =>
@@ -135,7 +136,8 @@ function createRequestApi({
           score: 0,
           completed: 0,
         });
-    return all.sort((a, b) => a.username.localeCompare(b.username));
+    const protectedUsername = protectedAdminUsername(config);
+    return all.map(a => ({...a, protected: a.username === protectedUsername})).sort((a, b) => a.username.localeCompare(b.username));
   }
   async function catalog() {
     const saved = await db
@@ -703,6 +705,8 @@ function createRequestApi({
             },
             409,
           );
+        if (name === protectedAdminUsername(config) && (body.disabled || body.role !== "admin"))
+          return json({error:"The configured administrator cannot be disabled or demoted."},400);
         if (
           !platformAdmin &&
           u?.username === name &&

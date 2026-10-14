@@ -13,7 +13,8 @@ import {
 } from "node:fs";
 import { resolve, dirname, extname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseGame, parseChallenges } from "../lib/config-schema.mjs";
+import { parseGame, parseChallenges, requireStartupAdmin } from "../lib/config-schema.mjs";
+import { ensureStartupAdmin } from "./protected-admin.mjs";
 import { createSQLiteAdapter, initializeSchema } from "./sqlite.mjs";
 import { exportFullBackup } from "./backup.mjs";
 import { readdirSync, lstatSync } from "node:fs";
@@ -35,6 +36,7 @@ const challenges = parseChallenges(
   ),
   null,
 );
+requireStartupAdmin(config);
 const output = resolve(root, "selfhost/dist");
 if (!existsSync(resolve(output, "index.html")))
   throw Error("Run npm run build:selfhost first.");
@@ -45,6 +47,7 @@ mkdirSync(dirname(databasePath), { recursive: true });
 const sqlite = new DatabaseSync(databasePath);
 initializeSchema(sqlite);
 const db = createSQLiteAdapter(sqlite);
+await ensureStartupAdmin(db, config);
 const secure = process.env.SECURE_COOKIES === "true";
 function publicAssets() {
   const files = {};

@@ -10,10 +10,11 @@ import {createSQLiteAdapter,initializeSchema} from '../server/sqlite.mjs';
 import {createApi} from '../server/api.mjs';
 import {parseGame,parseChallenges} from '../lib/config-schema.mjs';
 import {createSnapshot,exportFullBackup,validateSnapshot} from '../server/backup.mjs';
+import {ensureStartupAdmin} from '../server/protected-admin.mjs';
 const challenges=parseChallenges(readFileSync('content/challenges.yaml','utf8'));
 function setup() {
   const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);
-  const config=parseGame('characters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web\n  - username: pending\n    password: pending-password\n    hero: web');
+  const config=parseGame('admin:\n protectedUsername: teacher\ncharacters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web\n  - username: pending\n    password: pending-password\n    hero: web');
   const base=createSQLiteAdapter(sqlite);let beforeBatch, beforeRun;
   const db={...base,prepare(sql){const statement=base.prepare(sql);return{bind(...args){const bound=statement.bind(...args);return{...bound,async run(){if(beforeRun){const run=beforeRun;beforeRun=null;run(sql);}return bound.run();}};}};},async batch(statements){if(beforeBatch){const run=beforeBatch;beforeBatch=null;run();}return base.batch(statements);}};
   const api=createApi({db,config,challenges});
@@ -23,6 +24,40 @@ function setup() {
 async function login(client,username='teacher'){const r=await client('/api/auth',{username,password:username==='teacher'?'teacher-password':'student-password',hero:'web',mode:username==='teacher'?'login':'register'});assert.equal(r.status,200,JSON.stringify(r.data));return r.data.user;}
 async function targets(admin,names){const all=(await admin('/api/admin/users')).data.users;return names.map(name=>{const a=all.find(a=>a.username===name);assert.ok(a,name);return{username:a.username,revision:a.revision,team:a.team?.id??null};});}
 async function bulk(admin,action,names){return admin('/api/admin/users',{action,users:await targets(admin,names)});}
+
+test('select-all deletion keeps the configured admin and deletes every other selected account, including the acting admin',async()=>{
+ const s=setup();try{
+  const primary=s.client(),second=s.client(),alice=s.client(),bob=s.client();await login(primary);await login(alice,'alice');await login(bob,'bob');
+  assert.equal((await primary('/api/admin/users',{username:'secondadmin',password:'second-password',hero:'web',role:'admin',disabled:false,revision:0,editing:false})).status,200);
+  assert.equal((await second('/api/auth',{username:'secondadmin',password:'second-password',mode:'login'})).status,200);
+  const teacher=(await targets(second,['teacher']))[0];
+  for(const change of [{role:'student',disabled:false},{role:'admin',disabled:true}])assert.equal((await second('/api/admin/users',{...teacher,username:'teacher',hero:'web',editing:true,...change})).status,400);
+  const disabled=await bulk(second,'disable',['teacher','bob']);assert.equal(disabled.status,200);assert.equal(disabled.data.updated,1);assert.deepEqual(disabled.data.skipped,['teacher']);
+  const before=s.sqlite.prepare('SELECT * FROM students WHERE username=?').get('teacher');
+  const selected=await targets(second,['teacher','secondadmin','alice','bob','pending']);selected.find(a=>a.username==='teacher').revision=999;
+  const deleted=await second('/api/admin/users',{action:'delete',users:selected});assert.equal(deleted.status,200,JSON.stringify(deleted.data));assert.equal(deleted.data.updated,4);assert.deepEqual(deleted.data.skipped,['teacher']);assert.deepEqual(deleted.data.users.map(a=>a.username),['teacher']);assert.equal(deleted.data.users[0].protected,true);
+  assert.deepEqual(s.sqlite.prepare('SELECT * FROM students WHERE username=?').get('teacher'),before);
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM deleted_accounts WHERE username=?').get('teacher').n,0);
+  assert.equal((await second('/api/admin/users')).status,401);assert.equal((await primary('/api/admin/users')).status,200);
+  const snapshot=await createSnapshot({db:s.db,config:s.config,challenges});assert.equal(snapshot.config.admin.protectedUsername,'teacher');assert.equal(snapshot.accounts[0].role,'admin');
+  const damaged=structuredClone(snapshot);damaged.accounts[0].disabled=1;assert.throws(()=>validateSnapshot(damaged),/protected administrator/);
+ }finally{s.sqlite.close();}
+});
+
+test('startup restores protected admin access without changing its credentials, identity, or progress',async()=>{
+ const s=setup();try{
+  const primary=s.client();await login(primary);
+  assert.equal((await primary('/api/game',{id:'lantern',answer:'24'})).status,200);
+  const before=s.sqlite.prepare('SELECT * FROM students WHERE username=?').get('teacher');
+  s.sqlite.prepare("UPDATE students SET role='student',disabled=1 WHERE username=?").run('teacher');
+  s.sqlite.prepare('INSERT INTO deleted_accounts(username,deleted_at) VALUES(?,?)').run('teacher',Date.now());
+  await ensureStartupAdmin(s.db,s.config);
+  const after=s.sqlite.prepare('SELECT * FROM students WHERE username=?').get('teacher');assert.equal(after.role,'admin');assert.equal(after.disabled,0);assert.equal(after.hash,before.hash);assert.equal(after.salt,before.salt);assert.equal(after.id,before.id);assert.equal(after.hero,before.hero);
+  assert.equal(s.sqlite.prepare('SELECT points FROM solved WHERE user=? AND challenge=?').get(after.id,'lantern').points,100);
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM deleted_accounts WHERE username=?').get('teacher').n,0);
+  await ensureStartupAdmin(s.db,s.config);assert.deepEqual(s.sqlite.prepare('SELECT * FROM students WHERE username=?').get('teacher'),after);assert.equal((await primary('/api/admin/users')).status,200);
+ }finally{s.sqlite.close();}
+});
 
 test('user profiles include teams; bulk mute, removal and disable enforce access and preserve progress',async()=>{
  const s=setup();try{
@@ -36,7 +71,7 @@ test('user profiles include teams; bulk mute, removal and disable enforce access
   r=await bulk(admin,'remove-team',['alice','bob']);assert.equal(r.status,200,JSON.stringify(r.data));assert.equal((await alice('/api/teams')).data.team,null);assert.equal((await alice('/api/game')).data.score,100);assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM teams').get().n,1);
   assert.equal((await alice('/api/teams',{mode:'join',id:team.id,password:'team-password'})).status,200);
   r=await bulk(admin,'disable',['alice','bob']);assert.equal(r.status,200,JSON.stringify(r.data));assert.equal((await alice('/api/game')).status,401);assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM solved WHERE user=?').get(a.id).n,1);assert.equal((await admin('/api/scoreboard')).data.players.some(u=>u.username==='alice'),false);
-  for(const action of ['disable','delete'])assert.equal((await bulk(admin,action,['teacher'])).status,400);
+  for(const action of ['disable','delete']){const kept=await bulk(admin,action,['teacher']);assert.equal(kept.status,200);assert.equal(kept.data.updated,0);assert.deepEqual(kept.data.skipped,['teacher']);}
  }finally{s.sqlite.close();}
 });
 

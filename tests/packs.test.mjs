@@ -28,7 +28,7 @@ function setup() {
   const sqlite = new DatabaseSync(":memory:");
   initializeSchema(sqlite);
   const config = parseGame(
-      "characters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web",
+      "admin:\n protectedUsername: teacher\ncharacters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web",
     ),
     db = createSQLiteAdapter(sqlite),
     files = new Map(),

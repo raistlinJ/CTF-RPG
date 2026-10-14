@@ -1,5 +1,6 @@
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { configuredCredentials } from './passwords.mjs';
+import { protectedAdminUsername } from '../lib/config-schema.mjs';
 
 export async function bulkUserAction(body, { db, config, viewer, accountList }) {
   const reply = (data, status = 200) => Response.json(data, {status, headers:{'Cache-Control':'no-store'}});
@@ -10,13 +11,14 @@ export async function bulkUserAction(body, { db, config, viewer, accountList }) 
       new Set(body.users.map(u => u.username)).size !== body.users.length) {
     return reply({error:'Choose an action and 1–1000 users with their current revisions.'}, 400);
   }
-  if (['disable', 'delete'].includes(body.action) && body.users.some(u => u.username === viewer?.username)) {
-    return reply({error:'You cannot disable or delete your own administrator account.'}, 400);
-  }
+  const protectedUsername = protectedAdminUsername(config) || viewer?.username;
+  const skipped = ['disable', 'delete'].includes(body.action) ? body.users.filter(u => u.username === protectedUsername).map(u => u.username) : [];
+  const targets = body.users.filter(u => !skipped.includes(u.username));
   const accounts = await accountList();
-  const selected = body.users.map(target => accounts.find(a => a.username === target.username));
-  if (selected.some((a, i) => !a || a.revision !== body.users[i].revision ||
-      (body.action === 'remove-team' && (a.team?.id ?? null) !== body.users[i].team))) {
+  if (!targets.length) return reply({users:accounts, characters:config.characters, updated:0, skipped, action:body.action});
+  const selected = targets.map(target => accounts.find(a => a.username === target.username));
+  if (selected.some((a, i) => !a || a.revision !== targets[i].revision ||
+      (body.action === 'remove-team' && (a.team?.id ?? null) !== targets[i].team))) {
     return reply({error:'A selected user changed. Refresh users and select them again.'}, 409);
   }
   const expected = JSON.stringify(selected.map(a => ({id:a.id, username:a.username, revision:a.revision, team:a.team?.id ?? null})));
@@ -72,5 +74,5 @@ export async function bulkUserAction(body, { db, config, viewer, accountList }) 
     }
     throw error;
   }
-  return reply({users:await accountList(), characters:config.characters, updated:selected.length, action:body.action});
+  return reply({users:await accountList(), characters:config.characters, updated:selected.length, skipped, action:body.action});
 }

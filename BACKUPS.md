@@ -58,7 +58,7 @@ If the source site's only admin was its platform owner, you can promote an exist
 npm run restore -- backup.json --admin teacher01
 ```
 
-That player keeps their password and gains local admin access. If no account exists yet, add a new account with `role: admin` and a unique password to the restored `content/game.yaml` before starting, following [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
+That player keeps their password and gains local admin access; restore also writes `admin.protectedUsername` and the matching account into the restored YAML. If no account exists yet, set `admin.protectedUsername` and add its matching account with `role: admin` and a unique password to the restored `content/game.yaml` before starting, following [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
 
 The restore refuses to replace a populated database by default. When you explicitly intend to replace its accounts and progress, stop the game server, back up that database, then use:
 

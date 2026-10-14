@@ -6,9 +6,11 @@ Open `/admin` (or **Manage challenges** in the game's header when authorized). T
 
 ### Your own server
 
-Add a YAML-managed account with `role: admin` in `content/game.yaml` or your private `GAME_CONFIG` file, then restart the server:
+Specify `admin.protectedUsername` and add its matching YAML-managed account with `role: admin` in `content/game.yaml` or your private `GAME_CONFIG` file, then restart the server:
 
 ```yaml
+admin:
+  protectedUsername: teacher01
 accounts:
   allowRegistration: false
   users:
@@ -213,7 +215,7 @@ Notification API: `GET/POST /api/admin/notifications` lists/sends notices. Sendi
 ### Bulk user management
 The **Users** page shows each user’s team in the roster and profile. Select users with their checkboxes, or **Select all shown users** after searching by username or team, then choose **Disable**, **Delete**, **Mute chat**, or **Remove from team**. The selected count includes selections outside the current search. Clear selection to start over.
 
-Disable revokes current sessions and retains progress. Mute chat prevents outgoing messages. Remove from team preserves progress and the team; members can choose a new team. Delete requires confirmation and permanently removes the selected users’ progress and memberships. Your own administrator user cannot be disabled or deleted. Stale revisions or changed memberships reject the entire action; refresh before retrying. Deleted YAML users remain absent after restart and backup restore. Admins can explicitly create a new user with the same username and fresh credentials.
+Disable revokes current sessions and retains progress. Mute chat prevents outgoing messages. Remove from team preserves progress and the team; members can choose a new team. Delete requires confirmation and permanently removes the selected users’ progress and memberships. The configured protected administrator cannot be deleted, disabled, or demoted. Select all/delete and bulk disable keep that account and act on the other selections; confirmation counts and lists exclude it. Local startup requires the matching protected admin in YAML. Stale revisions or changed memberships reject the entire action; refresh before retrying. Deleted YAML users remain absent after restart and backup restore. Admins can explicitly create a new user with the same username and fresh credentials.
 
 ## Configure non-player entities
 

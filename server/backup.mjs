@@ -186,6 +186,9 @@ export function validateSnapshot(input) {
     .strict()
     .parse(input);
   snapshot.config = parseGame(stringify(snapshot.config));
+  const protectedUsername = snapshot.config.admin.protectedUsername;
+  if (protectedUsername && (snapshot.deletedAccounts.some(a => a.username === protectedUsername) || !snapshot.accounts.some(a => a.username === protectedUsername && a.role === 'admin' && !a.disabled)))
+    throw Error('The backup must retain its configured protected administrator as an active admin.');
   if (snapshot.theme) snapshot.theme = parseTheme(snapshot.theme);
   snapshot.challenges = parseChallenges(
     stringify({ challenges: snapshot.challenges }),

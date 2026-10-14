@@ -1,5 +1,7 @@
 # Server-only configuration. Never put this file in public/.
 admin:
+  # Required for local startup: protectedUsername must match a role: admin account below.
+  # Set this in your private GAME_CONFIG file (for example, protectedUsername: teacher01).
   # Trusted Sites sign-in email allowlist. Ignored by the standalone server.
   platformEmails: ["jaime.acosta1@gmail.com"]
 characters:

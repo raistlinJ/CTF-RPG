@@ -30,6 +30,7 @@ type Account = {
   muted: boolean;
   revision: number;
   source: string;
+  protected: boolean;
   score: number;
   completed: number;
 };
@@ -244,6 +245,9 @@ export default function UsersPage() {
   const allShownSelected = filteredUsers.length > 0 && filteredUsers.every(a => selectedUsers.includes(a.username));
   const someShownSelected = filteredUsers.some(a => selectedUsers.includes(a.username));
   const selfSelected = !!viewer && selectedUsers.includes(viewer);
+  const hasProtectedAdmin = users.some(a => a.protected);
+  const preserved = selected.filter(a => a.protected);
+  const deletable = selected.filter(a => !a.protected && (hasProtectedAdmin || a.username !== viewer));
   const profileTeam = editing ? users.find(a => a.username === draft?.username)?.team : null;
   async function applyBulk(action: BulkAction) {
     if (busy || !selected.length) return;
@@ -255,7 +259,7 @@ export default function UsersPage() {
         method: "POST", headers: {"Content-Type":"application/json"},
         body: JSON.stringify({action, users: selected.map(a => ({username:a.username, revision:a.revision, team:a.team?.id ?? null}))}),
       });
-      const d = await r.json() as {users:Account[]; characters:Character[]; updated:number; error?:string};
+      const d = await r.json() as {users:Account[]; characters:Character[]; updated:number; skipped?:string[]; error?:string};
       if (!r.ok) throw Error(d.error || "Could not update the selected users.");
       setUsers(d.users);
       setCharacters(d.characters);
@@ -265,11 +269,12 @@ export default function UsersPage() {
         if (updated) select(updated); else setDraft(null);
       }
       const descriptions = { disable:"disabled", delete:"deleted", mute:"muted in chat", "remove-team":"removed from their teams" };
-      setMessage(`${d.updated} ${d.updated === 1 ? "user" : "users"} ${descriptions[action]}.`);
+      setMessage(`${d.updated} ${d.updated === 1 ? "user" : "users"} ${descriptions[action]}.${d.skipped?.length ? ` Kept protected administrator: ${d.skipped.join(", ")}.` : ""}`);
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); setConfirmDelete(false); }
   }
   const own = viewer === draft?.username;
+  const protectedDraft = editing && !!users.find(a => a.username === draft?.username)?.protected;
   const spawnValid =
     !draft?.spawn ||
     canSpawn(draft.spawn.map, draft.spawn.location.x, draft.spawn.location.y);
@@ -364,10 +369,11 @@ export default function UsersPage() {
             </div>
             <div className="admin-actions">
               {(Object.keys(actionNames) as BulkAction[]).map(action => (
-                <button type="button" key={action} className={`secondary-button${action === "delete" ? " danger-button" : ""}`} disabled={busy || !selected.length || (selfSelected && (action === "disable" || action === "delete"))} onClick={() => action === "delete" ? setConfirmDelete(true) : void applyBulk(action)}>{actionNames[action]}</button>
+                <button type="button" key={action} className={`secondary-button${action === "delete" ? " danger-button" : ""}`} disabled={busy || !selected.length || ((action === "disable" || action === "delete") && !deletable.length)} onClick={() => action === "delete" ? setConfirmDelete(true) : void applyBulk(action)}>{actionNames[action]}</button>
               ))}
             </div>
-            {selfSelected && <p>Your own administrator user cannot be disabled or deleted. Deselect it to use those actions.</p>}
+            {!!preserved.length && <p>Protected administrator {preserved.map(a => a.username).join(", ")} will be kept when deleting or disabling selected users.</p>}
+            {selfSelected && !hasProtectedAdmin && <p>Your own administrator user cannot be disabled or deleted.</p>}
           </section>
         )}
         {loading ? (
@@ -410,6 +416,7 @@ export default function UsersPage() {
                       <span className="account-avatar">{a.username.slice(0, 2).toUpperCase()}</span>
                       <div>
                         <b>{a.username}</b>
+                        {a.protected && <small className="protected-admin-label">Protected administrator</small>}
                         <small>{a.role === "admin" ? "Administrator" : characters.find(c => c.id === a.hero)?.name || a.hero} · {a.disabled ? "Disabled" : "Active"}{a.muted ? " · Chat muted" : ""}</small>
                         <small>{a.team ? `Team: ${a.team.name}` : "No team"}</small>
                       </div>
@@ -425,7 +432,7 @@ export default function UsersPage() {
                 <div className="admin-editor-title">
                   <h2>{editing ? "Edit user" : "New user"}</h2>
                   <span>
-                    {own
+                    {protectedDraft ? "Protected administrator" : own
                       ? "Your user"
                       : draft.disabled
                         ? "Disabled"
@@ -585,6 +592,7 @@ export default function UsersPage() {
                   Access role
                   <Select
                     value={draft.role}
+                    disabled={protectedDraft}
                     onValueChange={(role) =>
                       patch({ role: role as Draft["role"] })
                     }
@@ -601,6 +609,7 @@ export default function UsersPage() {
                 <label className="admin-checkbox">
                   <Checkbox
                     checked={draft.disabled}
+                    disabled={protectedDraft}
                     onCheckedChange={(v) => patch({ disabled: v === true })}
                   />
                   Disable user
@@ -652,13 +661,14 @@ export default function UsersPage() {
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selected.length} {selected.length === 1 ? "user" : "users"}?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {deletable.length} {deletable.length === 1 ? "user" : "users"}?</AlertDialogTitle>
             <AlertDialogDescription>This permanently removes the selected users, their submissions, earned points, and team memberships. This cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
-          <ul className="bulk-delete-users">{selected.map(a => <li key={a.username}>{a.username}</li>)}</ul>
+          <ul className="bulk-delete-users">{deletable.map(a => <li key={a.username}>{a.username}</li>)}</ul>
+          {!!preserved.length && <p>Protected administrator {preserved.map(a => a.username).join(", ")} will be kept.</p>}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={busy || selfSelected} onClick={() => void applyBulk("delete")}>Delete users</AlertDialogAction>
+            <AlertDialogAction disabled={busy || !deletable.length} onClick={() => void applyBulk("delete")}>Delete users</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

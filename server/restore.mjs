@@ -24,6 +24,8 @@ if (adminIndex >= 0) {
   a.managed = 1;
   a.provisioned = 1;
   a.disabled = 0;
+  snapshot.config.admin.protectedUsername = name;
+  snapshot.config.accounts.users = [...snapshot.config.accounts.users.filter(u => u.username !== name), {username:name, role:'admin', hero:a.hero, spawn:a.spawn, passwordHash:a.hash, salt:a.salt}];
 }
 const path = resolve(
   process.env.DATABASE_PATH || resolve(root, "data/quest.sqlite"),
@@ -252,9 +254,9 @@ try {
   console.log(
     `Restored ${snapshot.accounts.length} accounts, ${snapshot.challenges.length} challenges, ${snapshot.solved.length} completions, and ${snapshot.purchasedHints.length} hint purchases. All users must sign in again.`,
   );
-  if (!snapshot.accounts.some((a) => a.role === "admin" && !a.disabled))
+  if (!snapshot.config.admin.protectedUsername)
     console.log(
-      "No local admin account is present. Add a role: admin account in content/game.yaml before starting the standalone server.",
+      "Local startup requires admin.protectedUsername and its matching role: admin account in content/game.yaml. Configure them before launching, or restore with --admin USERNAME.",
     );
 } finally {
   sqlite.close();

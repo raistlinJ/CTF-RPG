@@ -26,7 +26,7 @@ const baseline = parseChallenges(
 );
 function config() {
   return parseGame(
-    `characters:\n  - id: web\n    name: Web\n  - id: thunder\n    name: Thunder\naccounts:\n  allowRegistration: true\n  users:\n    - username: teacher01\n      password: private-teacher-pass-unique\n      role: admin\n      hero: web\n    - username: pending01\n      password: private-pending-pass-unique\n      hero: web\n`,
+    `admin:\n protectedUsername: teacher01\ncharacters:\n  - id: web\n    name: Web\n  - id: thunder\n    name: Thunder\naccounts:\n  allowRegistration: true\n  users:\n    - username: teacher01\n      password: private-teacher-pass-unique\n      role: admin\n      hero: web\n    - username: pending01\n      password: private-pending-pass-unique\n      hero: web\n`,
   );
 }
 function setup() {

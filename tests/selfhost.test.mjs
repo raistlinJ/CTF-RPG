@@ -5,8 +5,10 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { createServer } from "node:net";
-import { parseGame, publicConfig } from "../lib/config-schema.mjs";
-const config = `characters:
+import { parseGame, publicConfig, requireStartupAdmin } from "../lib/config-schema.mjs";
+const config = `admin:
+  protectedUsername: teacher01
+characters:
   - id: custom-hero
     name: Custom Hero
     sprite: /sprites/custom.png
@@ -17,6 +19,9 @@ const config = `characters:
 accounts:
   allowRegistration: false
   users:
+    - username: teacher01
+      password: teacher-password
+      role: admin
     - username: student01
       password: configured-password
     - username: assigned01
@@ -85,6 +90,12 @@ test("schema protects credentials and validates roster", () => {
   assert.throws(() =>
     parseGame(config.replace("/sprites/custom.png", "/../secret.png")),
   );
+});
+test('local startup requires an explicitly configured protected administrator',()=>{
+  assert.equal(requireStartupAdmin(parseGame(config)),'teacher01');
+  assert.throws(()=>requireStartupAdmin(parseGame(config.replace('admin:\n  protectedUsername: teacher01\n',''))),/Local startup requires/);
+  assert.throws(()=>parseGame(config.replace('protectedUsername: teacher01','protectedUsername: student01')),/role: admin/);
+  assert.throws(()=>parseGame(config.replace('protectedUsername: teacher01','protectedUsername: missing')),/role: admin/);
 });
 test("standalone server: YAML accounts, sprite/music config, persistence and protected files", async () => {
   const dir = mkdtempSync(resolve(tmpdir(), "north-pole-test-"));

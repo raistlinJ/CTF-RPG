@@ -19,6 +19,8 @@ Open `http://localhost:3000`, or `http://YOUR-SERVER-IP:3000` from another machi
 Edit `content/game.yaml`. It is server-only and must never be placed in `public/`. Restart the standalone server after changing YAML; no frontend rebuild is required for names, credentials, challenges, sprite paths, or music paths. Existing sessions may retain access after a password change until their seven-day expiry; the next successful sign-in with the new password invalidates prior sessions for that account. To revoke every session immediately, stop the server and delete rows from the `sessions` table using SQLite.
 
 ```yaml
+admin:
+  protectedUsername: teacher01
 characters:
   - id: web
     name: Spider Explorer
@@ -36,6 +38,9 @@ characters:
 accounts:
   allowRegistration: false
   users:
+    - username: teacher01
+      password: replace-with-a-unique-admin-password
+      role: admin
     - username: student01
       password: use-a-unique-password-here
       # No hero: the student chooses one at first sign-in.
@@ -48,6 +53,8 @@ audio:
   loop: true
   volume: 0.15
 ```
+
+Local startup requires `admin.protectedUsername` to name an account in `accounts.users` with `role: admin`. Startup fails before serving requests when it is missing or invalid. That account cannot be deleted, disabled, or demoted through the application; bulk delete/disable skips it and applies to the other selections. Keep this account in your private YAML. Trusted Sites owner access remains independent for hosted deployments.
 
 Character IDs are stable lowercase letters/digits/hyphens and must be unique. Names and subtitles are displayed in the selector and explorer panel. You can add characters beyond the original three. Keep IDs unchanged after students begin playing. Removing a selected character blocks that account's next login until an available hero is assigned in YAML. An account's optional `hero` must match a roster ID.
 
@@ -166,7 +173,7 @@ npm run test:selfhost
 npx tsc --noEmit
 ```
 
-Tests verify YAML-managed and assigned heroes, credential changes, persistence after restart, scoring, origin checks, and private-file protection. The `/admin` challenge studio is documented in [ADMIN_GUIDE.md](ADMIN_GUIDE.md). Configure accounts with `role: admin` in your private game YAML. The Users screen manages users and resets passwords. Complete recreation exports and restore instructions are in [BACKUPS.md](BACKUPS.md). Browser movement remains client-side, suitable for a classroom activity rather than competitive anti-cheat.
+Tests verify YAML-managed and assigned heroes, credential changes, persistence after restart, scoring, origin checks, and private-file protection. The `/admin` challenge studio is documented in [ADMIN_GUIDE.md](ADMIN_GUIDE.md). Configure `admin.protectedUsername` and its matching `role: admin` account in your private game YAML. The Users screen manages users and resets passwords. Complete recreation exports and restore instructions are in [BACKUPS.md](BACKUPS.md). Browser movement remains client-side, suitable for a classroom activity rather than competitive anti-cheat.
 
 The existing Sites deployment is also supported with `npm run build`. In that mode, `content/game.yaml` and challenge YAML are bundled at build time, so edits require a new publication; the standalone runtime environment variables above apply only to your own Node server.
 
