@@ -71,6 +71,7 @@ challenges:
     grading: automatic
     visibility: visible
     icon: boss
+    bossStyle: clockwork
     iconSize: 1
     flags:
       - tool
@@ -191,6 +192,7 @@ challenges:
     grading: automatic
     visibility: visible
     icon: boss
+    bossStyle: frost
     iconSize: 2
     flags:
       - approval
@@ -220,6 +222,7 @@ challenges:
     grading: automatic
     visibility: visible
     icon: boss
+    bossStyle: shadow
     iconSize: 3
     flags:
       - plan

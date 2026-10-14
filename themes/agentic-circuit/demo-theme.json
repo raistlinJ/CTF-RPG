@@ -244,7 +244,7 @@
       {
         "id": "ac-demo-v2-guide",
         "name": "Campus Guide",
-        "characterId": "web",
+        "characterId": "campus-guide",
         "map": "town",
         "location": {
           "x": 18,
@@ -295,7 +295,7 @@
       {
         "id": "ac-demo-v2-host",
         "name": "Core Curator",
-        "characterId": "thunder",
+        "characterId": "core-curator",
         "map": "castle",
         "location": {
           "x": 25,
@@ -377,6 +377,102 @@
       "subtitle": "Keep the mission on course.",
       "sprite": "/themes/agentic-circuit/sprites/sentinel.png",
       "fallback": "shield"
+    },
+    {
+      "id": "frost-alchemist",
+      "name": "Frost Alchemist",
+      "subtitle": "Mix courage with a little winter magic.",
+      "sprite": "/sprites/frost-alchemist.png",
+      "fallback": "web",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "aurora-scout",
+      "name": "Aurora Scout",
+      "subtitle": "Find a bright path through the snow.",
+      "sprite": "/sprites/aurora-scout.png",
+      "fallback": "web",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "ember-tinkerer",
+      "name": "Ember Tinkerer",
+      "subtitle": "Fix the impossible, one gear at a time.",
+      "sprite": "/sprites/ember-tinkerer.png",
+      "fallback": "thunder",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "glacier-guardian",
+      "name": "Glacier Guardian",
+      "subtitle": "Stand firm when the trail gets tough.",
+      "sprite": "/sprites/glacier-guardian.png",
+      "fallback": "shield",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "starlight-bard",
+      "name": "Starlight Bard",
+      "subtitle": "Every mystery deserves a song.",
+      "sprite": "/sprites/starlight-bard.png",
+      "fallback": "web",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "snowbound-librarian",
+      "name": "Snowbound Librarian",
+      "subtitle": "Keeper of hidden stories.",
+      "sprite": "/sprites/snowbound-librarian.png",
+      "fallback": "web",
+      "appearanceFor": "entity"
+    },
+    {
+      "id": "clockwork-toymaker",
+      "name": "Clockwork Toymaker",
+      "subtitle": "Builder of curious inventions.",
+      "sprite": "/sprites/clockwork-toymaker.png",
+      "fallback": "thunder",
+      "appearanceFor": "entity"
+    },
+    {
+      "id": "aurora-oracle",
+      "name": "Aurora Oracle",
+      "subtitle": "Reads the colors in the sky.",
+      "sprite": "/sprites/aurora-oracle.png",
+      "fallback": "shield",
+      "appearanceFor": "entity"
+    },
+    {
+      "id": "pine-ranger",
+      "name": "Pine Ranger",
+      "subtitle": "Knows every winding woodland path.",
+      "sprite": "/sprites/pine-ranger.png",
+      "fallback": "web",
+      "appearanceFor": "entity"
+    },
+    {
+      "id": "gingerbread-chef",
+      "name": "Gingerbread Chef",
+      "subtitle": "Serves a warm welcome.",
+      "sprite": "/sprites/gingerbread-chef.png",
+      "fallback": "thunder",
+      "appearanceFor": "entity"
+    },
+    {
+      "id": "campus-guide",
+      "name": "Campus Guide",
+      "subtitle": "Find your way through the labs.",
+      "sprite": "/sprites/campus-guide.png",
+      "fallback": "web",
+      "appearanceFor": "entity"
+    },
+    {
+      "id": "core-curator",
+      "name": "Core Curator",
+      "subtitle": "Keeper of the reasoning core.",
+      "sprite": "/sprites/core-curator.png",
+      "fallback": "thunder",
+      "appearanceFor": "entity"
     }
   ],
   "audio": {

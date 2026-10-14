@@ -4,6 +4,7 @@
     "map": "town",
     "object": "Binary welcome",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 18,
@@ -47,6 +48,7 @@
     "map": "town",
     "object": "Prompt terminal",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 11,
@@ -90,6 +92,7 @@
     "map": "toy-workshop",
     "object": "Tool Gremlin",
     "icon": "boss",
+    "bossStyle": "clockwork",
     "iconSize": 1,
     "location": {
       "x": 15,
@@ -135,6 +138,7 @@
     "map": "bakery",
     "object": "Evaluation counter",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 20,
@@ -190,6 +194,7 @@
     "map": "cocoa-cottage",
     "object": "Memory cache",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 20,
@@ -230,6 +235,7 @@
     "map": "post-office",
     "object": "API trace",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 20,
@@ -276,6 +282,7 @@
     "map": "elf-house",
     "object": "Guardrail Guardian",
     "icon": "boss",
+    "bossStyle": "frost",
     "iconSize": 2,
     "location": {
       "x": 20,
@@ -322,6 +329,7 @@
     "map": "castle",
     "object": "Runaway Reasoning Core",
     "icon": "boss",
+    "bossStyle": "shadow",
     "iconSize": 3,
     "location": {
       "x": 19,
@@ -370,6 +378,7 @@
     "map": "castle",
     "object": "Instructor reflection",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 25,
@@ -410,6 +419,7 @@
     "map": "town",
     "object": "Hidden practice terminal",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 29,

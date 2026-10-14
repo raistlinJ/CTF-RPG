@@ -4,6 +4,7 @@ import { Maximize2, ZoomIn, ZoomOut, LayoutGrid, Trash2, Info, UsersRound } from
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from "@/components/ui/context-menu";
 import { dependencyBounds, dependencyWorldPoint, fitDependencyCamera, zoomDependencyCamera, DEPENDENCY_NODE_WIDTH, DEPENDENCY_NODE_HEIGHT } from "@/lib/dependency-viewport.mjs";
+import { entitySourceReference } from "@/lib/challenge-dependencies.mjs";
 import type { NonPlayerEntity } from "@/lib/non-player-entities";
 export type DependencyNode = {
   kind?: "entity"; entity?: NonPlayerEntity; location?: { x: number; y: number };
@@ -21,7 +22,7 @@ function arrange(nodes: DependencyNode[]): Record<string, Point> {
   function level(id: string): number {
     if (levels.has(id)) return levels.get(id)!;
     const prerequisites = byId.get(id)?.dependsOn || [];
-    const depth = prerequisites.length ? 1 + Math.max(...prerequisites.map(level)) : 0;
+    const depth = prerequisites.length ? 1 + Math.max(...prerequisites.map(prerequisite => level(entitySourceReference(prerequisite)))) : 0;
     levels.set(id, depth); return depth;
   }
   const groups = new Map<number, DependencyNode[]>();
@@ -43,10 +44,11 @@ function curve(from: Point, to: Point) {
   const bend = Math.max(72, Math.abs(to.x - from.x) * .45);
   return `M ${from.x} ${from.y} C ${from.x + bend} ${from.y}, ${to.x - bend} ${to.y}, ${to.x} ${to.y}`;
 }
-export default function DependencyGraph({ nodes, disabled, onConnect, onRemove, onAddEntity }: {
+export default function DependencyGraph({ nodes, disabled, onConnect, onRemove, onEditConnection, onAddEntity }: {
   nodes: DependencyNode[]; disabled: boolean;
   onConnect: (from: string, to: string) => boolean;
   onRemove: (from: string, to: string) => void;
+  onEditConnection: (from: string, to: string) => void;
   onAddEntity: () => void;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
@@ -58,11 +60,13 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove, 
     [selected, setSelected] = useState<string | null>(null), [infoId, setInfoId] = useState<string | null>(null);
   const infoTrigger = useRef<HTMLButtonElement | null>(null);
   const addingEntity = useRef(false);
+  const editingConnection = useRef<{ from: string; to: string } | null>(null);
+  const [contextEdge, setContextEdge] = useState<{ from: string; to: string } | null>(null);
   const connecting = useRef<string | null>(null);
   const suppressClick = useRef(false);
   const drag = useRef<(Capture & { id: string; offset: Point }) | null>(null);
   const pan = useRef<(Capture & { start: Point; camera: Camera }) | null>(null);
-  const edges = nodes.flatMap((c) => c.dependsOn.map((from) => ({ from, to: c.id, id: `${from}>${c.id}` })));
+  const edges = nodes.flatMap((c) => c.dependsOn.map((prerequisite) => ({ from: entitySourceReference(prerequisite), prerequisite, to: c.id, id: `${prerequisite}>${c.id}` })));
   const edgesRef = useRef(edges);
   // Pointer handlers and resize callbacks always use the latest geometry.
   useLayoutEffect(() => { positionsRef.current = positions; edgesRef.current = edges; }, [positions, edges]);
@@ -163,11 +167,11 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove, 
         <button type="button" className="secondary-button" aria-label="Zoom in" disabled={disabled || zoom >= 3} onClick={() => changeZoom(cameraRef.current.zoom * 1.25)}><ZoomIn size={17}/>Zoom in</button>
         <button type="button" className="secondary-button" disabled={disabled} onClick={fit}><Maximize2 size={17}/>Fit graph</button>
         <button type="button" className="secondary-button" disabled={disabled} onClick={arrangeGraph}><LayoutGrid size={17}/>Arrange graph</button>
-        <button type="button" className="secondary-button" disabled={disabled || !selectedEdge} onClick={() => { if (selectedEdge) onRemove(selectedEdge.from, selectedEdge.to); setSelected(null); }}><Trash2 size={17}/>Remove connection</button>
+        <button type="button" className="secondary-button" disabled={disabled || !selectedEdge} onClick={() => { if (selectedEdge) onRemove(selectedEdge.prerequisite, selectedEdge.to); setSelected(null); }}><Trash2 size={17}/>Remove connection</button>
       </div>
     </div>
     <div className="dependency-graph-hint">
-      <p role="status">{source ? `Choose a left handle to require ${nodes.find((c) => c.id === source)?.object}.` : "Drag a right handle to a left handle. Drag cards to move; drag the background to pan. Right-click empty canvas to add an entity."}</p>
+      <p role="status">{source ? `Choose a left handle to require ${nodes.find((c) => c.id === source)?.object}.` : "Drag handles to connect; entity connections let you choose any or a final dialogue. Double-click or right-click an entity connection to edit its output."}</p>
       <button type="button" className="text-button" onClick={cancel} disabled={!source} style={{ visibility: source ? "visible" : "hidden" }}>Cancel</button>
     </div>
     <ContextMenu onOpenChange={open => { if (open) { stopGesture(); cancel(); } }}>
@@ -175,6 +179,12 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove, 
     <div className="dependency-graph-viewport" ref={viewport} role="region" aria-label="Challenge dependency graph" tabIndex={0}
       onContextMenu={e => {
         const target = e.target as Element;
+        const edge = target.closest("[data-dependency-edge]");
+        if (edge) {
+          const from = edge.getAttribute("data-dependency-edge") || "";
+          if (from.startsWith("npe:")) { setContextEdge({ from, to: edge.getAttribute("data-dependency-target") || "" }); return; }
+        }
+        setContextEdge(null);
         if (target !== e.currentTarget && !target.hasAttribute("data-canvas-background")) e.preventDefault();
       }}
       onKeyDown={(e) => {
@@ -212,16 +222,20 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove, 
               const from = positions[edge.from], to = positions[edge.to];
               if (!from || !to) return null;
               const d = curve({ x: from.x + nodeWidth + 14, y: from.y + nodeHeight / 2 }, { x: to.x - 16, y: to.y + nodeHeight / 2 });
-              const label = `${nodes.find((c) => c.id === edge.from)?.object} prerequisite for ${nodes.find((c) => c.id === edge.to)?.object}`;
-              return <g key={edge.id} className={selected === edge.id ? "dependency-edge selected" : "dependency-edge"}>
+              const source = nodes.find((c) => c.id === edge.from);
+              const output = edge.prerequisite === edge.from ? "Any dialogue" : source?.entity?.nodes.find(node => edge.prerequisite.endsWith(`:${node.id}`))?.text || "Final dialogue";
+              const label = `${source?.object}${source?.entity ? ` · ${output}` : ""} prerequisite for ${nodes.find((c) => c.id === edge.to)?.object}`;
+              return <g key={edge.id} data-dependency-edge={edge.prerequisite} data-dependency-target={edge.to} className={selected === edge.id ? "dependency-edge selected" : "dependency-edge"}>
                 <path d={d} className="dependency-edge-line" markerEnd="url(#dependency-arrow)"/>
                 <path d={d} className="dependency-edge-hit" role="button" tabIndex={disabled ? -1 : 0} aria-label={label} aria-pressed={selected === edge.id}
                   onClick={() => { if (!disabled) { cancel(); setSelected(edge.id); } }}
+                  onDoubleClick={() => { if (!disabled && source?.entity) onEditConnection(edge.prerequisite, edge.to); }}
                   onKeyDown={(e) => {
                     if (disabled) return;
-                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cancel(); setSelected(edge.id); }
-                    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); onRemove(edge.from, edge.to); setSelected(null); }
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); cancel(); setSelected(edge.id); if (source?.entity) onEditConnection(edge.prerequisite, edge.to); }
+                    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); onRemove(edge.prerequisite, edge.to); setSelected(null); }
                   }}/>
+                {source?.entity && <text className="dependency-entity-edge-label" x={(from.x + nodeWidth + to.x) / 2} y={(from.y + to.y) / 2 + nodeHeight / 2 - 11} textAnchor="middle" onClick={() => { if (!disabled) setSelected(edge.id); }} onDoubleClick={() => { if (!disabled) onEditConnection(edge.prerequisite, edge.to); }}>{output.length > 25 ? output.slice(0, 24) + "…" : output}</text>}
               </g>;
             })}
             {source && pointer && positions[source] && <path className="dependency-edge-preview" d={curve({ x: positions[source].x + nodeWidth, y: positions[source].y + nodeHeight / 2 }, pointer)}/>}
@@ -245,11 +259,16 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove, 
     </div>
     </ContextMenuTrigger>
     <ContextMenuContent className="dependency-canvas-menu" onCloseAutoFocus={e => {
+      if (editingConnection.current) {
+        e.preventDefault(); const edge = editingConnection.current; editingConnection.current = null;
+        viewport.current?.focus({ preventScroll: true }); onEditConnection(edge.from, edge.to); return;
+      }
       if (!addingEntity.current) return;
       e.preventDefault(); addingEntity.current = false;
       viewport.current?.focus({ preventScroll: true }); onAddEntity();
     }}>
-      <ContextMenuItem disabled={disabled} onSelect={() => { addingEntity.current = true; }}><UsersRound size={17}/>Add non-player entity</ContextMenuItem>
+      {contextEdge ? <ContextMenuItem disabled={disabled} onSelect={() => { editingConnection.current = contextEdge; }}><Info size={17}/>Edit entity output</ContextMenuItem>
+        : <ContextMenuItem disabled={disabled} onSelect={() => { addingEntity.current = true; }}><UsersRound size={17}/>Add non-player entity</ContextMenuItem>}
     </ContextMenuContent>
     </ContextMenu>
     <Dialog open={!!info} onOpenChange={(open) => { if (!open) setInfoId(null); }}>
@@ -259,12 +278,18 @@ export default function DependencyGraph({ nodes, disabled, onConnect, onRemove, 
         <div className="dependency-info-body">
         <dl className="dependency-info-details">
           {info?.entity ? <div><dt>Activation</dt><dd>Speak to this character</dd></div> : <div><dt>Points</dt><dd>{info?.points.toLocaleString()}</dd></div>}
+          {info?.entity && <div><dt>Replay</dt><dd>{info.entity.restartable === false ? "One-time" : "Can be restarted"}</dd></div>}
           {!info?.entity && <div><dt>Answer checking</dt><dd>{info?.grading === "manual" ? "Written answer" : "Automatic"}</dd></div>}
           <div><dt>Visibility</dt><dd>{info?.visibility === "hidden" ? "Hidden" : "Visible"}</dd></div>
           <div><dt>Node ID</dt><dd>{info?.id}</dd></div>
         </dl>
         <div><h3>{info?.entity ? "First dialogue" : "Challenge preview"}</h3><p className="dependency-info-preview">{info?.summary || "No challenge text available."}</p></div>
-        <div><h3>Prerequisites</h3><p>{info?.dependsOn.length ? info.dependsOn.map((id) => nodes.find((c) => c.id === id)?.object || id).join(", ") : "No prerequisites"}</p></div>
+        <div><h3>Prerequisites</h3><p>{info?.dependsOn.length ? info.dependsOn.map((id) => {
+          const source = nodes.find(c => c.id === entitySourceReference(id));
+          if (!source?.entity) return source?.object || id;
+          const output = id === source.id ? "Any dialogue" : source.entity.nodes.find(node => id.endsWith(`:${node.id}`))?.text || "Final dialogue";
+          return `${source.object} · ${output}`;
+        }).join(", ") : "No prerequisites"}</p></div>
         </div>
         <DialogClose className="secondary-button">Close</DialogClose>
       </DialogContent>

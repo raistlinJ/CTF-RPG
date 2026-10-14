@@ -216,7 +216,7 @@ async function stage(pack, kind, store) {
     rewrite.set(path, "/api/assets/" + key);
   }
   return kind === "theme"
-    ? mapThemeAssets(pack.value, (p) => rewrite.get(p))
+    ? { ...mapThemeAssets(pack.value, (p) => rewrite.get(p)), media: pack.value.media.map(item => ({ ...item, src: rewrite.get(item.src), source: "theme" })) }
     : pack.value.map((c) => ({
         ...c,
         discoveryVideo: rewrite.get(c.discoveryVideo) || c.discoveryVideo,
@@ -284,7 +284,7 @@ export async function importPacks(
   if (preservePlacements && (placement.moved.length || placement.excluded.length))
     throw Error("This update cannot move or exclude challenges.");
   await gradingCompatible(db, challenges, nextContent);
-  const ids = new Set(nextTheme.characters.map((c) => c.id)),
+  const ids = new Set(nextTheme.characters.filter(c => c.appearanceFor !== "entity").map((c) => c.id)),
     accounts = (
       await db.prepare("SELECT username,hero FROM students").bind().all()
     ).results;
@@ -294,7 +294,7 @@ export async function importPacks(
       config.accounts.users.some((a) => a.hero && !ids.has(a.hero)))
   )
     throw Error(
-      "The theme must retain character IDs used by existing accounts. Reassign those accounts before removing a character.",
+      "The theme must retain player appearances used by existing accounts. Reassign those accounts before removing or changing an appearance to entity-only.",
     );
   if (placement.excluded.length && form.get("dropOverflow") !== "true")
     return {

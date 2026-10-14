@@ -4,6 +4,7 @@
     "map": "town",
     "object": "Elf’s packing list",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 18,
@@ -54,6 +55,7 @@
     "map": "town",
     "object": "Silver compass",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 11,
@@ -97,6 +99,7 @@
     "map": "toy-workshop",
     "object": "Toy Gremlin",
     "icon": "boss",
+    "bossStyle": "clockwork",
     "iconSize": 1,
     "location": {
       "x": 15,
@@ -142,6 +145,7 @@
     "map": "bakery",
     "object": "Cookie counter",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 20,
@@ -197,6 +201,7 @@
     "map": "cocoa-cottage",
     "object": "Cocoa shelf",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 20,
@@ -238,6 +243,7 @@
     "map": "post-office",
     "object": "Sleigh dispatch",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 20,
@@ -284,6 +290,7 @@
     "map": "elf-house",
     "object": "Snow Guardian",
     "icon": "boss",
+    "bossStyle": "frost",
     "iconSize": 2,
     "location": {
       "x": 20,
@@ -330,6 +337,7 @@
     "map": "castle",
     "object": "Frost Dragon",
     "icon": "boss",
+    "bossStyle": "serpent",
     "iconSize": 3,
     "location": {
       "x": 19,
@@ -378,6 +386,7 @@
     "map": "castle",
     "object": "Santa’s reflection",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 25,
@@ -418,6 +427,7 @@
     "map": "town",
     "object": "Hidden northern star",
     "icon": "star",
+    "bossStyle": "classic",
     "iconSize": 1,
     "location": {
       "x": 29,

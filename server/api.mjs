@@ -1,6 +1,6 @@
 import { bulkChallengeVisibility } from "./challenge-bulk.mjs";
 import { playerMilestones } from "./progression.mjs";
-import { entityReference, entityUnlocked, validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
+import { entityOutputReference, entityReference, entityUnlocked, validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { handleChallengeDependencies } from "./challenge-dependencies.mjs";
 import { bulkUserAction } from "./user-actions.mjs";
 import { registrationSettings, handleRegistrationSettings } from "./registration-settings.mjs";
@@ -9,6 +9,7 @@ import {handleCtfdImport} from "./ctfd-import.mjs";
 import {handleNotifications} from "./notifications.mjs";
 import { handleSubmissions } from "./submissions.mjs";
 import { handleThemeAudio } from "./theme-audio.mjs";
+import { handleThemeMedia } from "./theme-media.mjs";
 import { handleChallengeVideoUpload } from "./challenge-videos.mjs";
 import { byteRange } from "./byte-range.mjs";
 import { inventoryState, accessibleMaps, unlockTransport } from "./inventory.mjs";
@@ -175,7 +176,7 @@ function createRequestApi({
     return {
       ...items,
       entities: (theme.world.entities || []).filter(e => admin || entityUnlocked(e, milestones) && maps.has(e.map)).map(publicEntity),
-      activatedEntities: [...milestones].filter(id => id.startsWith("npe:")).map(id => id.slice(4)),
+      activatedEntities: [...milestones].filter(id => id.startsWith("npe:") && !id.includes(":", 4)).map(id => id.slice(4)),
       expeditionComplete: expedition.length > 0 && expedition.every(c => solvedIds.has(c.id)),
       challenges: challenges.map((c) => {
         const bought = purchases.results.filter((p) => p.challenge === c.id);
@@ -201,6 +202,7 @@ function createRequestApi({
           map: c.map,
           object: c.object,
           icon: c.icon,
+          bossStyle: c.bossStyle,
           iconSize: c.iconSize,
           location: c.location,
           region: c.region,
@@ -334,6 +336,7 @@ function createRequestApi({
     if (["/api/notifications","/api/admin/notifications"].includes(path)) return handleNotifications(req,{db,config,user,platformAdmin});
     if (path === "/api/admin/submissions") return handleSubmissions(req,{db,user,platformAdmin});
     if (path === "/api/admin/theme-audio") return handleThemeAudio(req,{db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset});
+    if (path === "/api/admin/theme-media") return handleThemeMedia(req,{db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset});
     if (path === "/api/admin/packs") {
       const u = await user(req);
       if (!platformAdmin && u?.role !== "admin")
@@ -913,7 +916,7 @@ function createRequestApi({
             stringify({ challenges: [challenge] }),
             theme.world.maps.map((m) => m.id),
             false,
-            [...current.challenges.map((c) => c.id), challenge?.id, ...(theme.world.entities || []).map(e => entityReference(e.id))],
+            [...current.challenges.map((c) => c.id), challenge?.id, ...(theme.world.entities || []).flatMap(e => [entityReference(e.id), ...e.nodes.filter(node => !node.choices.length).map(node => entityOutputReference(e.id, node.id))])],
           )[0];
         } catch (e) {
           return json(
@@ -1029,11 +1032,38 @@ function createRequestApi({
           const solved = (await db.prepare("SELECT challenge FROM solved WHERE user=?").bind(u.id).all()).results;
           const milestones = await playerMilestones(db, u.id, solved.map(r => r.challenge));
           if (!admin && !entityUnlocked(entity, milestones)) return json({ error: "This character is unavailable." }, 404);
+          const restartable = entity.restartable !== false;
+          const session = body.session;
+          if (!admin && !restartable && (typeof session !== "string" || !/^[a-zA-Z0-9-]{1,80}$/.test(session)))
+            return json({ error: "Open this conversation again to continue." }, 400);
+          const progress = admin ? null : await db.prepare("SELECT session,node,text,path,completed FROM entity_dialogue_progress WHERE user=? AND entity=?").bind(u.id, entity.id).first();
+          if (!admin && !restartable && progress && (progress.session !== session || progress.completed))
+            return json({ entity: publicEntity(entity), dialogue: { id: progress.node, text: progress.text, choices: [] }, themeRevision, game: await gameState(u.id, admin, u.spawn.map) });
+          if (!admin && !restartable) {
+            if (!progress && choices.length) return json({ error: "Start this conversation at its first dialogue." }, 400);
+            if (progress) {
+              const previous = JSON.parse(progress.path);
+              const same = JSON.stringify(choices) === progress.path;
+              const next = choices.length === previous.length + 1 && previous.every((choice, index) => choices[index] === choice);
+              if (!same && !next) return json({ error: "This one-time conversation cannot be restarted." }, 400);
+            }
+          }
           let dialogue;
           try { dialogue = resolveEntityDialogue(entity, choices); }
           catch (e) { return json({ error: e.message }, 400); }
           const gate = "COALESCE((SELECT revision FROM challenge_catalog WHERE id='active'),0)=? AND COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?";
           if (!admin) await db.prepare(`INSERT OR IGNORE INTO entity_activations(user,entity) SELECT ?,? WHERE ${gate}`).bind(u.id, entity.id, current.revision, themeRevision).run();
+          if (!admin && !restartable && !progress) {
+            const saved = await db.prepare(`INSERT OR IGNORE INTO entity_dialogue_progress(user,entity,session,node,text,path,completed) SELECT ?,?,?,?,?,?,? WHERE ${gate}`).bind(u.id, entity.id, session, dialogue.id, dialogue.text, JSON.stringify(choices), +(dialogue.choices.length === 0), current.revision, themeRevision).run();
+            if (!saved.meta.changes) return json({ error: "Conversation changed. Reopen it to continue." }, 409);
+          } else if (!admin && !restartable && progress && JSON.stringify(choices) !== progress.path) {
+            const saved = await db.prepare(`UPDATE entity_dialogue_progress SET node=?,text=?,path=?,completed=? WHERE user=? AND entity=? AND session=? AND path=? AND ${gate}`).bind(dialogue.id, dialogue.text, JSON.stringify(choices), +(dialogue.choices.length === 0), u.id, entity.id, session, progress.path, current.revision, themeRevision).run();
+            if (!saved.meta.changes) return json({ error: "Conversation changed. Reopen it to continue." }, 409);
+          } else if (!admin && restartable && !dialogue.choices.length) {
+            await db.prepare(`INSERT OR REPLACE INTO entity_dialogue_progress(user,entity,session,node,text,path,completed) SELECT ?,?,?,?,?,?,1 WHERE ${gate}`).bind(u.id, entity.id, "", dialogue.id, dialogue.text, JSON.stringify(choices), current.revision, themeRevision).run();
+          }
+          if (!admin && !dialogue.choices.length)
+            await db.prepare(`INSERT OR IGNORE INTO entity_dialogue_outputs(user,entity,node) SELECT ?,?,? WHERE ${gate}`).bind(u.id, entity.id, dialogue.id, current.revision, themeRevision).run();
           if (!(await db.prepare(`SELECT ${gate} AS valid`).bind(current.revision, themeRevision).first())?.valid)
             return json({ error: "Dependencies changed. Refresh before continuing." }, 409);
           return json({ entity: publicEntity(entity), dialogue, themeRevision, game: await gameState(u.id, admin, u.spawn.map) });
@@ -1204,7 +1234,7 @@ export function createApi(options) {
         ...options,
         config: {
           ...options.config,
-          characters: current.theme.characters,
+          characters: current.theme.characters.filter(c => c.appearanceFor !== "entity"),
           audio: current.theme.audio,
         },
         theme: current.theme,

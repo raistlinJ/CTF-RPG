@@ -6,12 +6,18 @@ import {DatabaseSync} from 'node:sqlite';
 import {parse,stringify} from 'yaml';
 import {unzipSync,strFromU8} from 'fflate';
 import {themePresets} from '../lib/theme-presets.mjs';
-import {parseChallenges,parseGame} from '../lib/config-schema.mjs';
-import {parseTheme} from '../lib/theme-schema.mjs';
+import {parseChallenges,parseGame,publicConfig} from '../lib/config-schema.mjs';
+import {defaultTheme,parseTheme} from '../lib/theme-schema.mjs';
 import {createWorld} from '../lib/world-data.mjs';
 import {themeContentValid} from '../server/packs.mjs';
 import {initializeSchema,createSQLiteAdapter} from '../server/sqlite.mjs';
 import {createApi} from '../server/api.mjs';
+test('default character catalog keeps player and entity appearances separate',()=>{
+ const config=parseGame(readFileSync('content/game.yaml','utf8'));
+ assert.equal(publicConfig(config).characters.length,8);
+ assert.equal(defaultTheme(config).characters.filter(c=>c.appearanceFor==='entity').length,5);
+ assert.ok(publicConfig(config).characters.every(c=>c.appearanceFor!=='entity'));
+});
 for(const preset of themePresets) {
  test(`${preset.id} demo ZIPs preserve footprints, separate content, and a solvable reward route`,async()=>{
   const {id,demoTheme,challenges}=preset;
@@ -21,9 +27,15 @@ for(const preset of themePresets) {
   const contentEntries=unzipSync(readFileSync(`theme-packs/${id}-demo-content.zip`));
   assert.ok(!themeEntries['content.yaml']);assert.ok(!contentEntries['theme.yaml']);assert.ok(!themeEntries['backup.json']);
   const packedTheme=parseTheme(parse(strFromU8(themeEntries['theme.yaml'])));
+  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='player').length,5);
+  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='entity').length,7);
+  assert.ok(packedTheme.world.entities.every(e=>packedTheme.characters.find(c=>c.id===e.characterId)?.appearanceFor==='entity'));
+  for(const c of packedTheme.characters.filter(c=>c.appearanceFor!=='both')) assert.ok(themeEntries['assets'+c.sprite]?.length,c.id);
   const packedChallenges=parseChallenges(stringify({challenges:parse(strFromU8(contentEntries['content.yaml'])).challenges}));
   assert.deepEqual(packedTheme,demoTheme);assert.deepEqual(packedChallenges,challenges);
   assert.deepEqual(challenges.filter(c=>c.icon==='boss').map(c=>c.iconSize),[1,2,3]);
+  assert.equal(new Set(challenges.filter(c=>c.icon==='boss').map(c=>c.bossStyle)).size,3);
+  assert.ok(challenges.filter(c=>c.icon==='boss').every(c=>c.bossStyle!=='classic'));
   assert.equal(challenges.filter(c=>c.grading==='manual').length,1);
   assert.ok(challenges.some(c=>c.visibility==='hidden'));
   assert.ok(challenges.some(c=>c.hints.some(h=>h.rewardCost.keys.length)));

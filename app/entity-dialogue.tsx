@@ -31,9 +31,9 @@ export function EntityMarker({ entity, character, selected = false }: { entity: 
     <span className="entity-map-name">{entity.name}</span>
   </div>;
 }
-function DialogueView({ entity, character, node, busy, error, onChoose, onRestart, onClose, preview = false }: {
+function DialogueView({ entity, character, node, busy, error, onChoose, onRestart, onClose, preview = false, restartable = true }: {
   entity: EntitySummary; character?: EntityCharacter; node: PublicDialogue | null; busy?: boolean; error?: string;
-  onChoose: (id: string) => void; onRestart: () => void; onClose: () => void; preview?: boolean;
+  onChoose: (id: string) => void; onRestart: () => void; onClose: () => void; preview?: boolean; restartable?: boolean;
 }) {
   const [input, setInput] = useState("");
   const [inputError, setInputError] = useState("");
@@ -58,7 +58,7 @@ function DialogueView({ entity, character, node, busy, error, onChoose, onRestar
       </>}
       {node && !node.choices.length && <p className="entity-dialogue-end">End of conversation.</p>}
       {(error || inputError) && <p className="error" role="alert">{error || inputError}</p>}
-      <div className="entity-dialogue-footer"><button type="button" className="text-button" disabled={busy} onClick={() => { setInput(""); setInputError(""); onRestart(); }}>Restart conversation</button><button type="button" className="secondary-button" onClick={onClose}>Close conversation</button></div>
+      <div className="entity-dialogue-footer">{restartable ? <button type="button" className="text-button" disabled={busy} onClick={() => { setInput(""); setInputError(""); onRestart(); }}>Restart conversation</button> : <small>One-time conversation</small>}<button type="button" className="secondary-button" onClick={onClose}>Close conversation</button></div>
     </DialogContent>
   </Dialog>;
 }
@@ -70,6 +70,7 @@ export function EntityConversation<T>({ entity, character, themeRevision, map, p
   entity: EntitySummary; character?: EntityCharacter; themeRevision: number; map: string; pos: { x: number; y: number }; onClose: () => void; onGameChange: (game: T) => void;
 }) {
   const [node, setNode] = useState<PublicDialogue | null>(null), [path, setPath] = useState<string[]>([]), [busy, setBusy] = useState(true), [error, setError] = useState("");
+  const session = useRef(crypto.randomUUID());
   const controller = useRef<AbortController | null>(null);
   const updateGame = useRef(onGameChange);
   useEffect(() => { updateGame.current = onGameChange; }, [onGameChange]);
@@ -79,7 +80,7 @@ export function EntityConversation<T>({ entity, character, themeRevision, map, p
     setBusy(true); setError("");
     try {
       const r = await fetch("/api/game", { method: "POST", headers: { "Content-Type": "application/json" }, signal: current.signal,
-        body: JSON.stringify({ action: "entity-dialogue", id: entity.id, choices, themeRevision, map, x: pos.x, y: pos.y }) });
+        body: JSON.stringify({ action: "entity-dialogue", id: entity.id, choices, session: session.current, themeRevision, map, x: pos.x, y: pos.y }) });
       const data = await r.json() as { dialogue: PublicDialogue; game: T; error?: string };
       if (!r.ok) throw Error(data.error || "Could not speak to this character.");
       if (!current.signal.aborted) { setNode(data.dialogue); setPath(choices); updateGame.current(data.game); }
@@ -87,5 +88,5 @@ export function EntityConversation<T>({ entity, character, themeRevision, map, p
     finally { if (!current.signal.aborted) setBusy(false); }
   }, [entity.id, themeRevision, map, pos.x, pos.y]);
   useEffect(() => { let live = true; void Promise.resolve().then(() => { if (live) void speak([]); }); return () => { live = false; controller.current?.abort(); }; }, [speak]);
-  return <DialogueView entity={entity} character={character} node={node} busy={busy} error={error} onChoose={id => { if (!busy) void speak([...path, id]); }} onRestart={() => void speak([])} onClose={onClose} />;
+  return <DialogueView entity={entity} character={character} node={node} busy={busy} error={error} restartable={entity.restartable !== false} onChoose={id => { if (!busy) void speak([...path, id]); }} onRestart={() => void speak([])} onClose={onClose} />;
 }

@@ -6,7 +6,7 @@ Open **Manage → Theme → Import / Export** (`/admin/theme/import-export`) as 
 
 | Pack | Includes | Excludes |
 | --- | --- | --- |
-| Theme ZIP | Title/description, map images and names, spawn points, walkable bounds, blocked tiles, building entrances and exits, character IDs/names/sprites, MIDI music settings and files | Challenge flags/text/hints, accounts, passwords, teams, scores |
+| Theme ZIP | Title/description, map images and names, spawn points, walkable bounds, blocked tiles, building entrances and exits, character IDs/names/sprites, media library and boss images, MIDI music settings and files | Challenge flags/text/hints, accounts, passwords, teams, scores |
 | Content ZIP | Challenge text, points, flags and case sensitivity, hints and costs, map IDs/locations, local downloadable files, external HTTPS download links | Theme maps/art/music, accounts, passwords, teams, scores |
 | Full backup ZIP | Runnable application/source, both active packs and assets, configuration, accounts/password hashes, teams/membership/size limit, scores/hint purchases | Active login sessions and environment secrets |
 
@@ -22,6 +22,8 @@ Content ZIPs contain accepted answers and locked hints: keep them private. Theme
 Content can also be imported independently when its map locations work with the current theme. A theme can be imported independently when current challenge locations still work with its maps. Existing character IDs used by accounts must remain in the imported theme; use account management to reassign characters before removing their IDs.
 
 The theme page previews the current title, map/character counts, and challenge count. Changing a pack replaces its active collection; it does not append to it. Old progress is preserved. Use new challenge IDs and hint IDs for a distinct activity so previous completions and purchases do not apply to new questions. Exports are portable ZIPs, rather than links to the originating server.
+
+Use **Theme → Media → Images** (`/admin/theme/media`) to upload PNG, JPEG, WebP, or GIF images and assign them to player and non-player appearances, boss styles, or map backgrounds. **Theme → Media → Audio** manages the MIDI playlist on the same page. Existing appearances can use any image in the theme; new appearances can be offered to players, non-player entities, or both. An unused upload can be deleted from the library and future exports. Imported theme artwork is read only. Uploaded images remain in the media library even while unassigned, so theme exports and backups retain them. A theme import treats its included images as theme artwork; a full backup restore retains which images were local uploads. Each image file can be at most 4 MB, and all theme assets together must fit within 8 MB.
 
 ## Edit a theme ZIP
 
@@ -66,6 +68,7 @@ characters:
     subtitle: Ready to explore.
     sprite: /sprites/explorer.png
     fallback: web
+    appearanceFor: both # player, entity, or both; omitted means both
 audio:
   midi: /audio/island.mid
   loop: true
@@ -162,7 +165,9 @@ The map editor marks challenge positions with gold stars (red when invalid). **R
 
 ### Non-player entities
 
-**Theme → Maps & transport → Non-Player Entities** configures placed characters and branching conversations. Theme YAML stores them in optional `world.entities` (default `[]`). Each entity has `id`, `name`, `characterId` (a theme character’s ID), `map`, `location`, `startNode`, `nodes`, and optional `dependsOn` (default `[]`). Nodes have an `id`, `text`, and `choices`; each choice has `id`, `label`, and `to` (the response node ID). IDs and locations must be unique, and response/appearance references must exist. A node without choices is an ending; loops are supported. Theme packs and full backups retain all dialogue definitions and the appearance assets already included for theme characters. Challenge IDs in `dependsOn` require solving those challenges; `npe:<entity-id>` references require speaking to those entities. Set connections under **Challenges → Dependencies**; combined imports validate references and reject mixed dependency loops. Players receive only currently unlocked entity locations, and dialogue becomes available when speaking nearby. See [the map guide](MAP_GUIDE.md#non-player-entities-and-dialogue) for authoring and player interaction.
+Save character placement under **Theme → Non-player entities**, then open **Edit dialogue graph** for that character at `/admin/theme/entities/dialogue` to connect player choices to response screens.
+
+**Theme → Non-player entities** (`/admin/theme/entities`) configures placed characters and branching conversations. Theme YAML stores them in optional `world.entities` (default `[]`). Each entity has `id`, `name`, `characterId` (a theme character’s ID), `map`, `location`, `startNode`, `nodes`, optional `restartable` (default true), and optional `dependsOn` (default `[]`). Nodes have an `id`, `text`, and `choices`; each choice has `id`, `label`, and `to` (the response node ID). IDs and locations must be unique, and response/appearance references must exist. A node without choices is an ending; loops are supported. Theme packs and full backups retain all dialogue definitions and the appearance assets already included for theme characters. Challenge IDs in `dependsOn` require solving those challenges; `npe:<entity-id>` references require speaking to those entities; `npe:<entity-id>:<final-node-id>` references require reaching that ending. Set connections under **Challenges → Dependencies**; combined imports validate references and reject mixed dependency loops. Players receive only currently unlocked entity locations, and dialogue becomes available when speaking nearby. See [the map guide](MAP_GUIDE.md#non-player-entities-and-dialogue) for authoring and player interaction.
 
 
 For example, add this entry under `world.entities` in an existing theme. The `intro-quest` challenge must exist in the matching content catalog:

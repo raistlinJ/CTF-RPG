@@ -42,8 +42,8 @@ function setup() {
 }
 async function login(call,name='alice') {assert.equal((await call('/api/auth',{mode:name==='teacher'?'login':'register',username:name,password:name==='teacher'?'teacher-password':'student-password',hero:'web'})).status,200);}
 const dialogue=(choices=[],extra={})=>({action:'entity-dialogue',id:'guide',themeRevision:1,map:'town',x:17,y:20,choices,...extra});
-function entityUpdate(themeRevision,entities,map='town') {
-  const form=new FormData();form.set('action','update-entities');form.set('map',JSON.stringify({id:map}));form.set('entities',JSON.stringify(entities));form.set('themeRevision',String(themeRevision));form.set('contentRevision','0');return form;
+function entityUpdate(themeRevision,entities,map='town',contentRevision=0) {
+  const form=new FormData();form.set('action','update-entities');form.set('map',JSON.stringify({id:map}));form.set('entities',JSON.stringify(entities));form.set('themeRevision',String(themeRevision));form.set('contentRevision',String(contentRevision));return form;
 }
 
 test('entity definitions validate dialogue links, appearances and spatial rules, with legacy themes defaulting to no entities',()=>{
@@ -139,7 +139,7 @@ test('Search conversations expose only reached dialogue, validate choices and pr
   const {sqlite,client}=setup();try {
     const alice=client(),bob=client(),admin=client();assert.equal((await alice('/api/game',dialogue())).status,401);await login(alice);await login(bob,'bobby');await login(admin,'teacher');
     const publicConfig=(await alice('/api/config')).data;assert.ok(!JSON.stringify(publicConfig).includes('starlight unlocks'));assert.ok(!JSON.stringify(publicConfig).includes('Welcome, traveler'));
-    assert.deepEqual(publicConfig.theme.world.entities[0],{id:entity.id,name:entity.name,characterId:entity.characterId,map:entity.map,location:entity.location});
+    assert.deepEqual(publicConfig.theme.world.entities[0],{id:entity.id,name:entity.name,characterId:entity.characterId,map:entity.map,location:entity.location,restartable:true});
     const first=await alice('/api/game',dialogue());assert.equal(first.status,200);assert.equal(first.data.dialogue.text,entity.nodes[0].text);assert.equal(first.data.dialogue.choices[0].to,undefined);assert.ok(!JSON.stringify(first.data).includes('starlight unlocks'));
     assert.equal((await alice('/api/game',dialogue(['key']))).data.dialogue.id,'keys');
     const last=await alice('/api/game',dialogue(['portal']));assert.equal(last.data.dialogue.text,entity.nodes[2].text);assert.deepEqual(last.data.dialogue.choices,[]);
@@ -273,6 +273,57 @@ test('solving unlocks entities, speaking unlocks challenges immediately and per 
   }finally{sqlite.close();}
 });
 
+test('a final dialogue output unlocks its dependent challenge only after that ending is reached',async()=>{
+  const {sqlite,client,theme}=setup();try{
+    const admin=client(),alice=client(),bob=client();await login(admin,'teacher');await login(alice);await login(bob,'bobby');
+    const graph=(await admin('/api/admin/challenge-dependencies')).data;
+    const saved=await admin('/api/admin/challenge-dependencies',graphBody(graph,{quest:['npe:guide:spell']}));
+    assert.equal(saved.status,200,JSON.stringify(saved.data));
+    assert.ok(!(await alice('/api/game')).data.challenges.some(c=>c.id==='quest'));
+    assert.equal((await alice('/api/game',dialogue())).status,200);
+    assert.ok(!(await alice('/api/game')).data.challenges.some(c=>c.id==='quest'));
+    assert.equal((await alice('/api/game',dialogue(['key']))).status,200);
+    assert.ok(!(await alice('/api/game')).data.challenges.some(c=>c.id==='quest'));
+    const ending=await alice('/api/game',dialogue(['portal']));
+    assert.equal(ending.status,200,JSON.stringify(ending.data));
+    assert.ok(ending.data.game.challenges.some(c=>c.id==='quest'));
+    assert.deepEqual(ending.data.game.activatedEntities,['guide']);
+    assert.deepEqual(sqlite.prepare('SELECT entity,node FROM entity_dialogue_outputs').all().map(r=>({...r})),[{entity:'guide',node:'spell'}]);
+    assert.ok(!(await bob('/api/game')).data.challenges.some(c=>c.id==='quest'));
+    const invalid=graphBody(saved.data,{quest:['npe:guide:keys']});
+    assert.equal((await admin('/api/admin/challenge-dependencies',invalid)).status,400,'nonfinal dialogue cannot be a dependency');
+    const changed=structuredClone(theme.world.entities);
+    changed[0].nodes[0].choices.push({id:'bye',label:'Say goodbye',to:'goodbye'});
+    changed[0].nodes.push({id:'goodbye',text:'Safe travels.',choices:[]});
+    assert.equal((await admin('/api/admin/maps',entityUpdate(1,changed,'town',1))).status,200);
+    assert.equal((await alice('/api/game',dialogue(['bye'],{themeRevision:2}))).status,200);
+    assert.deepEqual(sqlite.prepare('SELECT node FROM entity_dialogue_outputs WHERE entity=? ORDER BY node').all('guide').map(r=>r.node),['goodbye','spell']);
+    assert.ok((await alice('/api/game')).data.challenges.some(c=>c.id==='quest'),'reaching another ending preserves the earlier output');
+  }finally{sqlite.close();}
+});
+
+test('one-time dialogue remembers the last screen and ends later interactions',async()=>{
+  const {sqlite,client,theme}=setup();try{
+    const admin=client(),alice=client();await login(admin,'teacher');await login(alice);
+    const edited=structuredClone(theme.world.entities);edited[0].restartable=false;
+    assert.equal((await admin('/api/admin/maps',entityUpdate(1,edited))).status,200);
+    const call=(choices,session)=>alice('/api/game',dialogue(choices,{themeRevision:2,session}));
+    const session='session-one',later='session-two';
+    assert.equal((await call([],session)).data.dialogue.id,'hello');
+    assert.equal((await call(['key'],session)).data.dialogue.id,'keys');
+    const replay=await call([],later);
+    assert.equal(replay.status,200,JSON.stringify(replay.data));
+    assert.equal(replay.data.dialogue.id,'keys');assert.deepEqual(replay.data.dialogue.choices,[]);
+    assert.equal((await call([],session)).status,400,'same session cannot restart');
+    assert.equal((await call(['key','back'],session)).data.dialogue.id,'hello');
+    assert.equal((await call(['key','back','portal'],session)).data.dialogue.id,'spell');
+    assert.deepEqual((await call([],later)).data.dialogue.choices,[]);
+    assert.equal((await call([],later)).data.dialogue.id,'spell');
+    assert.deepEqual(sqlite.prepare('SELECT entity,node FROM entity_dialogue_outputs').all().map(r=>({...r})),[{entity:'guide',node:'spell'}]);
+    assert.equal((await call(['portal'],later)).data.dialogue.id,'spell','later session cannot choose a new branch');
+  }finally{sqlite.close();}
+});
+
 test('a graph changed during conversation cannot activate an entity or unlock its dependents',async()=>{
   const {sqlite,client,beforeWrite,challenges}=setup();try{
     const alice=client();await login(alice);
@@ -289,14 +340,15 @@ test('full backups preserve entity prerequisites and player activation through r
     const graph=(await admin('/api/admin/challenge-dependencies')).data;
     const result=await admin('/api/admin/challenge-dependencies',graphBody(graph,{quest:['npe:guide']}));assert.equal(result.status,200);
     assert.equal((await alice('/api/game',dialogue())).status,200);
-    const backup=await admin('/api/admin/backup');assert.equal(backup.status,200,JSON.stringify(backup.data));const entries=unzipSync(backup.bytes),snapshot=JSON.parse(strFromU8(entries['backup.json']));assert.equal(snapshot.entityActivations.length,1);assert.deepEqual(snapshot.challenges[0].dependsOn,['npe:guide']);
+    assert.equal((await alice('/api/game',dialogue(['portal']))).status,200);
+    const backup=await admin('/api/admin/backup');assert.equal(backup.status,200,JSON.stringify(backup.data));const entries=unzipSync(backup.bytes),snapshot=JSON.parse(strFromU8(entries['backup.json']));assert.equal(snapshot.entityActivations.length,1);assert.deepEqual(snapshot.challenges[0].dependsOn,['npe:guide']);assert.equal(snapshot.entityDialogueOutputs.length,1);assert.equal(snapshot.entityDialogueProgress[0].node,'spell');
     const {validateSnapshot}=await import('../server/backup.mjs');
     assert.throws(()=>validateSnapshot({...snapshot,entityActivations:[...snapshot.entityActivations,...snapshot.entityActivations]}));
     assert.throws(()=>validateSnapshot({...snapshot,entityActivations:[{user:'missing',entity:'guide'}]}));
     const legacy=structuredClone(snapshot);delete legacy.entityActivations;assert.deepEqual(validateSnapshot(legacy).entityActivations,[]);
     folder=mkdtempSync(resolve(tmpdir(),'quest-entity-deps-'));for(const[name,bytes]of Object.entries(entries)){const path=resolve(folder,name);mkdirSync(dirname(path),{recursive:true});writeFileSync(path,bytes);}symlinkSync(resolve('node_modules'),resolve(folder,'node_modules'),'dir');
     const path=resolve(folder,'restored.sqlite'),r=spawnSync(process.execPath,[resolve(folder,'server/restore.mjs'),resolve(folder,'backup.json')],{env:{...process.env,DATABASE_PATH:path},encoding:'utf8'});assert.equal(r.status,0,r.stderr);
-    const restored=new DatabaseSync(path);try{assert.deepEqual(restored.prepare('SELECT user,entity FROM entity_activations').all().map(r=>({...r})),snapshot.entityActivations);assert.deepEqual(JSON.parse(restored.prepare('SELECT payload FROM challenge_catalog').get().payload)[0].dependsOn,['npe:guide']);}finally{restored.close();}
+    const restored=new DatabaseSync(path);try{assert.deepEqual(restored.prepare('SELECT user,entity FROM entity_activations').all().map(r=>({...r})),snapshot.entityActivations);assert.deepEqual(restored.prepare('SELECT user,entity,node FROM entity_dialogue_outputs').all().map(r=>({...r})),snapshot.entityDialogueOutputs);assert.deepEqual(restored.prepare('SELECT user,entity,session,node,text,path,completed FROM entity_dialogue_progress').all().map(r=>({...r})),snapshot.entityDialogueProgress);assert.deepEqual(JSON.parse(restored.prepare('SELECT payload FROM challenge_catalog').get().payload)[0].dependsOn,['npe:guide']);}finally{restored.close();}
   }finally{sqlite.close();if(folder)rmSync(folder,{recursive:true,force:true});}
 });
 

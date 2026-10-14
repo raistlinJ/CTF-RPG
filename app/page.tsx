@@ -1,5 +1,6 @@
 "use client";
 import { drawBossIcon, challengeSize, challengeDistance, challengeTiles } from "@/lib/challenge-icon.mjs";
+import { useBossSprites } from "./use-boss-sprites";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
 import ChallengeCutscene, { type Cutscene } from "./challenge-cutscene";
@@ -71,6 +72,8 @@ type GameConfig = {
     title: string;
     badge: "snowflake" | "cpu" | "compass";
     description: string;
+    characters: Character[];
+    bossSprites: Record<string, string>;
     world: typeof activeWorld & { entities?: EntitySummary[] };
   };
   themeRevision: number;
@@ -82,6 +85,7 @@ type Challenge = {
   map: string;
   object: string;
   icon?: "star" | "boss";
+  bossStyle?: "classic" | "frost" | "clockwork" | "shadow" | "ember" | "serpent";
   iconSize?: 1 | 2 | 3;
   location: { x: number; y: number };
   region: string;
@@ -264,6 +268,7 @@ export function World({
   entities = [],
   players = [],
   characters = [],
+  bossSpritePaths = {},
   onPlayerSelect,
   selfPlayer,
   messageCount = 0,
@@ -285,6 +290,7 @@ export function World({
   entities?: EntitySummary[];
   players?: NearbyPlayer[];
   characters?: Character[];
+  bossSpritePaths?: Record<string, string>;
   onPlayerSelect?: (x: number, y: number) => void;
   selfPlayer?: NearbyPlayer;
   messageCount?: number;
@@ -308,6 +314,7 @@ export function World({
     setDragPreview(null);
   }
   const image = useSprite(hero.sprite);
+  const bossSprites = useBossSprites(bossSpritePaths);
   const background = useSprite(mapInfo(map)?.background || null);
   useEffect(() => {
     const c = ref.current!;
@@ -389,7 +396,7 @@ export function World({
       const distance =
         Math.abs(pos.x - q.location.x) + Math.abs(pos.y - q.location.y);
       if (q.icon === "boss") {
-        drawBossIcon(ctx, location.x * t, location.y * t, t * challengeSize(q));
+        drawBossIcon(ctx, location.x * t, location.y * t, t * challengeSize(q), q.bossStyle, bossSprites[q.bossStyle || "classic"]);
         continue;
       }
       ctx.fillStyle = distance <= 3 ? "#d6a44e" : "#bed5db";
@@ -432,6 +439,7 @@ export function World({
   }, [
     hero,
     image,
+    bossSprites,
     background,
     map,
     pos,
@@ -661,7 +669,7 @@ export function World({
     </div>
   );
 }
-function Portrait({ hero }: { hero: Character }) {
+export function Portrait({ hero }: { hero: Character }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const image = useSprite(hero.sprite);
   useEffect(() => {
@@ -680,6 +688,7 @@ function Portrait({ hero }: { hero: Character }) {
     />
   );
 }
+export function AdminAvatarPreview() { return <Portrait hero={adminAvatar} />; }
 export default function Game() {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
@@ -1473,7 +1482,8 @@ export default function Game() {
               solveShines={presence.solveShines}
               selfPlayer={selfPlayer}
               onPlayerSelect={(x, y) => setPlayerTile({ map, x, y })}
-              characters={heroes}
+              characters={config?.theme.characters || heroes}
+              bossSpritePaths={config?.theme.bossSprites}
               entities={entities}
               map={map}
               pos={pos}
@@ -1618,7 +1628,7 @@ export default function Game() {
           </aside>
         </section>
       ) : null}
-      {talkingTo && config && <EntityConversation key={talkingTo.id} entity={talkingTo} character={heroes.find(c => c.id === talkingTo.characterId)} themeRevision={config.themeRevision} map={map} pos={pos} onGameChange={applyGame} onClose={() => setTalkingTo(null)} />}
+      {talkingTo && config && <EntityConversation key={talkingTo.id} entity={talkingTo} character={config.theme.characters.find(c => c.id === talkingTo.characterId)} themeRevision={config.themeRevision} map={map} pos={pos} onGameChange={applyGame} onClose={() => setTalkingTo(null)} />}
       <Dialog open={!!nearbyOptions} onOpenChange={open => { if (!open) setNearbyOptions(null); }}>
         <DialogContent className="entity-dialogue" aria-describedby="nearby-interaction-help">
           <DialogTitle>Search nearby</DialogTitle><p id="nearby-interaction-help">Choose a character to speak with or a challenge to open.</p>

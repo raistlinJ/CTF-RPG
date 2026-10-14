@@ -66,6 +66,8 @@ try {
       "discovered_challenges",
       "challenge_cutscenes",
       "entity_activations",
+      "entity_dialogue_progress",
+      "entity_dialogue_outputs",
       "earned_rewards",
       "unlocked_transports",
       "solved",
@@ -148,6 +150,10 @@ try {
     for (const d of snapshot.discoveries) discovered.run(d.user, d.challenge);
     const activation = sqlite.prepare("INSERT INTO entity_activations(user,entity) VALUES(?,?)");
     for (const a of snapshot.entityActivations) activation.run(a.user, a.entity);
+    const dialogueProgress = sqlite.prepare("INSERT INTO entity_dialogue_progress(user,entity,session,node,text,path,completed) VALUES(?,?,?,?,?,?,?)");
+    for (const p of snapshot.entityDialogueProgress) dialogueProgress.run(p.user, p.entity, p.session, p.node, p.text, p.path, p.completed);
+    const dialogueOutput = sqlite.prepare("INSERT INTO entity_dialogue_outputs(user,entity,node) VALUES(?,?,?)");
+    for (const p of snapshot.entityDialogueOutputs) dialogueOutput.run(p.user, p.entity, p.node);
     const cutscene = sqlite.prepare("INSERT INTO challenge_cutscenes(user,challenge,phase) VALUES(?,?,?)");
     for (const c of snapshot.cutscenes) cutscene.run(c.user, c.challenge, c.phase);
     const features = snapshot.teamFeatures || snapshot.config.teams.features;

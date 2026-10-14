@@ -8,8 +8,10 @@ import Dependencies from "../app/admin/challenges/dependencies/page";
 import Submissions from "../app/admin/challenges/submissions/page";
 import Review from "../app/admin/review/page";
 import PacksAdmin from "../app/admin/theme/import-export/page";
-import AudioAdmin from "../app/admin/theme/audio/page";
+import MediaAdmin from "../app/admin/theme/media/page";
 import MapsAdmin from "../app/admin/theme/maps/page";
+import EntitiesAdmin from "../app/admin/theme/entities/page";
+import EntityDialoguePage from "../app/admin/theme/entities/dialogue/page";
 import ThemeLibrary from "../app/admin/theme/library/page";
 import ChallengeImport from "../app/admin/challenges/import/page";
 import TeamsAdmin from "../app/admin/teams/page";
@@ -33,9 +35,15 @@ createRoot(document.getElementById("root")!).render(
     ) : window.location.pathname.startsWith("/admin/review") ? (
       <Review />
     ) : window.location.pathname.startsWith("/admin/theme/audio") ? (
-      <AudioAdmin />
+      <MediaAdmin initialTab="audio" />
+    ) : window.location.pathname.startsWith("/admin/theme/media") ? (
+      <MediaAdmin />
     ) : window.location.pathname.startsWith("/admin/theme/library") ? (
       <ThemeLibrary />
+    ) : window.location.pathname.startsWith("/admin/theme/entities/dialogue") ? (
+      <EntityDialoguePage />
+    ) : window.location.pathname.startsWith("/admin/theme/entities") ? (
+      <EntitiesAdmin />
     ) : window.location.pathname === "/admin/theme" || window.location.pathname === "/admin/theme/" || window.location.pathname.startsWith("/admin/theme/maps") ? (
       <MapsAdmin />
     ) : window.location.pathname.startsWith("/admin/packs") || window.location.pathname.startsWith("/admin/theme/import-export") ? (

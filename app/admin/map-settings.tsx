@@ -1,5 +1,6 @@
 "use client";
 import { drawBossIcon, challengeTiles, challengeSize } from "@/lib/challenge-icon.mjs";
+import { useBossSprites } from "../use-boss-sprites";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Footprints,
@@ -11,7 +12,6 @@ import {
   Paintbrush,
   RotateCcw,
   ArrowLeftRight,
-  UsersRound,
 } from "lucide-react";
 import EntityEditor from "./entity-editor";
 import { EntityMarker } from "../entity-dialogue";
@@ -50,6 +50,7 @@ type Placement = {
   id: string;
   object: string;
   icon?: "star" | "boss";
+  bossStyle?: "classic" | "frost" | "clockwork" | "shadow" | "ember" | "serpent";
   iconSize?: 1 | 2 | 3;
   map: string;
   location: { x: number; y: number };
@@ -67,6 +68,9 @@ export default function MapSettings({
   standalone = false,
   onDirtyChange,
   characters = [],
+  bossSpritePaths = {},
+  entityOnly = false,
+  initialEntityId = "",
 }: {
   world: WorldData;
   mapId: string;
@@ -78,7 +82,11 @@ export default function MapSettings({
   standalone?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
   characters?: EntityCharacter[];
+  bossSpritePaths?: Record<string, string>;
+  entityOnly?: boolean;
+  initialEntityId?: string;
 }) {
+  const bossSprites = useBossSprites(bossSpritePaths);
   const original = world.maps.find((m) => m.id === mapId)!;
   const [map, setMap] = useState<MapData>(original),
     [cells, setCells] = useState<Set<string>>(new Set()),
@@ -88,7 +96,7 @@ export default function MapSettings({
     [editorOpen, setEditorOpen] = useState(standalone),
     [panel, setPanel] = useState<
       "ground" | "entities" | "transport" | "artwork" | "advanced"
-    >("ground"),
+    >(entityOnly ? "entities" : "ground"),
     [mode, setMode] = useState<"allow" | "block" | "spawn" | "move">("allow"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -161,7 +169,9 @@ export default function MapSettings({
     setMoves({});
     setSelectedChallenge("");
     setEntities(structuredClone(world.entities || []));
-    setSelectedEntity("");
+    setSelectedEntity(current => entityOnly
+      ? [current, initialEntityId].find(id => (world.entities || []).some(e => e.id === id && e.map === mapId)) || ""
+      : "");
     dragging.current = false;
     lastPaint.current = null;
     setInitialState(JSON.stringify([original, [...next].sort(), world.transports || [], world.portalOverrides || [], {}]));
@@ -235,7 +245,7 @@ export default function MapSettings({
     const location = findEntityLocation(engine, placements, entities, mapId, cursor);
     if (!location) { setError("This map has no available location for another character."); return; }
     const node = "dialogue-" + clientUuid(), id = "entity-" + clientUuid();
-    setEntities(all => [...all, { id, name: "New character", characterId: characters[0]?.id || "web", map: mapId, location, startNode: node, nodes: [{ id: node, text: "", choices: [] }] }]);
+    setEntities(all => [...all, { id, name: "New character", characterId: characters.find(c => c.appearanceFor === "entity")?.id || characters[0]?.id || "web", map: mapId, location, startNode: node, nodes: [{ id: node, text: "Hello, traveler.", choices: [] }] }]);
     setMapAction("entities");
     setSelectedEntity(id); setCursor(location); setMessage(""); setError("");
   }
@@ -370,7 +380,7 @@ export default function MapSettings({
         ctx.textAlign = "center";
         const size = challengeSize(c);
         if (c.icon === "boss") {
-          drawBossIcon(ctx, c.location.x * 24, c.location.y * 24, size * 24);
+          drawBossIcon(ctx, c.location.x * 24, c.location.y * 24, size * 24, c.bossStyle, bossSprites[c.bossStyle || "classic"]);
         } else ctx.fillText("✦", c.location.x * 24 + 12, c.location.y * 24 + 19);
         if (c.id === selectedChallenge) {
           ctx.strokeStyle = "#ffe393";
@@ -426,6 +436,7 @@ export default function MapSettings({
     engine,
     cursor,
     placements,
+    bossSprites,
     selectedChallenge,
     dragPreview,
   ]);
@@ -621,15 +632,15 @@ export default function MapSettings({
   }
   function itemAtTile(x: number, y: number): MapItem | null {
     const entity = entities.find(n => n.map === mapId && n.location.x === x && n.location.y === y);
-    if (entity) return { kind: "entity", id: entity.id };
+    if (entity) return { kind: "entity", id: entity.id, readOnly: !entityOnly };
     const portal = engine.portals.find(p => p.map === mapId && p.location.x === x && p.location.y === y);
-    if (portal) return { kind: "transport", id: `portal:${portal.id}`, destination: portal.to };
+    if (portal) return { kind: "transport", id: `portal:${portal.id}`, destination: portal.to, readOnly: entityOnly };
     const transport = transports.find(t => t.map === mapId && t.location.x === x && t.location.y === y);
-    if (transport) return { kind: "transport", id: `transport:${transport.id}`, destination: transport.to };
+    if (transport) return { kind: "transport", id: `transport:${transport.id}`, destination: transport.to, readOnly: entityOnly };
     if (engine.transportTiles(mapId).some((t: { kind: string; x: number; y: number }) => t.kind === "return" && t.x === x && t.y === y)) return { kind: "transport", id: "return", readOnly: true };
     const challenge = placements.find(c => c.map === mapId && challengeTiles(c).some(p => p.x === x && p.y === y));
-    if (challenge) return { kind: "challenge", id: challenge.id };
-    if (map.spawn.x === x && map.spawn.y === y) return { kind: "spawn", id: "spawn" };
+    if (challenge) return { kind: "challenge", id: challenge.id, readOnly: entityOnly };
+    if (map.spawn.x === x && map.spawn.y === y) return { kind: "spawn", id: "spawn", readOnly: entityOnly };
     return null;
   }
   function itemAt(e: React.PointerEvent<HTMLCanvasElement>): MapItem | null {
@@ -639,11 +650,19 @@ export default function MapSettings({
       const r = m.getBoundingClientRect();
       return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
     });
-    return marker ? { kind: "entity", id: marker.dataset.entityId! } : null;
+    return marker ? { kind: "entity", id: marker.dataset.entityId!, readOnly: !entityOnly } : null;
   }
   function selectMapItem(item: MapItem | null, point: { x: number; y: number }) {
+    if (!entityOnly && item?.kind === "entity") {
+      if (dirty && !window.confirm("Discard your unsaved map edits and open the non-player entity page?")) return;
+      // This editor also runs in the self-hosted React app, which has no Next router.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = `/admin/theme/entities?map=${encodeURIComponent(mapId)}&entity=${encodeURIComponent(item.id)}`;
+      return;
+    }
     setMapAction(null);
     setError(""); setMessage("");
+    if (entityOnly && item?.kind !== "entity") { setCursor(point); return; }
     if (item?.kind === "entity") {
       setPanel("entities"); setSelectedEntity(item.id);
       setCursor(entities.find(n => n.id === item.id)!.location);
@@ -671,7 +690,7 @@ export default function MapSettings({
     setMessage("");
     try {
       const form = new FormData();
-      const entitiesOnly = !restore && entitiesDirty && !mapLayoutDirty;
+      const entitiesOnly = !restore && (entityOnly || (entitiesDirty && !mapLayoutDirty));
       form.set(
         "map",
         JSON.stringify(
@@ -719,9 +738,9 @@ export default function MapSettings({
             },
       );
       await onSaved();
-      setMessage(
-        `${restore ? "Previous saved map restored" : "Map saved"}. ${d.placement.moved.length} challenges moved. Reload the game to use it.`,
-      );
+      setMessage(entityOnly
+        ? "Non-player entities saved. Reload the game to use them."
+        : `${restore ? "Previous saved map restored" : "Map saved"}. ${d.placement.moved.length} challenges moved. Reload the game to use it.`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -810,16 +829,13 @@ export default function MapSettings({
         </span>
       </summary>}
       <div className="map-settings-body">
-        <div className="map-settings-tabs" aria-label="Map settings sections">
-          {(
-            [
+        {!entityOnly && <div className="map-settings-tabs" aria-label="Map settings sections">
+          {([
               { id: "ground", label: "Ground", icon: Paintbrush },
-              { id: "entities", label: "Non-Player Entities", icon: UsersRound },
               { id: "transport", label: "Transport", icon: ArrowLeftRight },
               { id: "artwork", label: "Artwork", icon: ImageIcon },
               { id: "advanced", label: "Advanced", icon: SlidersHorizontal },
-            ] as const
-          ).map((tab) => (
+            ] as const).map((tab) => (
             <button
               type="button"
               key={tab.id}
@@ -830,17 +846,19 @@ export default function MapSettings({
               {tab.label}
             </button>
           ))}
-        </div>
+        </div>}
         <div className="map-settings-controls">
-        {panel === "entities" && <div className="map-settings-section">
-          <p className="map-tool-help" id="entity-tool-help">Add a character, then click a free map tile to place it. Drag a character to move it; Escape cancels. Non-walkable tiles are allowed. Players use Search nearby within one tile to speak and choose their replies. Save map to publish your characters and dialogue.</p>
+        {entityOnly && panel === "entities" && <div className="map-settings-section">
+          <p className="map-tool-help" id="entity-tool-help">Add a character, then click a free map tile to place it. Drag a character to move it; Escape cancels. Non-walkable tiles are allowed. Players use Search nearby within one tile to speak and choose their replies. Save entities to publish your characters and dialogue.</p>
           <button type="button" className="secondary-button" disabled={busy || entities.length >= 100 || !characters.length} onClick={addEntity}>Add character</button>
           <div className="entity-list" aria-label="Characters on this map">{entities.filter(e => e.map === mapId).map(e => <div key={e.id}>
             <button type="button" aria-pressed={selectedEntity === e.id} disabled={busy} onClick={() => { setMapAction(null); setSelectedEntity(e.id); setCursor({ ...e.location }); }}>{e.name || "Unnamed character"} · {e.location.x}, {e.location.y}</button>
             <button type="button" className="text-button" aria-label={`Remove character ${e.name}`} disabled={busy} onClick={() => { setEntities(all => all.filter(v => v.id !== e.id)); if (selectedEntity === e.id) setSelectedEntity(""); }}>Remove</button>
           </div>)}</div>
           {!entities.some(e => e.map === mapId) && <small>No characters on this map yet.</small>}
-          {selectedNpc && <fieldset className="entity-fields" disabled={busy}><EntityEditor key={selectedNpc.id} entity={selectedNpc} characters={characters} onChange={updateEntity} /></fieldset>}
+          {selectedNpc && <fieldset className="entity-fields" disabled={busy}><EntityEditor key={selectedNpc.id} entity={selectedNpc} characters={characters} onChange={updateEntity}
+            dialogueHref={!entitiesDirty && (world.entities || []).some(e => e.id === selectedNpc.id)
+              ? `/admin/theme/entities/dialogue?entity=${encodeURIComponent(selectedNpc.id)}` : undefined} /></fieldset>}
         </div>}
         {panel === "ground" && (
           <div className="map-edit-tools">
@@ -1361,15 +1379,13 @@ export default function MapSettings({
               disabled={busy}
               onClick={() => {
                 reset();
-                setMessage(
-                  "Unsaved map changes reset to the last saved version.",
-                );
+                setMessage(entityOnly ? "Unsaved entity changes reset to the last saved version." : "Unsaved map changes reset to the last saved version.");
               }}
             >
               <RotateCcw size={15} />
               Reset
             </button>
-            {previousSave && (
+            {previousSave && !entityOnly && (
               <button
                 type="button"
                 className="text-button"
@@ -1384,11 +1400,11 @@ export default function MapSettings({
             type="button"
             className="primary"
             disabled={
-              busy || (image ? layoutDirty : attention.length > 0 || transportProblems.length > 0 || entityProblems.length > 0)
+              busy || (entityOnly ? !entitiesDirty || entityProblems.length > 0 : image ? layoutDirty : attention.length > 0 || transportProblems.length > 0 || entityProblems.length > 0)
             }
             onClick={() => image ? void saveArtwork() : void save()}
           >
-            {busy ? "Saving…" : image ? "Replace image" : "Save map"}
+            {busy ? "Saving…" : entityOnly ? "Save entities" : image ? "Replace image" : "Save map"}
           </button>
         </div>
         </div>

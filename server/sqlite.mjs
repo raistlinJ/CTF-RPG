@@ -81,6 +81,8 @@ CREATE TABLE IF NOT EXISTS notification_reads(notification TEXT NOT NULL REFEREN
 CREATE TABLE IF NOT EXISTS ctfd_imports(id TEXT PRIMARY KEY,digest TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,report TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS entity_activations(user TEXT NOT NULL REFERENCES students(id),entity TEXT NOT NULL,PRIMARY KEY(user,entity));
+CREATE TABLE IF NOT EXISTS entity_dialogue_progress(user TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,entity TEXT NOT NULL,session TEXT NOT NULL,node TEXT NOT NULL,text TEXT NOT NULL,path TEXT NOT NULL,completed INTEGER NOT NULL CHECK(completed IN (0,1)),PRIMARY KEY(user,entity));
+CREATE TABLE IF NOT EXISTS entity_dialogue_outputs(user TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,entity TEXT NOT NULL,node TEXT NOT NULL,PRIMARY KEY(user,entity,node));
 CREATE TABLE IF NOT EXISTS discovered_challenges(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS challenge_cutscenes(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,phase TEXT NOT NULL CHECK(phase IN ('discovery','solve')),PRIMARY KEY(user,challenge,phase));
 CREATE TABLE IF NOT EXISTS earned_rewards(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(user,challenge));

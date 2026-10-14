@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS entity_dialogue_progress(user TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,entity TEXT NOT NULL,session TEXT NOT NULL,node TEXT NOT NULL,text TEXT NOT NULL,path TEXT NOT NULL,completed INTEGER NOT NULL CHECK(completed IN (0,1)),PRIMARY KEY(user,entity));
+CREATE TABLE IF NOT EXISTS entity_dialogue_outputs(user TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,entity TEXT NOT NULL,node TEXT NOT NULL,PRIMARY KEY(user,entity,node));

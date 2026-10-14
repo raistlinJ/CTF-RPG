@@ -20,7 +20,8 @@ import {
   mapInfo,
   createWorld,
 } from "@/lib/world-data.mjs";
-import { challengeTiles } from "@/lib/challenge-icon.mjs";
+import { BOSS_STYLES, challengeTiles, drawBossIcon } from "@/lib/challenge-icon.mjs";
+import { useBossSprites } from "../use-boss-sprites";
 import { challengeLocationAvailable, findChallengeLocation } from "@/lib/challenge-placement.mjs";
 import type { EntityCharacter, EntitySummary } from "@/lib/non-player-entities";
 import {
@@ -39,6 +40,7 @@ type Definition = {
   map: string;
   object: string;
   icon?: "star" | "boss";
+  bossStyle?: "classic" | "frost" | "clockwork" | "shadow" | "ember" | "serpent";
   iconSize?: 1 | 2 | 3;
   location: { x: number; y: number };
   region: string;
@@ -75,6 +77,7 @@ const fresh = (map = "town", x = 18, y = 20): Draft => ({
   map,
   object: "",
   icon: "star",
+  bossStyle: "classic",
   iconSize: 1,
   location: { x, y },
   region: mapName(map),
@@ -104,6 +107,8 @@ const toDraft = (c: Definition): Draft => ({
   flagsText: (c.flags || []).join("\n"),
 });
 export default function Admin() {
+  const [bossSpritePaths, setBossSpritePaths] = useState<Record<string, string>>({});
+  const bossSprites = useBossSprites(bossSpritePaths);
   const [access, setAccess] = useState<"loading" | "login" | "ready">(
       "loading",
     ),
@@ -191,7 +196,7 @@ export default function Admin() {
       challenges: Definition[];
       revision: number;
       themeRevision: number;
-      theme: { world: typeof activeWorld & { entities?: EntitySummary[] }; characters: EntityCharacter[] };
+      theme: { world: typeof activeWorld & { entities?: EntitySummary[] }; characters: EntityCharacter[]; bossSprites: Record<string, string> };
       error?: string;
     };
     if (r.status === 401 || r.status === 403) {
@@ -207,6 +212,7 @@ export default function Admin() {
     setThemeRevision(d.themeRevision);
     setMapEntities(d.theme.world.entities || []);
     setThemeCharacters(d.theme.characters);
+    setBossSpritePaths(d.theme.bossSprites || {});
     setAccess("ready");
     if (preserveDraft) return;
     if (!keepSelection && new URLSearchParams(window.location.search).has("map")) setStudioView("editor");
@@ -597,6 +603,7 @@ export default function Admin() {
                     hero={explorer}
                     entities={mapEntities}
                     characters={themeCharacters}
+                    bossSpritePaths={bossSpritePaths}
                     map={draft.map}
                     pos={draft.location}
                     challenges={[...catalog.filter(c => c.id !== editingId), {...draft, flags: []}]
@@ -755,6 +762,8 @@ export default function Admin() {
                 <div className="form-row">
                   <label>Map icon<select aria-label="Map icon" value={draft.icon || "star"} onChange={e => patch({icon: e.target.value as "star" | "boss", iconSize: 1})}><option value="star">Star</option><option value="boss">Boss</option></select></label>
                   {draft.icon === "boss" && <label>Boss size<select aria-label="Boss size" value={draft.iconSize || 1} onChange={e => patch({iconSize: Number(e.target.value) as 1 | 2 | 3})}><option value={1}>1 × 1 tiles</option><option value={2}>2 × 2 tiles</option><option value={3}>3 × 3 tiles</option></select></label>}
+                  {draft.icon === "boss" && <label>Boss appearance<select aria-label="Boss appearance" value={draft.bossStyle || "classic"} onChange={e => patch({bossStyle: e.target.value as Definition["bossStyle"]})}>{BOSS_STYLES.map(style => <option key={style.id} value={style.id}>{style.label}</option>)}</select></label>}
+                  {draft.icon === "boss" && <canvas aria-label={`${BOSS_STYLES.find(style => style.id === (draft.bossStyle || "classic"))?.label} preview`} width={48} height={48} ref={canvas => { const ctx = canvas?.getContext("2d"); if (ctx) { ctx.clearRect(0, 0, 48, 48); drawBossIcon(ctx, 0, 0, 48, draft.bossStyle, bossSprites[draft.bossStyle || "classic"]); } }} />}
                 </div>
                 <p className="muted">Location is the icon’s top-left tile. Every occupied tile must be usable and free.</p>
                 <label>

@@ -5,7 +5,7 @@ import { Save, RefreshCw, Undo2, ArrowRight, UsersRound, Trash2 } from "lucide-r
 import AdminHeader from "../../admin-header";
 import ChallengeNav from "../challenge-nav";
 import DependencyGraph, { type DependencyNode } from "./dependency-graph";
-import { validateChallengeDependencies } from "@/lib/challenge-dependencies.mjs";
+import { entityOutputReference, entitySourceReference, validateProgressionDependencies } from "@/lib/challenge-dependencies.mjs";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { entityReference } from "@/lib/challenge-dependencies.mjs";
 import type { NonPlayerEntity } from "@/lib/non-player-entities";
@@ -19,6 +19,8 @@ export default function Dependencies() {
     [busy, setBusy] = useState(false), [error, setError] = useState(""), [message, setMessage] = useState(""),
     [from, setFrom] = useState(""), [to, setTo] = useState(""), [history, setHistory] = useState<GraphDraft[]>([]);
   const [visibleEntityIds, setVisibleEntityIds] = useState<string[]>([]), [pickingEntity, setPickingEntity] = useState(false), [selectedEntityId, setSelectedEntityId] = useState("");
+  const [pendingOutput, setPendingOutput] = useState<{ source: string; target: string; existing?: string } | null>(null);
+  const [output, setOutput] = useState("any");
   const saving = useRef(false);
   const entityPickerTrigger = useRef<HTMLElement | null>(null);
   const dirty = allowed && serialize(nodes) !== initial;
@@ -28,9 +30,9 @@ export default function Dependencies() {
   const edges = nodes.flatMap((c) => c.dependsOn.map((id) => ({ from: id, to: c.id })));
   function apply(d: Catalog, preserveVisibleEntities = false) {
     const combined = [...d.challenges, ...(d.entities || []).map(entityNode)];
-    const connectedIds = new Set(combined.flatMap(n => n.dependsOn.length ? [n.id, ...n.dependsOn] : []));
+    const connectedIds = new Set(combined.flatMap(n => n.dependsOn.length ? [n.id, ...n.dependsOn.map(entitySourceReference)] : []));
     setVisibleEntityIds(previous => combined.filter(n => n.entity && (connectedIds.has(n.id) || (preserveVisibleEntities && previous.includes(n.id)))).map(n => n.id));
-    setPickingEntity(false); setSelectedEntityId("");
+    setPickingEntity(false); setSelectedEntityId(""); setPendingOutput(null);
     setNodes(combined); setRevision(d.revision); setThemeRevision(d.themeRevision);
     setInitial(serialize(combined)); setHistory([]); setAllowed(true); setFrom(""); setTo("");
   }
@@ -55,14 +57,35 @@ export default function Dependencies() {
     if (!nodes.some((c) => c.id === source) || !nodes.some((c) => c.id === target)) {
       setError("Choose two current challenges or entities."); setMessage(""); return false;
     }
-    if (nodes.find((c) => c.id === target)?.dependsOn.includes(source)) {
+    if (nodes.find((c) => c.id === target)?.dependsOn.some(id => entitySourceReference(id) === source)) {
       setError("That connection already exists."); setMessage(""); return false;
     }
+    if (nodes.find(n => n.id === source)?.entity) {
+      setOutput("any"); setPendingOutput({ source, target }); setError(""); return false;
+    }
+    return applyConnection(source, target);
+  }
+  function applyConnection(source: string, target: string, existing?: string) {
     const updated = nodes.map((c) => c.id === target ? { ...c, dependsOn: [...c.dependsOn,source] } : c);
-    try { validateChallengeDependencies(updated); }
+    if (existing) updated.find(c => c.id === target)!.dependsOn = updated.find(c => c.id === target)!.dependsOn.filter(id => id !== existing);
+    try { validateProgressionDependencies(updated.filter(n => !n.entity), updated.filter(n => n.entity).map(n => ({ ...n.entity!, dependsOn: n.dependsOn }))); }
     catch (e) { setError((e as Error).message); setMessage(""); return false; }
     setHistory((previous) => [...previous, { nodes, visibleEntityIds }].slice(-50)); setNodes(updated); setError(""); setMessage("");
     return true;
+  }
+  function editConnection(source: string, target: string) {
+    const entity = nodes.find(n => n.id === entitySourceReference(source))?.entity;
+    if (!entity) return;
+    setOutput(source === entitySourceReference(source) ? "any" : source.slice(entitySourceReference(source).length + 1));
+    setPendingOutput({ source: entitySourceReference(source), target, existing: source });
+  }
+  function saveOutput() {
+    if (!pendingOutput) return;
+    const entity = nodes.find(n => n.id === pendingOutput.source)?.entity;
+    if (!entity) return;
+    const prerequisite = output === "any" ? pendingOutput.source : entityOutputReference(entity.id, output);
+    if (prerequisite === pendingOutput.existing) { setPendingOutput(null); return; }
+    if (applyConnection(prerequisite, pendingOutput.target, pendingOutput.existing)) setPendingOutput(null);
   }
   function remove(source: string, target: string) {
     if (busy) return;
@@ -108,7 +131,7 @@ export default function Dependencies() {
   function removeEntity(id: string) {
     if (busy) return;
     setHistory(h => [...h, { nodes, visibleEntityIds }].slice(-50));
-    setNodes(nodes.map(n => ({ ...n, dependsOn: n.id === id ? [] : n.dependsOn.filter(d => d !== id) })));
+    setNodes(nodes.map(n => ({ ...n, dependsOn: n.id === id ? [] : n.dependsOn.filter(d => entitySourceReference(d) !== id) })));
     setVisibleEntityIds(ids => ids.filter(existing => existing !== id));
     setFrom(""); setTo(""); setError("");
     setMessage("Entity removed from the graph. Its character remains in Theme. Save dependencies to apply connection changes.");
@@ -118,7 +141,7 @@ export default function Dependencies() {
     <section className="admin-workspace dependencies-workspace">
       <ChallengeNav active="dependencies"/>
       <div className="roster-heading">
-        <div><span className="eyebrow">CHALLENGE PROGRESSION</span><h1>Dependencies</h1><p>Connect challenges and non-player entities. A challenge is completed by solving it; an entity is activated by speaking to it. Every prerequisite must be completed before the connected challenge or entity appears.</p></div>
+        <div><span className="eyebrow">CHALLENGE PROGRESSION</span><h1>Dependencies</h1><p>Connect challenges and non-player entities. Entity connections can require any conversation or a specific final dialogue. Every prerequisite must be completed before the connected challenge or entity appears.</p></div>
         {allowed && <div className="dependency-save-actions">
           <button type="button" className="secondary-button" disabled={busy || !history.length} onClick={() => { setNodes(history[history.length - 1].nodes); setVisibleEntityIds(history[history.length - 1].visibleEntityIds); setHistory(history.slice(0,-1)); setError(""); setMessage(""); }}><Undo2 size={17}/>Undo change</button>
           <button type="button" className="secondary-button" disabled={busy} onClick={() => void reload()}><RefreshCw size={17}/>Reload saved</button>
@@ -129,7 +152,7 @@ export default function Dependencies() {
       {message && <p role="status" className="dependency-feedback">{message}</p>}
       {loading ? <p>Loading dependency graph…</p> : !allowed ? <a href="/admin">Sign in as an admin</a> : <>
         <p className="dependency-save-note">{dirty ? "Unsaved changes — save to apply them to the game." : "Saved connections"} · Unlocks follow each player’s progress. Admins can preview every challenge and entity.</p>
-        <DependencyGraph key={graphNodes.map((c) => c.id).join(",")} nodes={graphNodes} disabled={busy} onConnect={connect} onRemove={remove} onAddEntity={openEntityPicker}/>
+        <DependencyGraph key={graphNodes.map((c) => c.id).join(",")} nodes={graphNodes} disabled={busy} onConnect={connect} onRemove={remove} onEditConnection={editConnection} onAddEntity={openEntityPicker}/>
         <form className="dependency-connect-form admin-editor" onSubmit={(e) => { e.preventDefault(); connect(from,to); }}>
           <h2>Add a connection</h2>
           <div className="dependency-connect-fields">
@@ -143,19 +166,23 @@ export default function Dependencies() {
             <p>Missing a character? Add an existing entity to the graph to use it in these selectors.</p>
           </div>
         </form>
-        {!!graphNodes.filter(n => n.entity).length && <section className="admin-editor dependency-connection-list"><h2>Non-player entities</h2><p>Create and edit characters in <a href="/admin/theme/maps">Theme → Maps &amp; Transport → Non-Player Entities</a>.</p><ul>{graphNodes.filter(n => n.entity).map(n => <li key={n.id}><span><strong>{n.object}</strong> · {n.map} · Activated when spoken to</span><div className="entity-editor-actions"><a className="secondary-button" href={`/admin/theme/maps?map=${encodeURIComponent(n.map)}`}>Edit in Theme</a><button type="button" className="secondary-button" disabled={busy} onClick={() => removeEntity(n.id)} aria-label={`Remove non-player entity ${n.object} from graph`}><Trash2 size={16}/>Remove from graph</button></div></li>)}</ul></section>}
+        {!!graphNodes.filter(n => n.entity).length && <section className="admin-editor dependency-connection-list"><h2>Non-player entities</h2><p>Create and edit characters in <a href="/admin/theme/entities">Theme → Non-player entities</a>.</p><ul>{graphNodes.filter(n => n.entity).map(n => <li key={n.id}><span><strong>{n.object}</strong> · {n.map} · {n.entity?.restartable === false ? "One-time conversation" : "Restartable conversation"}</span><div className="entity-editor-actions"><a className="secondary-button" href={`/admin/theme/entities?map=${encodeURIComponent(n.map)}&entity=${encodeURIComponent(n.entity!.id)}`}>Edit in Theme</a><button type="button" className="secondary-button" disabled={busy} onClick={() => removeEntity(n.id)} aria-label={`Remove non-player entity ${n.object} from graph`}><Trash2 size={16}/>Remove from graph</button></div></li>)}</ul></section>}
         <details className="dependency-connection-list admin-editor">
           <summary>Connections ({edges.length})</summary>
-          <ul>{edges.map((edge) => <li key={`${edge.from}>${edge.to}`}><span><strong>{nodes.find((c) => c.id === edge.from)?.object}</strong> <ArrowRight size={16} aria-hidden="true"/> {nodes.find((c) => c.id === edge.to)?.object}</span><button type="button" className="secondary-button" disabled={busy} aria-label={`Remove ${edge.from} prerequisite from ${edge.to}`} onClick={() => remove(edge.from,edge.to)}>Remove</button></li>)}</ul>
+          <ul>{edges.map((edge) => <li key={`${edge.from}>${edge.to}`}><span><strong>{nodes.find((c) => c.id === entitySourceReference(edge.from))?.object}</strong>{edge.from.startsWith("npe:") && (edge.from === entitySourceReference(edge.from) ? " · Any dialogue" : ` · ${nodes.find(n => n.id === entitySourceReference(edge.from))?.entity?.nodes.find(node => edge.from.endsWith(`:${node.id}`))?.text.slice(0, 60) || "Final dialogue"}`)} <ArrowRight size={16} aria-hidden="true"/> {nodes.find((c) => c.id === edge.to)?.object}</span><div className="entity-editor-actions">{edge.from !== entitySourceReference(edge.from) || edge.from.startsWith("npe:") ? <button type="button" className="secondary-button" disabled={busy} onClick={() => editConnection(edge.from,edge.to)}>Edit output</button> : null}<button type="button" className="secondary-button" disabled={busy} aria-label={`Remove ${edge.from} prerequisite from ${edge.to}`} onClick={() => remove(edge.from,edge.to)}>Remove</button></div></li>)}</ul>
           {!edges.length && <p>No prerequisites. Visible challenges and entities appear at the start.</p>}
         </details>
-        <p className="roster-note">Written prerequisites unlock after grading. Solved challenges and activated entities remain available. Admin conversations are previews and do not activate entities. Challenges marked Hidden remain hidden from players.</p>
+        <p className="roster-note">Written prerequisites unlock after grading. Entity outputs unlock when a player reaches the selected final dialogue. Admin conversations are previews and do not advance progress. Challenges marked Hidden remain hidden from players.</p>
       </>}
     </section>
     <Dialog open={pickingEntity} onOpenChange={setPickingEntity}><DialogContent className="entity-dialogue dependency-entity-dialog" aria-describedby="dependency-entity-help" onCloseAutoFocus={e => { e.preventDefault(); const trigger = entityPickerTrigger.current; if (trigger?.isConnected) trigger.focus({ preventScroll: true }); else document.querySelector<HTMLElement>(".dependency-graph-viewport")?.focus({ preventScroll: true }); }}><DialogTitle>Add non-player entity</DialogTitle><DialogDescription id="dependency-entity-help">Choose an existing character from Theme to add to this graph. Connect its card to set prerequisites, then save dependencies.</DialogDescription>
       {availableEntities.length ? <label>Non-player entity<select aria-label="Existing non-player entity" value={selectedEntityId} onChange={e => setSelectedEntityId(e.target.value)} disabled={busy}>{availableEntities.map(n => <option key={n.id} value={n.id}>{n.object} · {n.map}</option>)}</select></label> : <p>{nodes.some(n => n.entity) ? "All existing non-player entities are already in the graph." : "No non-player entities exist yet."}</p>}
-      <p>Create and edit characters in <a href="/admin/theme/maps">Theme → Maps &amp; Transport → Non-Player Entities</a>.</p>
+      <p>Create and edit characters in <a href="/admin/theme/entities">Theme → Non-player entities</a>.</p>
       <div className="entity-editor-actions"><button type="button" className="primary" disabled={busy || !availableEntities.some(n => n.id === selectedEntityId)} onClick={addEntity}>Add to graph</button><button type="button" className="secondary-button" onClick={() => setPickingEntity(false)}>Cancel</button></div>
+    </DialogContent></Dialog>
+    <Dialog open={!!pendingOutput} onOpenChange={open => { if (!open) setPendingOutput(null); }}><DialogContent className="dependency-entity-dialog"><DialogTitle>Entity output</DialogTitle><DialogDescription>Choose when this connection unlocks its destination.</DialogDescription>
+      <label>Required dialogue<select aria-label="Required entity output" value={output} onChange={event => setOutput(event.target.value)}><option value="any">Any dialogue · speak to this character</option>{nodes.find(n => n.id === pendingOutput?.source)?.entity?.nodes.map((node, index) => !node.choices.length ? <option key={node.id} value={node.id}>Dialogue {index + 1} · final: {node.text.slice(0, 72)}</option> : null)}</select></label>
+      <div className="entity-editor-actions"><button type="button" className="secondary-button" onClick={() => setPendingOutput(null)}>Cancel</button><button type="button" className="primary" onClick={saveOutput}>Apply output</button></div>
     </DialogContent></Dialog>
   </main>;
 }

@@ -74,6 +74,7 @@ challenges:
     grading: automatic
     visibility: visible
     icon: boss
+    bossStyle: clockwork
     iconSize: 1
     flags:
       - "15"
@@ -194,6 +195,7 @@ challenges:
     grading: automatic
     visibility: visible
     icon: boss
+    bossStyle: frost
     iconSize: 2
     flags:
       - "15"
@@ -224,6 +226,7 @@ challenges:
     grading: automatic
     visibility: visible
     icon: boss
+    bossStyle: serpent
     iconSize: 3
     flags:
       - "30"

@@ -20,9 +20,11 @@ test("Agentic Circuit is a portable course theme with reachable doors, compatibl
     new Set(defaultWorld.maps.map((m) => m.id)),
   );
   assert.deepEqual(
-    theme.characters.map((c) => c.id),
+    theme.characters.slice(0, 3).map((c) => c.id),
     ["web", "thunder", "shield"],
   );
+  assert.ok(theme.characters.some(c => c.appearanceFor === "player"));
+  assert.ok(theme.characters.some(c => c.appearanceFor === "entity"));
   let size = 0;
   for (const path of themeAssetPaths(theme)) {
     const b = readFileSync("public" + path);
@@ -30,7 +32,15 @@ test("Agentic Circuit is a portable course theme with reachable doors, compatibl
     assert.ok(b.length < 4 * 1024 * 1024);
     if (path.endsWith(".png")) {
       assert.deepEqual([...b.slice(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
-      if (path.includes("/sprites/")) assert.equal(b[25], 6);
+      if (path.includes("/sprites/")) {
+        let transparent = [4, 6].includes(b[25]);
+        for (let offset = 8; offset + 12 <= b.length;) {
+          const length = b.readUInt32BE(offset), type = b.toString("ascii", offset + 4, offset + 8);
+          if (type === "tRNS" && b.subarray(offset + 8, offset + 8 + length).some(value => value < 255)) transparent = true;
+          offset += length + 12;
+        }
+        assert.ok(transparent, `${path} needs transparent sprite pixels`);
+      }
     }
   }
   assert.ok(size < 8 * 1024 * 1024);
