@@ -55,3 +55,44 @@ test('checkbox deletion resets each user/challenge atomically, removes all attem
  assert.equal((await a('/api/game',{id:c.id,answer:c.flags[0]})).data.correct,true);assert.equal((await a('/api/game',{id:'written',answer:'New explanation',revision:0})).data.submitted,true);
  assert.equal((await admin('/api/admin/submissions',{action:'delete',submissions:[]})).status,400);
 }finally{s.sqlite.close();}});
+
+test('solved answer review returns the original own successful entry after login and never accepted flags or other players answers',async()=>{
+ const s=setup();try{
+  const alice=s.client(),bob=s.client(),admin=s.client(),guest=s.client();await login(alice,'alice');await login(bob,'bobby');await login(admin,'teacher');
+  const c=s.challenges.find(c=>!c.caseSensitive&&/[a-z]/i.test(c.flags[0]));assert.ok(c);
+  const review={action:'review-answer',id:c.id};
+  assert.equal((await guest('/api/game',review)).status,401);
+  assert.equal((await alice('/api/game',review)).status,403);
+  assert.equal((await alice('/api/game',{id:c.id,answer:'wrong submission'})).data.correct,false);
+  assert.equal((await alice('/api/game',review)).status,403);
+  const original=`  ${c.flags[0].toUpperCase()}  `;
+  assert.equal((await alice('/api/game',{id:c.id,answer:original})).data.correct,true);
+  assert.deepEqual((await alice('/api/game',review)).data,{answer:original});
+  assert.equal((await bob('/api/game',{...review,user:s.sqlite.prepare("SELECT id FROM students WHERE username='alice'").get().id})).status,403);
+  assert.equal((await bob('/api/game',{id:c.id,answer:c.flags[0]})).data.correct,true);
+  assert.deepEqual((await bob('/api/game',review)).data,{answer:c.flags[0]});
+  assert.equal((await admin('/api/game',review)).status,403,'an admin reviewing their own game cannot substitute another player');
+  const restarted=s.client();assert.equal((await restarted('/api/auth',{mode:'login',username:'alice',password:'student-password'})).status,200);
+  assert.deepEqual((await restarted('/api/game',review)).data,{answer:original});
+  // A later correct retry does not replace the answer that originally solved the challenge.
+  const uid=s.sqlite.prepare("SELECT id FROM students WHERE username='alice'").get().id;
+  s.sqlite.prepare('INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at) VALUES(?,?,?,?,?,?,1,?,?)').run('later',uid,c.id,'later correct answer',c.text,c.object,'',Date.now()+10000);
+  assert.deepEqual((await alice('/api/game',review)).data,{answer:original});
+  assert.ok(!(await alice('/api/game')).data.challenges.some(c=>'flags' in c));
+ }finally{s.sqlite.close();}
+});
+
+test('solved answer review preserves graded written responses and reports missing legacy entries without substituting accepted flags',async()=>{
+ const s=setup();try{
+  const admin=s.client(),alice=s.client();await login(admin,'teacher');await login(alice,'alice');
+  const answer='My original explanation.\nSecond line <script>literal text</script>';
+  assert.equal((await alice('/api/game',{id:'written',answer,revision:0})).data.submitted,true);
+  assert.equal((await alice('/api/game',{action:'review-answer',id:'written'})).status,403);
+  const response=(await admin('/api/admin/review?status=all')).data.responses[0];
+  assert.equal((await admin('/api/admin/review',{user:response.user,challenge:'written',revision:response.revision,grade:70,feedback:'Reviewed'})).status,200);
+  assert.deepEqual((await alice('/api/game',{action:'review-answer',id:'written'})).data,{answer});
+  const c=s.challenges[0],uid=response.user;
+  s.sqlite.prepare('INSERT INTO solved(user,challenge,points) VALUES(?,?,?)').run(uid,c.id,c.points);
+  assert.deepEqual((await alice('/api/game',{action:'review-answer',id:c.id})).data,{answer:null});
+ }finally{s.sqlite.close();}
+});

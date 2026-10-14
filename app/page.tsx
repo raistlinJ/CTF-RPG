@@ -5,6 +5,7 @@ import { useBossSprites } from "./use-boss-sprites";
 import TeamPanel from "./team-panel";
 import ChallengeCutscene, { type Cutscene } from "./challenge-cutscene";
 import { EntityConversation, EntityMarker } from "./entity-dialogue";
+import SolvedAnswer from "./solved-answer";
 import { visibleSprite } from "@/lib/visible-sprite";
 import type { EntitySummary } from "@/lib/non-player-entities";
 import { entityInInteractionRange } from "@/lib/non-player-entities.mjs";
@@ -1706,7 +1707,10 @@ export default function Game() {
               ))}
             </section>
           )}
-          <form onSubmit={submit}>
+          {active && solved.includes(active.id) ? <>
+            <SolvedAnswer key={active.id} challengeId={active.id} />
+            <button className="primary" type="button" onClick={() => setActive(null)}>Keep exploring</button>
+          </> : <form onSubmit={submit}>
             <label>
               Your answer
               {active?.grading === "manual" ? (
@@ -1733,15 +1737,6 @@ export default function Game() {
                 />
               )}
             </label>
-            {active && solved.includes(active.id) ? (
-              <button
-                className="primary"
-                type="button"
-                onClick={() => setActive(null)}
-              >
-                Keep exploring
-              </button>
-            ) : (
               <button className="primary" disabled={busy}>
                 {busy
                   ? "Saving…"
@@ -1751,8 +1746,7 @@ export default function Game() {
                       : "Submit for review"
                     : "Check answer"}
               </button>
-            )}
-          </form>
+          </form>}
           {active?.submission && (
             <section className="submission-status" aria-label="Response status">
               <b>

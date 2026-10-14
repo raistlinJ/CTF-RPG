@@ -2071,6 +2071,9 @@ input::placeholder {
   max-height: 500px;
   overflow: auto;
 }
+.solved-answer-review { display: grid; gap: 12px; margin-bottom: 16px; }
+.solved-answer-review > button { justify-self: start; }
+.solved-answer-review .written-answer { margin: 0; }
 .review-summary,
 .review-pagination {
   display: flex;

@@ -1090,6 +1090,15 @@ function createRequestApi({
         if (!c) return json({ error: "Unknown challenge." }, 400);
         const items = await inventoryState(db,u.id,theme);
         if (!admin && !accessibleMaps(theme,items.unlockedTransports,u.spawn.map).has(c.map) && !completions.some(r => r.challenge === c.id)) return json({error:"Unlock a route to this map before opening its challenges."},403);
+        if (action === "review-answer") {
+          // Read only this player's recorded answer, never accepted flags or a teammate's submission.
+          const review = await db.prepare(`SELECT COALESCE(
+            (SELECT answer FROM written_responses WHERE user=solved.user AND challenge=solved.challenge AND grade IS NOT NULL),
+            (SELECT answer FROM answer_attempts WHERE user=solved.user AND challenge=solved.challenge AND correct=1 ORDER BY submitted_at,id LIMIT 1)
+          ) AS answer FROM solved WHERE user=? AND challenge=?`).bind(u.id,c.id).first();
+          if (!review) return json({error:"Solve this challenge before reviewing your answer."},403);
+          return json({answer:review.answer});
+        }
         // Catalog and visibility revisions guard writes against a graph changed mid-request.
         const gate = "COALESCE((SELECT revision FROM challenge_catalog WHERE id='active'),0)=? AND COALESCE((SELECT revision FROM challenge_settings WHERE id='active'),0)=? AND COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=?";
         const versions = [current.revision, settings.revision, themeRevision];

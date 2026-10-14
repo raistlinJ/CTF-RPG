@@ -245,7 +245,7 @@ In each challenge editor, choose **Map icon → Star** (the existing marker) or 
 
 Challenge YAML uses `icon: star` or `icon: boss` with `iconSize: 1`, `2`, or `3`, plus optional `bossStyle: classic`, `frost`, `clockwork`, `shadow`, `ember`, or `serpent`. Omitted fields retain the original 1×1 star or classic boss.
 
-The player sidebar lists only solved challenges. Discovered but unsolved challenges and pending written submissions are reached through Search nearby on the map. Solved stars and bosses remain on the map with a small green check; click the completed marker to see its name.
+The player sidebar lists only solved challenges. **Review Solved** hides the answer input and offers **Reveal answer** to show the player’s recorded successful entry (or graded written response). **Hide answer** conceals it again; closing and reopening the review starts hidden. Each player can reveal only their own answer. Older solves without a recorded answer show an availability message instead of an accepted flag. Discovered but unsolved challenges and pending written submissions are reached through Search nearby on the map. Solved stars and bosses remain on the map with a small green check; click the completed marker to see its name.
 
 ### Search and delete submissions
 
