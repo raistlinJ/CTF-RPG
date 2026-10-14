@@ -1618,7 +1618,7 @@ export default function Game() {
                           : ""}
                       </small>
                       <button className="text-button" onClick={() => openChallenge(q)}>
-                        {q.submission ? "View response" : "Open challenge"}
+                        Review Solved
                       </button>
                     </div>
                     <span>
