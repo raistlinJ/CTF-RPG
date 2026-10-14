@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { matchDialogueChoice, resolveEntityDialogue } from "@/lib/non-player-entities.mjs";
 import type { EntityCharacter, EntitySummary, NonPlayerEntity, PublicDialogue } from "@/lib/non-player-entities";
 import { visibleSprite } from "@/lib/visible-sprite";
+import { entitySize } from "@/lib/entity-footprint.mjs";
 
 export function EntityPortrait({ character, onImageLoad, onImageError }: { character?: EntityCharacter; onImageLoad?: (image: HTMLImageElement) => void; onImageError?: () => void }) {
   const [failed, setFailed] = useState(false);
@@ -17,11 +18,13 @@ export function EntityPortrait({ character, onImageLoad, onImageError }: { chara
 export function EntityMarker({ entity, character, selected = false }: { entity: EntitySummary; character?: EntityCharacter; selected?: boolean }) {
   const [artwork, setArtwork] = useState<{ source: string; top: number; right: number; bottom: number; center: number } | null>(null);
   const bounds = artwork?.source === character?.sprite ? artwork : null;
+  const size = entitySize(entity);
   const style = {
-    left: `${(entity.location.x + .5) / 40 * 100}%`, top: `${(entity.location.y + .5) / 28 * 100}%`,
+    left: `${(entity.location.x + size / 2) / 40 * 100}%`, top: `${(entity.location.y + size / 2) / 28 * 100}%`,
+    ...(size > 1 && { width: `${size / 40 * 100}%`, transform: "translate(-50%, -50%)" }),
     ...(bounds && { "--entity-visible-top": `${bounds.top}%`, "--entity-visible-right": `${bounds.right}%`, "--entity-visible-bottom": `${bounds.bottom}%`, "--entity-visible-center": `${bounds.center}%` }),
   } as CSSProperties;
-  return <div className={`entity-marker${selected ? " selected" : ""}`} style={style} data-entity-id={entity.id} aria-label={`Character: ${entity.name}`}>
+  return <>{selected && <div className="entity-footprint" style={{ left: `${entity.location.x / 40 * 100}%`, top: `${entity.location.y / 28 * 100}%`, width: `${size / 40 * 100}%`, height: `${size / 28 * 100}%` }} />}<div className="entity-marker" style={style} data-entity-id={entity.id} aria-label={`Character: ${entity.name}`}>
     <EntityPortrait key={character?.sprite || character?.id} character={character} onImageError={() => setArtwork(null)} onImageLoad={image => {
       const visible = visibleSprite(image), size = Math.max(image.naturalWidth, image.naturalHeight);
       const offsetX = (size - image.naturalWidth) / 2, offsetY = (size - image.naturalHeight) / 2;
@@ -29,7 +32,7 @@ export function EntityMarker({ entity, character, selected = false }: { entity: 
     }} />
     <MessageCircle className="entity-talk-icon" aria-hidden="true" />
     <span className="entity-map-name">{entity.name}</span>
-  </div>;
+  </div></>;
 }
 function DialogueView({ entity, character, node, busy, error, onChoose, onClose, preview = false }: {
   entity: EntitySummary; character?: EntityCharacter; node: PublicDialogue | null; busy?: boolean; error?: string;

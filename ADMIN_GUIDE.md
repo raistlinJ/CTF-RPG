@@ -219,6 +219,8 @@ Disable revokes current sessions and retains progress. Mute chat prevents outgoi
 
 ## Configure non-player entities
 
+Non-player entities support a **Tile allocation** of **1 × 1**, **2 × 2**, or **3 × 3** under **Theme → Maps & transport → Non-player entities**. The selected entity has an outline showing its full allocation. Coordinates specify its top-left tile; dragging any allocated tile keeps that grab position. The whole allocation must fit inside the grid and remain clear of challenges, doors, transports and other entities before saving. Non-walkable ground is allowed. Players can talk from any tile beside an edge (or within the allocation); diagonal corners are out of range. Theme YAML uses `size: 1`, `size: 2`, or `size: 3` on each `world.entities` entry; omitted sizes default to 1. Theme packs and full backups retain the allocation.
+
 Under **Theme → Maps, entities & transport → Non-player entities**, select a map. Add a character, choose its appearance and name, and click a free map tile. Non-walkable tiles are allowed; players need a walkable tile beside the character to speak with it. **Save entities**, then open **Edit dialogue graph** for that character. Add dialogue screens and connect player choices to their responses in the graph. Choose whether the conversation can restart or is one-time, preview it, and **Save dialogue**. Players find characters through **Search nearby** within one tile horizontally or vertically and can click a reply or enter its number/text. See [the dialogue guide](MAP_GUIDE.md#non-player-entities-and-dialogue) for placement, branches, endings and limits.
 
 ## Replace a map image

@@ -21,13 +21,13 @@ const entity={id:'guide',name:'Trail guide',characterId:'web',map:'town',locatio
   {id:'keys',text:'A challenge can award a red key.',choices:[{id:'back',label:'Go back',to:'hello'}]},
   {id:'spell',text:'A hidden portal phrase: starlight unlocks.',choices:[]},
 ]};
-function setup() {
+function setup(size = 1) {
   const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);
   const base=createSQLiteAdapter(sqlite);
   let hook;
   const db={...base,prepare(sql){const statement=base.prepare(sql);return{bind(...args){const bound=statement.bind(...args);return{...bound,_sql:sql,async run(){if(hook?.match(sql)){const h=hook;hook=null;h.run();}return bound.run();}};}};},async batch(statements){if(hook && statements.some(s=>hook.match(s._sql))){const h=hook;hook=null;h.run();}return base.batch(statements);}};
   const config=parseGame('characters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web');
-  const theme=defaultTheme(config);theme.world.entities=[entity,{...entity,id:'castle-guide',name:'Castle guide',map:'castle',location:{x:19,y:20}}];
+  const theme=defaultTheme(config);theme.world.entities=[{...entity,size},{...entity,id:'castle-guide',name:'Castle guide',map:'castle',location:{x:19,y:20}}];
   theme.world.portalOverrides=[{id:'entrance-castle',location:createWorld(theme.world).portals.find(p=>p.id==='entrance-castle').location,to:'castle',lock:{type:'key',color:'green'}}];
   const validTheme=parseTheme(theme);sqlite.prepare("INSERT INTO theme_catalog(id,payload,revision) VALUES('active',?,1)").run(JSON.stringify(validTheme));
   const challenges=parseChallenges(stringify({challenges:[{id:'quest',map:'town',object:'Key quest',location:{x:18,y:19},region:'Square',text:'Find the flag.',flags:['answer'],points:50,rewards:{keys:['red'],incantations:[]}}]}));
@@ -62,6 +62,50 @@ test('entity definitions validate dialogue links, appearances and spatial rules,
     const plan=planChallengePlacement(theme,[collision]);assert.equal(plan.moved.length,1);assert.notDeepEqual(plan.challenges[0].location,entity.location);
     assert.notDeepEqual(findChallengeLocation(createWorld(theme.world),[],'town',entity.location,'quest'),entity.location);
   } finally {sqlite.close();}
+});
+
+test('entity sizes reserve every tile and use the full perimeter for interaction',()=>{
+  const {sqlite,theme,challenges}=setup();try{
+    const world=createWorld(theme.world),large={...entity,size:3};
+    assert.equal(entitiesSchema.parse([entity])[0].size,1);
+    for(const size of [1,2,3])assert.equal(entitiesSchema.parse([{...entity,size}])[0].size,size);
+    for(const patch of [{size:4},{size:2,location:{x:39,y:20}},{size:3,location:{x:16,y:26}}])assert.throws(()=>entitiesSchema.parse([{...entity,...patch}]));
+    assert.throws(()=>entitiesSchema.parse([large,{...entity,id:'overlap',location:{x:18,y:22}}]));
+    assert.equal(entityLocationAvailable(world,challenges,[large],'town',16,20,large.id),true);
+    assert.equal(entityLocationAvailable(world,[{...challenges[0],location:{x:18,y:22}}],[large],'town',16,20,large.id),false);
+    const door=world.portals.find(p=>p.map==='town');
+    assert.equal(entityLocationAvailable(world,[],[],'town',door.location.x-1,door.location.y-1,undefined,{size:2}),false);
+    for(const p of [{x:19,y:22},{x:18,y:23},{x:15,y:21},{x:17,y:19},{x:18,y:22}])assert.equal(entityInInteractionRange(large,'town',p.x,p.y),true);
+    for(const p of [{x:19,y:23},{x:20,y:22},{x:14,y:21}])assert.equal(entityInInteractionRange(large,'town',p.x,p.y),false);
+    const expanded=structuredClone(theme);expanded.world.entities[0]=large;
+    const overlap={...challenges[0],location:{x:18,y:22}};
+    const plan=planChallengePlacement(expanded,[overlap]);assert.equal(plan.moved.length,1);
+    const relocated=plan.challenges[0].location;
+    assert.ok(relocated.x<16||relocated.x>18||relocated.y<20||relocated.y>22);
+    const nearest=findEntityLocation(world,[overlap],[large],'town',large.location,large.id);
+    assert.ok(nearest);assert.notDeepEqual(nearest,large.location);
+    assert.equal(entityLocationAvailable(world,[overlap],[large],'town',nearest.x,nearest.y,large.id),true);
+  }finally{sqlite.close();}
+});
+
+test('large entity allocations save, reject overlaps, support edge dialogue and survive exports',async()=>{
+  const {sqlite,theme,client}=setup();try{
+    const admin=client(),student=client();await login(admin,'teacher');await login(student);
+    const edited=structuredClone(theme.world.entities);edited[0].size=3;
+    assert.equal((await admin('/api/admin/maps',entityUpdate(1,edited))).status,200);
+    const current=(await admin('/api/admin/challenges')).data;assert.equal(current.theme.world.entities[0].size,3);
+    const invalid=structuredClone(edited);invalid[0].location={x:16,y:18};
+    assert.equal((await admin('/api/admin/maps',entityUpdate(2,invalid))).status,400);
+    assert.equal((await admin('/api/admin/challenges')).data.themeRevision,2);
+    assert.equal((await admin('/api/admin/challenges',{action:'move',id:'quest',map:'town',location:{x:18,y:22},revision:0,themeRevision:2})).status,400);
+    const talk=await student('/api/game',dialogue([],{x:19,y:21,themeRevision:2}));assert.equal(talk.status,200,JSON.stringify(talk.data));
+    assert.equal((await student('/api/config')).data.theme.world.entities[0].size,3);
+    const pack=await admin('/api/admin/packs?kind=theme');assert.equal(pack.status,200);
+    assert.equal(parseTheme(parse(strFromU8(unzipSync(pack.bytes)['theme.yaml']))).world.entities[0].size,3);
+    const backup=await admin('/api/admin/backup');assert.equal(backup.status,200);
+    const {validateSnapshot}=await import('../server/backup.mjs');
+    assert.equal(validateSnapshot(JSON.parse(strFromU8(unzipSync(backup.bytes)['backup.json']))).theme.world.entities[0].size,3);
+  }finally{sqlite.close();}
 });
 
 test('entities may use non-walkable map tiles while map limits and occupied locations remain protected',()=>{
@@ -139,7 +183,7 @@ test('Search conversations expose only reached dialogue, validate choices and pr
   const {sqlite,client}=setup();try {
     const alice=client(),bob=client(),admin=client();assert.equal((await alice('/api/game',dialogue())).status,401);await login(alice);await login(bob,'bobby');await login(admin,'teacher');
     const publicConfig=(await alice('/api/config')).data;assert.ok(!JSON.stringify(publicConfig).includes('starlight unlocks'));assert.ok(!JSON.stringify(publicConfig).includes('Welcome, traveler'));
-    assert.deepEqual(publicConfig.theme.world.entities[0],{id:entity.id,name:entity.name,characterId:entity.characterId,map:entity.map,location:entity.location,restartable:true});
+    assert.deepEqual(publicConfig.theme.world.entities[0],{id:entity.id,name:entity.name,characterId:entity.characterId,map:entity.map,location:entity.location,size:1,restartable:true});
     const first=await alice('/api/game',dialogue());assert.equal(first.status,200);assert.equal(first.data.dialogue.text,entity.nodes[0].text);assert.equal(first.data.dialogue.choices[0].to,undefined);assert.ok(!JSON.stringify(first.data).includes('starlight unlocks'));
     assert.equal((await alice('/api/game',dialogue(['key']))).data.dialogue.id,'keys');
     const last=await alice('/api/game',dialogue(['portal']));assert.equal(last.data.dialogue.text,entity.nodes[2].text);assert.deepEqual(last.data.dialogue.choices,[]);
@@ -176,7 +220,7 @@ test('map entity saves preserve map geometry, transport and challenges, enforce 
 });
 
 test('theme packs and full backups retain entities and branching dialogue through restoration',async()=>{
-  const {sqlite,client,theme}=setup();let folder;try {
+  const {sqlite,client,theme}=setup(3);let folder;try {
     const admin=client();await login(admin,'teacher');
     const pack=await admin('/api/admin/packs?kind=theme');assert.equal(pack.status,200);const packed=parse(strFromU8(unzipSync(pack.bytes)['theme.yaml']));assert.deepEqual(packed.world.entities,theme.world.entities);
     const backup=await admin('/api/admin/backup');assert.equal(backup.status,200,JSON.stringify(backup.data));const entries=unzipSync(backup.bytes),snapshot=JSON.parse(strFromU8(entries['backup.json']));assert.deepEqual(snapshot.theme.world.entities,theme.world.entities);

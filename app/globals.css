@@ -2130,7 +2130,7 @@ input::placeholder {
 .entity-portrait > svg { width: 85%; height: 85%; color: #ffe293; fill: #3a5a61; }
 .entity-talk-icon { position: absolute; width: 32%; height: 32%; top: var(--entity-visible-top, 7.5%); left: var(--entity-visible-right, 92.5%); transform: translate(-25%, -65%); color: #ffe293; fill: #183440; }
 .entity-map-name { position: absolute; top: calc(var(--entity-visible-bottom, 92.5%) + 1px); left: var(--entity-visible-center, 50%); transform: translateX(-50%); max-width: 140px; padding: 1px 4px; background: #183440ee; border-radius: 3px; color: #ffe293; font-size: clamp(6px, 1vw, 11px); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.entity-marker.selected { outline: 2px solid #ffe293; border-radius: 3px; }
+.entity-footprint { position: absolute; border: 2px solid #ffe293; background: #ffe29325; border-radius: 3px; }
 .entity-fields { min-width: 0; padding: 0; border: 0; }
 .entity-editor { display: grid; gap: 12px; min-width: 0; }
 .entity-dialogue-link { display: grid; gap: 6px; border-top: 1px solid #ffffff25; padding-top: 14px; }

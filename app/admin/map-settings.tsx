@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import EntityEditor from "./entity-editor";
 import { EntityMarker } from "../entity-dialogue";
-import { entitiesSchema, entityLocationAvailable, findEntityLocation } from "@/lib/non-player-entities.mjs";
+import { entitiesSchema, entityLocationAvailable, findEntityLocation, entitySize, entityOccupiesTile } from "@/lib/non-player-entities.mjs";
 import type { EntityCharacter, NonPlayerEntity } from "@/lib/non-player-entities";
 import { challengeLocationAvailable } from "@/lib/challenge-placement.mjs";
 import { clientUuid } from "@/lib/client-uuid.mjs";
@@ -230,7 +230,7 @@ export default function MapSettings({
   const entityValidation = entitiesSchema.safeParse(entities);
   const entityProblems = [
     ...(!entityValidation.success ? entityValidation.error.issues.map(i => `Character ${i.path[0] === undefined ? "" : Number(i.path[0]) + 1}: ${i.message}`) : []),
-    ...entities.flatMap(e => !characters.some(c => c.id === e.characterId) || !entityLocationAvailable(engine, placements, entities, e.map, e.location.x, e.location.y, e.id) ? [`${e.name || "Character"} needs a valid appearance and a separate map tile away from challenges, doors and transport.`] : []),
+    ...entities.flatMap(e => !characters.some(c => c.id === e.characterId) || !entityLocationAvailable(engine, placements, entities, e.map, e.location.x, e.location.y, e.id) ? [`${e.name || "Character"} needs a valid appearance and a free footprint away from challenges, doors and transport.`] : []),
   ];
   function updateEntity(entity: NonPlayerEntity) {
     setEntities(all => all.map(e => e.id === entity.id ? entity : e)); setMessage(""); setError("");
@@ -239,7 +239,7 @@ export default function MapSettings({
     const location = findEntityLocation(engine, placements, entities, mapId, cursor);
     if (!location) { setError("This map has no available location for another character."); return; }
     const node = "dialogue-" + clientUuid(), id = "entity-" + clientUuid();
-    setEntities(all => [...all, { id, name: "New character", characterId: characters.find(c => c.appearanceFor === "entity")?.id || characters[0]?.id || "web", map: mapId, location, startNode: node, nodes: [{ id: node, text: "Hello, traveler.", choices: [] }] }]);
+    setEntities(all => [...all, { id, name: "New character", characterId: characters.find(c => c.appearanceFor === "entity")?.id || characters[0]?.id || "web", map: mapId, location, size: 1, startNode: node, nodes: [{ id: node, text: "Hello, traveler.", choices: [] }] }]);
     setMapAction("entities");
     setSelectedEntity(id); setCursor(location); setMessage(""); setError("");
   }
@@ -407,7 +407,10 @@ export default function MapSettings({
         ctx.lineWidth = 3; ctx.setLineDash([4, 3]);
         const challenge = dragPreview.kind === "challenge" ? placements.find(c => c.id === dragPreview.id) : undefined;
         ctx.fillStyle = "transparent";
-        drawChallengeFootprint(ctx, challenge, 24, dragPreview);
+        if (dragPreview.kind === "entity") {
+          const size = entitySize(entities.find(e => e.id === dragPreview.id));
+          ctx.strokeRect(dragPreview.x * 24 + 1, dragPreview.y * 24 + 1, size * 24 - 2, size * 24 - 2);
+        } else drawChallengeFootprint(ctx, challenge, 24, dragPreview);
         ctx.setLineDash([]);
         if (dragPreview.kind !== "entity" && dragPreview.kind !== "challenge") {
           ctx.fillStyle = ctx.strokeStyle; ctx.font = "bold 20px Arial"; ctx.textAlign = "center";
@@ -432,6 +435,7 @@ export default function MapSettings({
     engine,
     cursor,
     placements,
+    entities,
     bossSprites,
     selectedChallenge,
     dragPreview,
@@ -450,11 +454,11 @@ export default function MapSettings({
     }
     setCursor({ x, y });
     if (moving?.kind === "entity" || (!moving && panel === "entities")) {
-      const existing = entities.find(e => e.map === mapId && e.location.x === x && e.location.y === y);
+      const existing = entities.find(e => entityOccupiesTile(e, mapId, x, y));
       if (existing && !moving) { setSelectedEntity(existing.id); setError(""); return; }
       const entity = moving ? entities.find(e => e.id === moving.id) : selectedNpc;
       if (!entity) { setError("Add or select a character, then click its location on the map."); return; }
-      if (!entityLocationAvailable(engine, placements, entities, mapId, x, y, entity.id)) { setError("Choose an unoccupied map tile away from challenges, doors and transport. Non-walkable tiles are allowed."); return; }
+      if (!entityLocationAvailable(engine, placements, entities, mapId, x, y, entity.id)) { setError("The full tile allocation must fit in an unoccupied area away from challenges, doors and transport. Non-walkable tiles are allowed."); return; }
       updateEntity({ ...entity, location: { x, y } }); setMapAction(null); return;
     }
     if (moving?.kind === "transport" || (!moving && panel === "transport")) {
@@ -574,7 +578,7 @@ export default function MapSettings({
       return;
     }
     if (moving?.kind === "spawn") {
-      if (!engine.canSpawn(mapId, x, y) || placements.some(c => c.map === mapId && challengeTiles(c).some(p => p.x === x && p.y === y)) || entities.some(e => e.map === mapId && e.location.x === x && e.location.y === y)) {
+      if (!engine.canSpawn(mapId, x, y) || placements.some(c => c.map === mapId && challengeTiles(c).some(p => p.x === x && p.y === y)) || entities.some(e => entityOccupiesTile(e, mapId, x, y))) {
         setError("Choose a free, reachable tile for the spawn."); return;
       }
       setMap(m => ({ ...m, spawn: { x, y } })); setError(""); setMessage(""); return;
@@ -627,7 +631,7 @@ export default function MapSettings({
     return { x: Math.floor((e.clientX - r.left) / r.width * 40), y: Math.floor((e.clientY - r.top) / r.height * 28) };
   }
   function itemAtTile(x: number, y: number): MapItem | null {
-    const entity = entities.find(n => n.map === mapId && n.location.x === x && n.location.y === y);
+    const entity = entities.find(n => entityOccupiesTile(n, mapId, x, y));
     if (entity) return { kind: "entity", id: entity.id, readOnly: false };
     const portal = engine.portals.find(p => p.map === mapId && p.location.x === x && p.location.y === y);
     if (portal) return { kind: "transport", id: `portal:${portal.id}`, destination: portal.to, readOnly: entityOnly };
@@ -807,11 +811,11 @@ export default function MapSettings({
         </div>}
         <div className="map-settings-controls">
         {panel === "entities" && <div className="map-settings-section">
-          <p className="map-tool-help" id="entity-tool-help">Add a character, then click a free map tile to place it. Drag a character to move it; Escape cancels. Non-walkable tiles are allowed. Players use Search nearby within one tile to speak and choose their replies. Save entities to publish your characters and dialogue.</p>
+          <p className="map-tool-help" id="entity-tool-help">Add a character, choose its tile allocation, then click a free map area to place it. Drag a character to move it; Escape cancels. Non-walkable tiles are allowed. Players use Search nearby within one tile of any edge to speak. Save entities to publish your characters and dialogue.</p>
           <a className="text-button" href="/admin/theme/appearances#selectable-characters">Manage character appearances</a>
           <button type="button" className="secondary-button" disabled={busy || entities.length >= 100 || !characters.length} onClick={addEntity}>Add character</button>
           <div className="entity-list" aria-label="Characters on this map">{entities.filter(e => e.map === mapId).map(e => <div key={e.id}>
-            <button type="button" aria-pressed={selectedEntity === e.id} disabled={busy} onClick={() => { setMapAction(null); setSelectedEntity(e.id); setCursor({ ...e.location }); }}>{e.name || "Unnamed character"} · {e.location.x}, {e.location.y}</button>
+            <button type="button" aria-pressed={selectedEntity === e.id} disabled={busy} onClick={() => { setMapAction(null); setSelectedEntity(e.id); setCursor({ ...e.location }); }}>{e.name || "Unnamed character"} · {e.location.x}, {e.location.y} · {entitySize(e)} × {entitySize(e)}</button>
             <button type="button" className="text-button" aria-label={`Remove character ${e.name}`} disabled={busy} onClick={() => { setEntities(all => all.filter(v => v.id !== e.id)); if (selectedEntity === e.id) setSelectedEntity(""); }}>Remove</button>
           </div>)}</div>
           {!entities.some(e => e.map === mapId) && <small>No characters on this map yet.</small>}
@@ -1051,7 +1055,9 @@ export default function MapSettings({
             const item = itemAt(e);
             if (item) {
               const tile = pointerTile(e), challenge = item.kind === "challenge" ? placements.find(c => c.id === item.id) : undefined;
-              const offsetX = challenge ? tile.x - challenge.location.x : 0, offsetY = challenge ? tile.y - challenge.location.y : 0;
+              const entity = item.kind === "entity" ? entities.find(n => n.id === item.id) : undefined;
+              const offsetX = challenge ? tile.x - challenge.location.x : entity ? Math.max(0, Math.min(entitySize(entity) - 1, tile.x - entity.location.x)) : 0;
+              const offsetY = challenge ? tile.y - challenge.location.y : entity ? Math.max(0, Math.min(entitySize(entity) - 1, tile.y - entity.location.y)) : 0;
               itemDrag.current = { ...item, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, offsetX, offsetY, active: false, target: { x: tile.x - offsetX, y: tile.y - offsetY } };
               // Opening the selected item's controls can shift the canvas on mobile.
               // Keep the layout steady until the pointer is released.
