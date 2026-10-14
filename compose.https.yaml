@@ -1,6 +1,9 @@
 # Optional CTF-RPG HTTPS frontend — Copyright (c) 2026 Jaime C Acosta
 services:
   ctf-rpg:
+    extends:
+      file: compose.yaml
+      service: ctf-rpg
     environment:
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://localhost}
       SECURE_COOKIES: "true"
@@ -19,3 +22,5 @@ services:
       ctf-rpg:
         condition: service_healthy
     restart: unless-stopped
+volumes:
+  quest-data:

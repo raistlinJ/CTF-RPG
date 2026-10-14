@@ -130,10 +130,10 @@ The `ctf-rpg` service mounts `content/` and `public/` read-only. SQLite and uplo
 ### Optional Nginx HTTPS frontend
 
 ```sh
-docker compose -f compose.yaml -f compose.https.yaml up --build -d
+docker compose -f compose.https.yaml up --build -d
 ```
 
-Open `https://localhost`. The HTTPS overlay adds Nginx, redirects port 80 to HTTPS, and enables secure session cookies. The app's port 3000 remains bound to loopback. Nginx waits for the app health check and proxies both pages and `/api/`. This optional overlay follows [Docker's multiple-file Compose workflow](https://docs.docker.com/compose/how-tos/multiple-compose-files/merge/).
+Open `https://localhost`. This file starts the app and Nginx together, redirects port 80 to HTTPS, and enables secure session cookies. It inherits the app's build, health check, port configuration and mounts from `compose.yaml` using [Docker Compose extends](https://docs.docker.com/compose/how-tos/multiple-compose-files/extends/). The app's port 3000 defaults to loopback; Nginx listens publicly on the configured HTTP/HTTPS ports. Nginx waits for the app health check and proxies both pages and `/api/`. Keep both Compose files in the checkout; specifying `-f compose.yaml -f compose.https.yaml` also works. Both commands reuse the same `quest-data` volume when run from the same directory/project.
 
 For a real hostname, place the following in your ignored `.env` before starting:
 
@@ -151,16 +151,16 @@ Mount certificates using the project's **`./nginx/ssl`** directory:
 When neither file exists, the Nginx startup script generates a 365-day self-signed pair for the hostname/IP in `PUBLIC_ORIGIN`. An optional `TLS_SERVER_NAME` overrides the generated certificate hostname. Certificates are persisted in that mount and reused on restart; existing pairs are never replaced. If only one file exists or is empty, startup stops with an explanation instead of overwriting it. Generated certificates include SANs for the chosen host, localhost, and 127.0.0.1. Self-signed certificates display a browser trust warning until you trust them; use your own trusted certificate pair for public hosting. After replacing certificates, restart the proxy:
 
 ```sh
-docker compose -f compose.yaml -f compose.https.yaml restart nginx
+docker compose -f compose.https.yaml restart nginx
 ```
 
-TLS keys and certificates are excluded from Git, both Docker build contexts, and application recreation exports. Keep them separately on your server. The certificate mount must be writable for automatic generation. The HTTPS overlay implements Nginx's [certificate and key configuration](https://nginx.org/en/docs/http/configuring_https_servers.html).
+TLS keys and certificates are excluded from Git, both Docker build contexts, and application recreation exports. Keep them separately on your server. The certificate mount must be writable for automatic generation. The HTTPS frontend implements Nginx's [certificate and key configuration](https://nginx.org/en/docs/http/configuring_https_servers.html).
 
-Inspect logs or stop the HTTPS stack with the same pair of files:
+Inspect logs or stop the HTTPS stack with the same file:
 
 ```sh
-docker compose -f compose.yaml -f compose.https.yaml logs --tail=100
-docker compose -f compose.yaml -f compose.https.yaml down
+docker compose -f compose.https.yaml logs --tail=100
+docker compose -f compose.https.yaml down
 ```
 
 ## Backups and verification
