@@ -396,6 +396,7 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
     const entries = unzipSync(exported.bytes);
     for (const path of [
       "package.json",
+      ".env.sample",
       "package-lock.json",
       "server/selfhost.mjs",
       "server/restore.mjs",
@@ -409,6 +410,8 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       "app/page.tsx",
     ])
       assert.ok(entries[path], path);
+    assert.equal(entries[".env"], undefined);
+    assert.equal(entries["content/game.local.yaml"], undefined);
     assert.ok(
       !JSON.parse(strFromU8(entries[".openai/hosting.json"])).project_id,
     );

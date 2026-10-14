@@ -8,6 +8,8 @@ A playable overhead winter RPG for students. Choose a superhero-inspired Web Ran
 
 Use the standalone Node/SQLite option described in [SELF_HOSTING.md](SELF_HOSTING.md). Character names, sprite images, YAML-managed student accounts, and MIDI background music are configured in `content/game.yaml`. For a quick start: `npm ci`, `npm run build:selfhost`, then `npm run start:selfhost`.
 
+For Docker Compose, copy [.env.sample](.env.sample) to `.env` and edit its settings. The sample covers HTTP/HTTPS ports, the YAML config path, public origin and certificate hostname; administrator credentials belong in the selected YAML file. See [Docker setup](SELF_HOSTING.md#docker-compose).
+
 ## Run the Cloudflare preview locally
 
 Requires Node 22.13+.

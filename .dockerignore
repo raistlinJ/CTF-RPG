@@ -6,6 +6,7 @@ dist
 selfhost/dist
 data
 .env*
+!.env.sample
 *.tar.gz
 tests
 

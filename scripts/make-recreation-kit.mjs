@@ -64,6 +64,7 @@ for (const name of [
   "NOTICE",
   ".dockerignore",
   ".gitignore",
+  ".env.sample",
   "README.md",
   "ADMIN_GUIDE.md",
   "SELF_HOSTING.md",

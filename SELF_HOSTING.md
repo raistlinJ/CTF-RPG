@@ -109,6 +109,14 @@ Proxy the whole domain to the Node server, including `/api/`; serving only `self
 
 ## Docker Compose
 
+For first-time setup, copy the documented sample settings and edit `.env`:
+
+```sh
+cp .env.sample .env
+```
+
+The sample covers `GAME_CONFIG`, app binding/ports, `PUBLIC_ORIGIN`, secure cookies, HTTPS proxy ports and the optional certificate hostname. Admin credentials remain in the YAML file identified by `GAME_CONFIG`; configure `admin.protectedUsername` and its matching admin account before launching. The sample defaults to `/app/content/game.yaml`. For a private account list, copy `content/game.yaml` to `content/game.local.yaml`, edit it, then change `.env` to `GAME_CONFIG=/app/content/game.local.yaml`. The `/app` paths are inside the Docker container; files live in your local `content/` directory. Real `.env` files and private YAML stay excluded from Git and recreation exports; `.env.sample` travels with the project and full backup recreation package. These settings are for Compose; the native Node launch uses the server variables above.
+
 From the project directory, start the app over HTTP:
 
 ```sh
