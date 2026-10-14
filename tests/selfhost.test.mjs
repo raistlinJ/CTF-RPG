@@ -122,7 +122,7 @@ test("standalone server: YAML accounts, sprite/music config, persistence and pro
   try {
     assert.equal((await call("/")).status, 200);
     // Deep links and reloads must serve the app shell as well as navigation from /admin.
-    for (const route of ["/admin/theme", "/admin/theme/maps", "/admin/theme/entities", "/admin/theme/entities/dialogue", "/admin/theme/media", "/admin/theme/media?tab=audio", "/admin/theme/audio", "/admin/theme/library", "/admin/challenges/import", "/admin/teams/players", "/admin/teams/scoreboard"]) {
+    for (const route of ["/admin/data", "/admin/data/ctfd", "/admin/challenges/review", "/admin/theme", "/admin/theme/maps", "/admin/theme/maps?tab=entities", "/admin/theme/maps/dialogue", "/admin/theme/media", "/admin/theme/media?tab=audio", "/admin/theme/library", "/admin/teams/players", "/admin/teams/scoreboard"]) {
       for (const suffix of ["", "/", "?map=castle"]) {
         const page = await call(route + suffix);
         assert.equal(page.status, 200, route + suffix);

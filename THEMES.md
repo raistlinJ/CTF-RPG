@@ -1,6 +1,6 @@
 # Reusable themes and challenge content
 
-Open **Manage → Theme → Import / Export** (`/admin/theme/import-export`) as an administrator. Both exports and both imports require administrator authorization on the server. Student access to the game does not grant pack-management access.
+Open **Manage → Import & backup → Theme, content & backups** (`/admin/data`) as an administrator. Both exports and both imports require administrator authorization on the server. Student access to the game does not grant pack-management access.
 
 ## What each pack contains
 
@@ -165,9 +165,9 @@ The map editor marks challenge positions with gold stars (red when invalid). **R
 
 ### Non-player entities
 
-Save character placement under **Theme → Non-player entities**, then open **Edit dialogue graph** for that character at `/admin/theme/entities/dialogue` to connect player choices to response screens.
+Save character placement under **Theme → Maps, entities & transport → Non-player entities**, then open **Edit dialogue graph** for that character at `/admin/theme/entities/dialogue` to connect player choices to response screens.
 
-**Theme → Non-player entities** (`/admin/theme/entities`) configures placed characters and branching conversations. Theme YAML stores them in optional `world.entities` (default `[]`). Each entity has `id`, `name`, `characterId` (a theme character’s ID), `map`, `location`, `startNode`, `nodes`, optional `restartable` (default true), and optional `dependsOn` (default `[]`). Nodes have an `id`, `text`, and `choices`; each choice has `id`, `label`, and `to` (the response node ID). IDs and locations must be unique, and response/appearance references must exist. A node without choices is an ending; loops are supported. Theme packs and full backups retain all dialogue definitions and the appearance assets already included for theme characters. Challenge IDs in `dependsOn` require solving those challenges; `npe:<entity-id>` references require speaking to those entities; `npe:<entity-id>:<final-node-id>` references require reaching that ending. Set connections under **Challenges → Dependencies**; combined imports validate references and reject mixed dependency loops. Players receive only currently unlocked entity locations, and dialogue becomes available when speaking nearby. See [the map guide](MAP_GUIDE.md#non-player-entities-and-dialogue) for authoring and player interaction.
+**Theme → Maps, entities & transport → Non-player entities** (`/admin/theme/entities`) configures placed characters and branching conversations. Theme YAML stores them in optional `world.entities` (default `[]`). Each entity has `id`, `name`, `characterId` (a theme character’s ID), `map`, `location`, `startNode`, `nodes`, optional `restartable` (default true), and optional `dependsOn` (default `[]`). Nodes have an `id`, `text`, and `choices`; each choice has `id`, `label`, and `to` (the response node ID). IDs and locations must be unique, and response/appearance references must exist. A node without choices is an ending; loops are supported. Theme packs and full backups retain all dialogue definitions and the appearance assets already included for theme characters. Challenge IDs in `dependsOn` require solving those challenges; `npe:<entity-id>` references require speaking to those entities; `npe:<entity-id>:<final-node-id>` references require reaching that ending. Set connections under **Challenges → Dependencies**; combined imports validate references and reject mixed dependency loops. Players receive only currently unlocked entity locations, and dialogue becomes available when speaking nearby. See [the map guide](MAP_GUIDE.md#non-player-entities-and-dialogue) for authoring and player interaction.
 
 
 For example, add this entry under `world.entities` in an existing theme. The `intro-quest` challenge must exist in the matching content catalog:

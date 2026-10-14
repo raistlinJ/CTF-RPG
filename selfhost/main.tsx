@@ -6,14 +6,13 @@ import Game from "../app/page";
 import NotificationsAdmin from "../app/admin/notifications/page";
 import Dependencies from "../app/admin/challenges/dependencies/page";
 import Submissions from "../app/admin/challenges/submissions/page";
-import Review from "../app/admin/review/page";
-import PacksAdmin from "../app/admin/theme/import-export/page";
+import Review from "../app/admin/challenges/review/page";
+import PacksAdmin from "../app/admin/data/page";
 import MediaAdmin from "../app/admin/theme/media/page";
 import MapsAdmin from "../app/admin/theme/maps/page";
-import EntitiesAdmin from "../app/admin/theme/entities/page";
-import EntityDialoguePage from "../app/admin/theme/entities/dialogue/page";
+import EntityDialoguePage from "../app/admin/theme/maps/dialogue/page";
 import ThemeLibrary from "../app/admin/theme/library/page";
-import ChallengeImport from "../app/admin/challenges/import/page";
+import ChallengeImport from "../app/admin/data/ctfd/page";
 import TeamsAdmin from "../app/admin/teams/page";
 import TeamsConfiguration from "../app/admin/teams/configuration/page";
 import PlayersSettings from "../app/admin/teams/players/page";
@@ -30,23 +29,19 @@ createRoot(document.getElementById("root")!).render(
       <Dependencies />
     ) : window.location.pathname.startsWith("/admin/challenges/submissions") ? (
       <Submissions />
-    ) : window.location.pathname.startsWith("/admin/challenges/import") ? (
+    ) : window.location.pathname.startsWith("/admin/data/ctfd") ? (
       <ChallengeImport />
-    ) : window.location.pathname.startsWith("/admin/review") ? (
+    ) : window.location.pathname.startsWith("/admin/challenges/review") ? (
       <Review />
-    ) : window.location.pathname.startsWith("/admin/theme/audio") ? (
-      <MediaAdmin initialTab="audio" />
     ) : window.location.pathname.startsWith("/admin/theme/media") ? (
       <MediaAdmin />
     ) : window.location.pathname.startsWith("/admin/theme/library") ? (
       <ThemeLibrary />
-    ) : window.location.pathname.startsWith("/admin/theme/entities/dialogue") ? (
+    ) : window.location.pathname.startsWith("/admin/theme/maps/dialogue") ? (
       <EntityDialoguePage />
-    ) : window.location.pathname.startsWith("/admin/theme/entities") ? (
-      <EntitiesAdmin />
     ) : window.location.pathname === "/admin/theme" || window.location.pathname === "/admin/theme/" || window.location.pathname.startsWith("/admin/theme/maps") ? (
       <MapsAdmin />
-    ) : window.location.pathname.startsWith("/admin/packs") || window.location.pathname.startsWith("/admin/theme/import-export") ? (
+    ) : window.location.pathname === "/admin/data" || window.location.pathname === "/admin/data/" ? (
       <PacksAdmin />
     ) : window.location.pathname.startsWith("/admin/teams/configuration") ? (
       <TeamsConfiguration />

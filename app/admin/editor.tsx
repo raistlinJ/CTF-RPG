@@ -473,7 +473,7 @@ export default function Admin() {
                   <Plus size={17} />
                   New challenge
                 </button>
-                <a href="/admin/challenges/import" className="secondary-button">
+                <a href="/admin/data/ctfd" className="secondary-button">
                   <Upload size={17} />
                   Import CTFd
                 </a>
@@ -483,10 +483,6 @@ export default function Admin() {
                 >
                   <Download size={17} />
                   Export YAML
-                </a>
-                <a href="/api/admin/backup" className="secondary-button">
-                  <Download size={17} />
-                  Full backup
                 </a>
                 <ChallengeVisibilityControls />
               </div>

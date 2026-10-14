@@ -1,5 +1,6 @@
 "use client";
-import AdminHeader from "../admin-header";
+import AdminHeader from "../../admin-header";
+import ChallengeNav from "../challenge-nav";
 import { useEffect, useState } from "react";
 import {
   Select,
@@ -114,8 +115,9 @@ export default function Review() {
   }
   return (
     <main className="admin-studio">
-      <AdminHeader active="review" />
+      <AdminHeader active="challenges" />
       <section className="admin-workspace">
+        <ChallengeNav active="review" />
         <div className="roster-heading">
           <div>
             <span className="eyebrow">ADMIN STUDIO</span>

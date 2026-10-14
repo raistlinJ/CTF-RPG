@@ -65,7 +65,7 @@ export default function EntityDialoguePage() {
     if (!selected) return;
     setEntityId(id); setDraft(structuredClone(selected)); setNodeId(selected.startNode);
     setChoiceId(""); setError(""); setMessage(""); setPendingConnection(null); setEditingNodeId(""); setEditingChoice(null);
-    window.history.replaceState(null, "", `/admin/theme/entities/dialogue?entity=${encodeURIComponent(id)}`);
+    window.history.replaceState(null, "", `/admin/theme/maps/dialogue?entity=${encodeURIComponent(id)}`);
   }
   function openDialogue(id: string) {
     if (!draft || busy) return;
@@ -183,13 +183,14 @@ export default function EntityDialoguePage() {
   return <main className="admin-studio">
     <AdminHeader active="theme" />
     <section className="admin-workspace dialogue-workspace">
-      <ThemeNav active="entities" />
+      <ThemeNav active="maps" />
+      <nav className="admin-breadcrumbs" aria-label="Dialogue location"><a href="/admin/theme/maps">Maps &amp; transport</a><span aria-hidden="true">›</span><a href={draft ? `/admin/theme/maps?tab=entities&map=${encodeURIComponent(draft.map)}&entity=${encodeURIComponent(draft.id)}` : "/admin/theme/maps?tab=entities"}>Non-player entities</a><span aria-hidden="true">›</span><span aria-current="page">{draft?.name || "Dialogue graph"}</span></nav>
       <div className="roster-heading">
         <div><h1>Dialogue graph</h1><p className="admin-page-description">Connect player choices to the response each selection should open.</p></div>
-        {draft && <a className="secondary-button" href={`/admin/theme/entities?map=${encodeURIComponent(draft.map)}&entity=${encodeURIComponent(draft.id)}`}>Back to character</a>}
+        {draft && <a className="secondary-button" href={`/admin/theme/maps?tab=entities&map=${encodeURIComponent(draft.map)}&entity=${encodeURIComponent(draft.id)}`}>Back to character</a>}
       </div>
       {error && <p className="error" role="alert">{error}</p>}
-      {!catalog ? !error && <p>Loading dialogue graph…</p> : !draft ? <div className="admin-editor"><p>No non-player entities exist yet.</p><a href="/admin/theme/entities">Create a character</a></div> : <>
+      {!catalog ? !error && <p>Loading dialogue graph…</p> : !draft ? <div className="admin-editor"><p>No non-player entities exist yet.</p><a href="/admin/theme/maps?tab=entities">Create a character</a></div> : <>
         <label className="management-map-picker">Character
           <select aria-label="Select character" value={entityId} onChange={event => chooseEntity(event.target.value)} disabled={busy}>{entities.map(entity => <option key={entity.id} value={entity.id}>{entity.name} · {entity.map}</option>)}</select>
           <span role="status">{dirty ? "Unsaved dialogue changes" : "Saved dialogue"}</span>

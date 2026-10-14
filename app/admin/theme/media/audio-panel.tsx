@@ -7,7 +7,8 @@ type Track = { name: string; midi: string };
 type Settings = { audio: MusicConfig & { playlist: Track[] }; revision: number };
 type SaveResult = Settings & { uploaded: number; skipped: string[]; error?: string };
 
-export default function AudioPanel() {
+export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,active=true}:{onDirtyChange?:(dirty:boolean)=>void;onSaved?:(revision:number)=>void;knownRevision?:number|null;active?:boolean} = {}) {
+  const [savedAudio,setSavedAudio]=useState("");
   const [settings, setSettings] = useState<Settings | null>(null),
     [files, setFiles] = useState<File[]>([]),
     [busy, setBusy] = useState(false),
@@ -22,12 +23,15 @@ export default function AudioPanel() {
       .then(async (r) => {
         const d = (await r.json()) as Settings & { error?: string };
         if (!r.ok) throw Error(d.error || "Administrator access required.");
-        if (live) setSettings(d);
+        if (live) {setSettings(d);setSavedAudio(JSON.stringify(d.audio));}
       })
       .catch((e) => { if (live) setError(e.message); });
     return () => { live = false; player.current?.dispose(); };
   }, []);
 
+  useEffect(()=>{onDirtyChange?.(files.length>0 || (!!settings && !!savedAudio && JSON.stringify(settings.audio)!==savedAudio));},[files.length,settings,savedAudio,onDirtyChange]);
+  useEffect(()=>{if(!active)stop();},[active]);
+  useEffect(()=>{if(knownRevision!==null)setSettings(current=>current && current.revision<knownRevision?{...current,revision:knownRevision}:current);},[knownRevision,settings?.revision]);
   function stop() {
     player.current?.dispose();
     player.current = null;
@@ -90,7 +94,7 @@ export default function AudioPanel() {
           : "Audio could not be saved. Please retry."));
       }
       if (!d?.audio) throw Error("The server returned an unexpected response. Please retry.");
-      setSettings(d);
+      setSettings(d); setSavedAudio(JSON.stringify(d.audio)); onSaved?.(d.revision);
       setFiles([]);
       const uploaded = d.uploaded ?? files.length;
       const summary = files.length ? `${uploaded} MIDI ${uploaded === 1 ? "file" : "files"} uploaded. ` : "";

@@ -2,6 +2,7 @@
 import AdminHeader from "../admin-header";
 import { useCallback, useEffect, useState } from "react";
 import ThemeNav from "./theme-nav";
+import DataNav from "../data-nav";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -146,14 +147,14 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
   }
   return (
     <main className="admin-studio">
-      <AdminHeader active="theme" />
+      <AdminHeader active={section === "library" ? "theme" : "data"} />
       <section className="admin-workspace">
-        <ThemeNav active={section} />
+        {section === "library" ? <ThemeNav active="library" /> : <DataNav active="packs" />}
         <div className="roster-heading">
           <div>
             <span className="eyebrow">ADMIN STUDIO</span>
-            <h1>{section === "library" ? "Theme library" : "Import / Export"}</h1>
-            <p>{section === "library" ? "Choose a ready-made world for your challenges." : "Reuse your world and your challenges independently."}</p>
+            <h1>{section === "library" ? "Theme library" : "Import, export & backup"}</h1>
+            <p>{section === "library" ? "Choose a ready-made world for your challenges." : "Move themes and challenge content independently, or download a complete backup with accounts and progress."}</p>
           </div>
           {state && (
             <a className="secondary-button" href="/api/admin/backup">

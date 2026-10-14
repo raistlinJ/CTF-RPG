@@ -14,7 +14,7 @@ type Settings = { media: Media[]; suppliedMedia: { name: string; src: string }[]
 type NewAppearance = { name: string; appearanceFor: Character["appearanceFor"]; sprite: string };
 const blank: NewAppearance = { name: "", appearanceFor: "player", sprite: "" };
 
-function ImagesPanel() {
+function ImagesPanel({onDirtyChange,onSaved,knownRevision}:{onDirtyChange:(dirty:boolean)=>void;onSaved:(revision:number)=>void;knownRevision:number|null}) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [newAppearance, setNewAppearance] = useState<NewAppearance>(blank);
@@ -31,6 +31,8 @@ function ImagesPanel() {
     }).catch(e => { if (live) setError(e.message); });
     return () => { live = false; };
   }, []);
+  useEffect(()=>{onDirtyChange(dirty || files.length>0);},[dirty,files.length,onDirtyChange]);
+  useEffect(()=>{if(knownRevision!==null)setSettings(current=>current && current.revision<knownRevision?{...current,revision:knownRevision}:current);},[knownRevision,settings?.revision]);
   const options = settings ? [...new Map([
     ...settings.media.map(item => [item.src, item.name] as const),
     ...settings.suppliedMedia.map(item => [item.src, item.name] as const),
@@ -49,7 +51,7 @@ function ImagesPanel() {
       const response = await fetch("/api/admin/theme-media", { method: "POST", body: form });
       const result = await response.json() as Settings & { error?: string; uploaded?: number };
       if (!response.ok) throw Error(result.error || "Images could not be uploaded.");
-      setSettings(result); setFiles([]);
+      setSettings(result); onSaved(result.revision); setFiles([]);
       setMessage(`${result.uploaded} ${result.uploaded === 1 ? "image" : "images"} added to the media library.`);
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
@@ -70,7 +72,7 @@ function ImagesPanel() {
       });
       const result = await response.json() as Settings & { error?: string };
       if (!response.ok) throw Error(result.error || "Media assignments could not be saved.");
-      setSettings(result); setNewAppearance(blank); setDirty(false);
+      setSettings(result); onSaved(result.revision); setNewAppearance(blank); setDirty(false);
       setMessage("Media assignments saved. Reload the game to see the new artwork.");
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
@@ -85,7 +87,7 @@ function ImagesPanel() {
       });
       const result = await response.json() as Settings & { error?: string };
       if (!response.ok) throw Error(result.error || "Image could not be deleted.");
-      setSettings(result);
+      setSettings(result); onSaved(result.revision);
       setMessage(`Deleted ${item.name} from the media library and future theme exports.`);
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
@@ -102,7 +104,7 @@ function ImagesPanel() {
     {error && <p className="error" role="alert">{error}</p>}
     {message && <p role="status">{message}</p>}
     {!settings ? !error && <p>Loading media…</p> : <div className="theme-media-page">
-      <section className="admin-editor theme-media-section"><h2>Selectable player characters</h2><p>These appearances are available when players choose their character. Previews match the game, including fallback sprites.</p>
+      <section id="selectable-characters" className="admin-editor theme-media-section"><h2>Selectable player characters</h2><p>These appearances are available when players choose their character. Previews match the game, including fallback sprites.</p>
         <div className="theme-media-assignments">{settings.characters.filter(character => character.appearanceFor !== "entity").map(character => <div className="theme-media-assignment" key={character.id}>
           <Portrait hero={character} />
           <div><strong>{character.name}</strong><small>{character.appearanceFor === "both" ? "Player and non-player entity" : character.appearanceFor === "player" ? "Player" : "Non-player entity"}</small></div>
@@ -146,10 +148,11 @@ function ImagesPanel() {
           {imagePicker(`Image for ${style.label}`, settings.bossSprites[style.id] || null, src => update({ ...settings, bossSprites: { ...settings.bossSprites, [style.id]: src || "" } }), "Built-in artwork")}
         </div>)}</div>
       </section>
-      <section className="admin-editor theme-media-section"><h2>Map artwork</h2><p>Upload an image in the image library, then assign it to a map below. Images fill the 40 × 28 grid. Artwork changes preserve ground, challenges, entities, spawn, and transport. Edit those separately in Maps &amp; transport. Artwork changes and resets take effect when you save media assignments.</p>
+      <section id="map-artwork" className="admin-editor theme-media-section"><h2>Map artwork</h2><p>Upload an image in the image library, then assign it to a map below. Images fill the 40 × 28 grid. Artwork changes preserve ground, challenges, entities, spawn, and transport. Edit those separately in Maps &amp; transport. Artwork changes and resets take effect when you save media assignments.</p>
         <div className="theme-media-assignments">{settings.maps.map(map => <div className="theme-media-assignment" key={map.id}>
           {map.background && <img src={map.background} alt="" />}<strong>{map.name}</strong>
           {imagePicker(`Background for ${map.name}`, map.background, src => update({ ...settings, maps: settings.maps.map(m => m.id === map.id ? { ...m, background: src } : m) }), "No background image")}
+          <a className="text-button" href={`/admin/theme/maps?map=${encodeURIComponent(map.id)}`}>Edit ground &amp; transport</a>
           {Object.hasOwn(map,"originalBackground") && <button type="button" className="text-button" disabled={busy} onClick={()=>update({...settings,maps:settings.maps.map(m=>m.id===map.id?{...m,background:m.originalBackground ?? null}:m)})}>Reset original artwork</button>}
         </div>)}</div>
       </section>
@@ -161,8 +164,11 @@ function ImagesPanel() {
 
 export default function MediaAdmin({ initialTab = "images" }: { initialTab?: "images" | "audio" }) {
   const [tab, setTab] = useState<"images" | "audio">(initialTab);
+  const [knownRevision,setKnownRevision]=useState<number|null>(null);
+  const [imagesDirty,setImagesDirty]=useState(false),[audioDirty,setAudioDirty]=useState(false);
+  useEffect(()=>{if(!imagesDirty&&!audioDirty)return;const warn=(e:BeforeUnloadEvent)=>{e.preventDefault();e.returnValue="";};window.addEventListener("beforeunload",warn);return()=>window.removeEventListener("beforeunload",warn);},[imagesDirty,audioDirty]);
   useEffect(() => {
-    const sync = () => setTab(new URLSearchParams(window.location.search).get("tab") === "audio" || window.location.pathname.startsWith("/admin/theme/audio") ? "audio" : "images");
+    const sync = () => setTab(new URLSearchParams(window.location.search).get("tab") === "audio" ? "audio" : "images");
     queueMicrotask(sync);
     window.addEventListener("popstate", sync);
     return () => window.removeEventListener("popstate", sync);
@@ -174,10 +180,12 @@ export default function MediaAdmin({ initialTab = "images" }: { initialTab?: "im
   return <main className="admin-studio"><AdminHeader active="theme" /><section className="admin-workspace">
     <ThemeNav active="media" />
     <h1>Media</h1>
-    <div className="theme-media-tabs" role="tablist" aria-label="Media type">
-      <button type="button" role="tab" aria-selected={tab === "images"} onClick={() => select("images")}>Images</button>
-      <button type="button" role="tab" aria-selected={tab === "audio"} onClick={() => select("audio")}>Audio</button>
+    <div className="theme-media-tabs" role="tablist" aria-label="Media type" onKeyDown={e=>{if(!["ArrowLeft","ArrowRight","Home","End"].includes(e.key))return;e.preventDefault();const next=e.key==="Home"?"images":e.key==="End"?"audio":tab==="images"?"audio":"images";select(next);e.currentTarget.querySelector<HTMLButtonElement>(`#media-tab-${next}`)?.focus();}}>
+      <button type="button" role="tab" id="media-tab-images" aria-controls="media-panel-images" tabIndex={tab==="images"?0:-1} aria-selected={tab === "images"} onClick={() => select("images")}>Images</button>
+      <button type="button" role="tab" id="media-tab-audio" aria-controls="media-panel-audio" tabIndex={tab==="audio"?0:-1} aria-selected={tab === "audio"} onClick={() => select("audio")}>Audio</button>
     </div>
-    {tab === "images" ? <ImagesPanel /> : <AudioPanel />}
+    {(imagesDirty||audioDirty)&&<p className="save-note" role="status">Unsaved media changes are kept when switching tabs. Save each tab before leaving Media.</p>}
+    <div role="tabpanel" id="media-panel-images" aria-labelledby="media-tab-images" hidden={tab!=="images"}><ImagesPanel onDirtyChange={setImagesDirty} knownRevision={knownRevision} onSaved={revision=>setKnownRevision(old=>Math.max(old??0,revision))}/></div>
+    <div role="tabpanel" id="media-panel-audio" aria-labelledby="media-tab-audio" hidden={tab!=="audio"}><AudioPanel onDirtyChange={setAudioDirty} active={tab==="audio"} knownRevision={knownRevision} onSaved={revision=>setKnownRevision(old=>Math.max(old??0,revision))}/></div>
   </section></main>;
 }

@@ -1,10 +1,10 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import AdminHeader from "../../admin-header";
-import ChallengeNav from "../challenge-nav";
+import DataNav from "../../data-nav";
 import CtfdImporter from "../../theme/import-export/ctfd-importer";
 
-export default function ChallengeImportPage() {
+export default function CtfdImportPage() {
   const [allowed, setAllowed] = useState(false);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
@@ -17,9 +17,9 @@ export default function ChallengeImportPage() {
   }, []);
   useEffect(() => { void Promise.resolve().then(load).catch(e => setError(e.message)); }, [load]);
   return <main className="admin-studio">
-    <AdminHeader active="challenges" />
+    <AdminHeader active="data" />
     <section className="admin-workspace">
-      <ChallengeNav active="import" />
+      <DataNav active="ctfd" />
       <h1>Import from CTFd</h1>
       <p className="admin-page-description">Preview challenges, accounts, and teams before importing them into your current world.</p>
       {error && <p className="error" role="alert">{error}</p>}

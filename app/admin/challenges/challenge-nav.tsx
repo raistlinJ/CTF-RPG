@@ -1,4 +1,3 @@
-// CTF-RPG — Copyright (c) 2026 Jaime C Acosta
-export default function ChallengeNav({active}:{active:"manage"|"submissions"|"dependencies"|"import"}) {
- return <nav className="theme-subnav" aria-label="Challenge pages"><strong>Challenges</strong><a href="/admin" aria-current={active==="manage"?"page":undefined}>Manage challenges</a><a href="/admin/challenges/submissions" aria-current={active==="submissions"?"page":undefined}>Submissions</a><a href="/admin/challenges/dependencies" aria-current={active==="dependencies"?"page":undefined}>Dependencies</a><a href="/admin/challenges/import" aria-current={active==="import"?"page":undefined}>Import CTFd</a></nav>;
-}
+// CTF-RPG — Copyright Jaime C Acosta 2026
+const pages=[{id:"manage",href:"/admin",label:"All challenges & editor"},{id:"dependencies",href:"/admin/challenges/dependencies",label:"Dependencies"},{id:"submissions",href:"/admin/challenges/submissions",label:"Submissions"},{id:"review",href:"/admin/challenges/review",label:"Grade written answers"}] as const;
+export default function ChallengeNav({active}:{active:(typeof pages)[number]["id"]}) {return <nav className="theme-subnav" aria-label="Challenge pages"><strong>Challenges</strong>{pages.map(p=><a key={p.id} href={p.href} aria-current={p.id===active?"page":undefined}>{p.label}</a>)}</nav>;}

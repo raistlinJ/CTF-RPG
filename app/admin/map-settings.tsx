@@ -71,6 +71,8 @@ export default function MapSettings({
   bossSpritePaths = {},
   entityOnly = false,
   initialEntityId = "",
+  initialPanel = "ground",
+  onPanelChange,
 }: {
   world: WorldData;
   mapId: string;
@@ -85,6 +87,8 @@ export default function MapSettings({
   bossSpritePaths?: Record<string, string>;
   entityOnly?: boolean;
   initialEntityId?: string;
+  initialPanel?: "ground" | "entities" | "transport" | "advanced";
+  onPanelChange?: (panel: "ground" | "entities" | "transport" | "advanced") => void;
 }) {
   const bossSprites = useBossSprites(bossSpritePaths);
   const original = world.maps.find((m) => m.id === mapId)!;
@@ -94,7 +98,7 @@ export default function MapSettings({
     [editorOpen, setEditorOpen] = useState(standalone),
     [panel, setPanel] = useState<
       "ground" | "entities" | "transport" | "advanced"
-    >(entityOnly ? "entities" : "ground"),
+    >(entityOnly ? "entities" : initialPanel),
     [mode, setMode] = useState<"allow" | "block" | "spawn" | "move">("allow"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -163,7 +167,7 @@ export default function MapSettings({
     setMoves({});
     setSelectedChallenge("");
     setEntities(structuredClone(world.entities || []));
-    setSelectedEntity(current => entityOnly
+    setSelectedEntity(current => (entityOnly || initialPanel === "entities")
       ? [current, initialEntityId].find(id => (world.entities || []).some(e => e.id === id && e.map === mapId)) || ""
       : "");
     dragging.current = false;
@@ -641,7 +645,7 @@ export default function MapSettings({
     setError(""); setMessage("");
     if (entityOnly && item?.kind !== "entity") { setCursor(point); return; }
     if (item?.kind === "entity") {
-      setPanel("entities"); setSelectedEntity(item.id);
+      setPanel("entities"); onPanelChange?.("entities"); setSelectedEntity(item.id);
       setCursor(entities.find(n => n.id === item.id)!.location);
     } else if (item?.kind === "transport") {
       setPanel("transport"); setSelectedTransport(item.readOnly ? "" : item.id);
@@ -786,7 +790,7 @@ export default function MapSettings({
               type="button"
               key={tab.id}
               aria-pressed={panel === tab.id}
-              onClick={() => { cancelGesture(); setMapAction(null); setPanel(tab.id); }}
+              onClick={() => { cancelGesture(); setMapAction(null); setPanel(tab.id); onPanelChange?.(tab.id); }}
             >
               <tab.icon size={16} />
               {tab.label}
@@ -796,6 +800,7 @@ export default function MapSettings({
         <div className="map-settings-controls">
         {panel === "entities" && <div className="map-settings-section">
           <p className="map-tool-help" id="entity-tool-help">Add a character, then click a free map tile to place it. Drag a character to move it; Escape cancels. Non-walkable tiles are allowed. Players use Search nearby within one tile to speak and choose their replies. Save entities to publish your characters and dialogue.</p>
+          <a className="text-button" href="/admin/theme/media#selectable-characters">Manage character appearances in Media</a>
           <button type="button" className="secondary-button" disabled={busy || entities.length >= 100 || !characters.length} onClick={addEntity}>Add character</button>
           <div className="entity-list" aria-label="Characters on this map">{entities.filter(e => e.map === mapId).map(e => <div key={e.id}>
             <button type="button" aria-pressed={selectedEntity === e.id} disabled={busy} onClick={() => { setMapAction(null); setSelectedEntity(e.id); setCursor({ ...e.location }); }}>{e.name || "Unnamed character"} · {e.location.x}, {e.location.y}</button>
@@ -804,7 +809,7 @@ export default function MapSettings({
           {!entities.some(e => e.map === mapId) && <small>No characters on this map yet.</small>}
           {selectedNpc && <fieldset className="entity-fields" disabled={busy}><EntityEditor key={selectedNpc.id} entity={selectedNpc} characters={characters} onChange={updateEntity}
             dialogueHref={!entitiesDirty && (world.entities || []).some(e => e.id === selectedNpc.id)
-              ? `/admin/theme/entities/dialogue?entity=${encodeURIComponent(selectedNpc.id)}` : undefined} /></fieldset>}
+              ? `/admin/theme/maps/dialogue?entity=${encodeURIComponent(selectedNpc.id)}` : undefined} /></fieldset>}
         </div>}
         {panel === "ground" && (
           <div className="map-edit-tools">
