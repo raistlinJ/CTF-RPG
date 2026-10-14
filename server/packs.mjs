@@ -1,3 +1,4 @@
+import { CONTENT_PACK_LIMIT, THEME_PACK_LIMIT, IMAGE_FILE_LIMIT, MIDI_FILE_LIMIT, PACK_IMPORT_REQUEST_LIMIT } from "../lib/pack-limits.mjs";
 import { challengeLocationAvailable } from "../lib/challenge-placement.mjs";
 import { validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { planChallengePlacement } from "../lib/challenge-placement.mjs";
@@ -13,7 +14,7 @@ import {
 import { createWorld } from "../lib/world-data.mjs";
 import { parseChallenges } from "../lib/config-schema.mjs";
 import { kitBase64 } from "./recreation-kit.mjs";
-export const PACK_LIMIT = 8 * 1024 * 1024;
+export const PACK_LIMIT = CONTENT_PACK_LIMIT;
 export const assetTypes = {
   png: "image/png",
   jpg: "image/jpeg",
@@ -71,13 +72,13 @@ export const contentPaths = (cs) => [
       .filter((p) => p?.startsWith("/")),
   ),
 ];
-async function packageAssets(entries, paths, store, readBase) {
+async function packageAssets(entries, paths, store, readBase, limit = CONTENT_PACK_LIMIT) {
   let total = 0;
   for (const path of paths) {
     const bytes = await readAsset(path, store, readBase);
     if (!bytes) throw Error(`Missing local asset: ${path}`);
     total += bytes.length;
-    if (total > PACK_LIMIT) throw Error("Assets exceed the 8 MB pack limit.");
+    if (total > limit) throw Error(`Assets exceed the ${limit / 1048576} MB pack limit.`);
     entries["assets" + path] = bytes;
   }
 }
@@ -85,7 +86,7 @@ export async function exportPack(kind, state, store, readBase) {
   const entries = {};
   if (kind === "theme") {
     entries["theme.yaml"] = strToU8(stringify(state.theme));
-    await packageAssets(entries, themeAssetPaths(state.theme), store, readBase);
+    await packageAssets(entries, themeAssetPaths(state.theme), store, readBase, THEME_PACK_LIMIT);
   } else {
     entries["content.yaml"] = strToU8(
       stringify({
@@ -110,7 +111,8 @@ export async function exportPack(kind, state, store, readBase) {
   });
 }
 function unpack(bytes, kind) {
-  if (bytes.length > PACK_LIMIT) throw Error("Each ZIP must be at most 8 MB.");
+  const limit = kind === "theme" ? THEME_PACK_LIMIT : CONTENT_PACK_LIMIT;
+  if (bytes.length > limit) throw Error(`The ${kind} ZIP must be at most ${limit / 1048576} MB.`);
   let size = 0,
     count = 0;
   const names = new Set();
@@ -125,9 +127,9 @@ function unpack(bytes, kind) {
         throw Error("Invalid/duplicate ZIP entry path or too many files.");
       names.add(f.name);
       size += f.originalSize;
-      if (size > PACK_LIMIT || f.originalSize > 4 * 1024 * 1024)
+      if (size > limit || f.originalSize > (kind === "theme" && /\.midi?$/i.test(f.name) ? MIDI_FILE_LIMIT : IMAGE_FILE_LIMIT))
         throw Error(
-          "Expanded ZIP exceeds the 8 MB total / 4 MB per-file limit.",
+          `Expanded ${kind} ZIP exceeds the ${limit / 1048576} MB total or per-file limit (${kind === "theme" ? "4 MB images / 5 MB MIDI" : "4 MB"}).`,
         );
       if (
         f.name === "assets/" ||
@@ -243,9 +245,9 @@ export async function importPacks(
     const r = await reader.read();
     if (r.done) break;
     length += r.value.length;
-    if (length > 17 * 1024 * 1024) {
+    if (length > PACK_IMPORT_REQUEST_LIMIT) {
       await reader.cancel();
-      throw Error("Import request exceeds 17 MB.");
+      throw Error("Import request exceeds 41 MB (32 MB theme plus 8 MB content).");
     }
     chunks.push(r.value);
   }

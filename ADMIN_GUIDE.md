@@ -171,7 +171,7 @@ audio:
   volume: 0.15
 ```
 
-Supply the MIDI files in the server's public directory when configuring paths in YAML. A nonempty playlist takes precedence over `audio.midi`. Uploads skip MIDI files whose contents are already in the retained playlist or the same batch, and report the skipped filenames. Invalid files identify the filename and leave the saved playlist unchanged. Admin uploads accept up to 20 tracks, 5 MB per file; the complete theme pack must remain within the existing 8 MB asset limit.
+Supply the MIDI files in the server's public directory when configuring paths in YAML. A nonempty playlist takes precedence over `audio.midi`. Uploads skip MIDI files whose contents are already in the retained playlist or the same batch, and report the skipped filenames. Invalid files identify the filename and leave the saved playlist unchanged. Admin uploads accept up to 20 tracks, 5 MB per file; the complete theme pack must remain within the 32 MB asset limit (including artwork, retained originals, and unused uploads).
 
 ### Challenge submissions
 Open **Challenges → Submissions** to inspect automatic attempts and each user's latest written response. Filter by **All**, **Correct**, **Incorrect**, **Pending**, or **Partial credit**; select an entry to see the submitted answer, challenge text, user, team, and submission time. Automatic attempts are recorded from this update onward; earlier incorrect attempts were not stored. Existing written responses appear, with **Not recorded** for missing historical team information.

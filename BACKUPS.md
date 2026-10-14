@@ -38,7 +38,7 @@ Use **Full backup** in either admin screen. `/api/admin/backup` is admin-only an
 
 Existing passwords work after restore. Plaintext account passwords are converted to salted hashes; raw account passwords and active login sessions are not exported. External file URLs are preserved as links and remain dependent on their external hosts. The export removes the original Sites project ID, so recreating it does not point at the original site's deployment. Environment secrets, machine-specific settings, and installed `node_modules` are excluded; use the supplied lockfile to install dependencies.
 
-Keep backups private: account hashes, student records, accepted flags, and hint text are sensitive. This is separate from **Export YAML**, which exports only challenge definitions. The ZIP's expanded package is limited to 32 MB, with a 24 MB source/asset seed limit; oversized packages fail rather than silently omitting files. Compression uses [fflate](https://github.com/101arrowz/fflate).
+Keep backups private: account hashes, student records, accepted flags, and hint text are sensitive. This is separate from **Export YAML**, which exports only challenge definitions. The ZIP's expanded package is limited to 64 MB, with a 24 MB source/asset seed limit; oversized packages fail rather than silently omitting files. Compression uses [fflate](https://github.com/101arrowz/fflate).
 
 ## Recreate on a fresh server
 

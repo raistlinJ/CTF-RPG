@@ -90,7 +90,7 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
       const d = await r.json().catch(() => null) as SaveResult | null;
       if (!r.ok) {
         throw Error(d?.error || (r.status === 413
-          ? "The selected files are too large. Audio and the rest of the theme must fit within 8 MB."
+          ? "The selected files are too large. Audio and the rest of the theme must fit within 32 MB."
           : "Audio could not be saved. Please retry."));
       }
       if (!d?.audio) throw Error("The server returned an unexpected response. Please retry.");
@@ -116,7 +116,7 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
           <form className="admin-editor theme-audio-form" onSubmit={save}>
             <fieldset disabled={busy}>
               <legend>Theme playlist</legend>
-              <p>Up to 20 tracks, 5 MB per file. The complete theme, including map artwork, sprites and audio, must fit within 8 MB. Duplicate MIDI files are skipped.</p>
+              <p>Up to 20 tracks, 5 MB per file. The complete theme, including map artwork, sprites and audio, must fit within 32 MB. Duplicate MIDI files are skipped.</p>
               <ul className="audio-track-list">
                 {settings.audio.playlist.map((track, i) => (
                   <li key={track.midi}>

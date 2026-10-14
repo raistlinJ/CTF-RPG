@@ -1,9 +1,10 @@
+import { THEME_PACK_LIMIT, THEME_UPLOAD_LIMIT } from "../lib/pack-limits.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import midiPackage from '@tonejs/midi';
 const {Midi} = midiPackage;
 import { parseTheme, themeAssetPaths } from '../lib/theme-schema.mjs';
 import { musicTracks } from '../lib/midi-playlist.mjs';
-import { assertAsset, readAsset, PACK_LIMIT } from './packs.mjs';
+import { assertAsset, readAsset } from './packs.mjs';
 export async function handleThemeAudio(req, {db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset}) {
   const reply=(d,status=200)=>Response.json(d,{status,headers:{'Cache-Control':'no-store'}});
   const u=await user(req);
@@ -12,7 +13,7 @@ export async function handleThemeAudio(req, {db, user, platformAdmin, theme, the
   if (req.method==='GET') return reply({audio:{...theme.audio,playlist:current},revision:themeRevision});
   if (req.method!=='POST') return reply({error:'Method not allowed.'},405);
   try {
-    if (Number(req.headers.get('content-length'))>PACK_LIMIT+1024*1024) throw Error('Audio uploads must fit within the 8 MB theme pack limit.');
+    if (Number(req.headers.get('content-length'))>THEME_UPLOAD_LIMIT) throw Error('Audio uploads must fit within the 32 MB theme pack limit.');
     const form=await req.formData();
     const revision=Number(form.get('revision'));
     if (!form.has('revision') || !Number.isInteger(revision) || revision!==themeRevision) return reply({error:'The theme changed. Reload audio before saving.'},409);
@@ -33,7 +34,7 @@ export async function handleThemeAudio(req, {db, user, platformAdmin, theme, the
     for (const file of uploads) {
       if (typeof file==='string') throw Error('Choose MIDI files to upload.');
       if (!/\.midi?$/i.test(file.name) || file.size>5*1024*1024 || file.size<14) throw Error(`"${file.name}": choose a MIDI file up to 5 MB.`);
-      total+=file.size; if(total>PACK_LIMIT) throw Error('Audio exceeds the 8 MB theme pack limit.');
+      total+=file.size; if(total>THEME_PACK_LIMIT) throw Error('Audio exceeds the 32 MB theme pack limit.');
       const bytes=new Uint8Array(await file.arrayBuffer());
       try {
         assertAsset(bytes,'mid');
@@ -53,7 +54,7 @@ export async function handleThemeAudio(req, {db, user, platformAdmin, theme, the
     for(const path of themeAssetPaths(next)) {
       const bytes=staged.find(s=>s.path===path)?.bytes || await readAsset(path,assetStore,readBaseAsset);
       if(!bytes) throw Error('A theme asset is unavailable.');
-      size+=bytes.length; if(size>PACK_LIMIT) throw Error('The map, sprites and audio together exceed the 8 MB theme pack limit.');
+      size+=bytes.length; if(size>THEME_PACK_LIMIT) throw Error('The map, sprites and audio together exceed the 32 MB theme pack limit.');
     }
     if(staged.length && !assetStore) throw Error('Audio storage is unavailable.');
     for(const s of staged) await assetStore.put(s.key,s.bytes,'audio/midi');

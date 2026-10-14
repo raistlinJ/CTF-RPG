@@ -1,5 +1,6 @@
 "use client";
 import AdminHeader from "../admin-header";
+import { THEME_PACK_LIMIT, CONTENT_PACK_LIMIT } from "@/lib/pack-limits.mjs";
 import { useCallback, useEffect, useState } from "react";
 import ThemeNav from "./theme-nav";
 import DataNav from "../data-nav";
@@ -138,11 +139,12 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
       setBusy(false);
     }
   }
-  function choose(file: File | undefined, set: (f: File | null) => void) {
+  function choose(file: File | undefined, set: (f: File | null) => void, kind: "theme" | "content") {
+    const limit = kind === "theme" ? THEME_PACK_LIMIT : CONTENT_PACK_LIMIT;
     setError("");
-    if (file && file.size > 8 * 1024 * 1024) {
+    if (file && file.size > limit) {
       set(null);
-      setError("Each ZIP must be at most 8 MB.");
+      setError(`The ${kind} ZIP must be at most ${limit / 1048576} MB.`);
     } else set(file || null);
   }
   return (
@@ -270,7 +272,7 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
                   <input
                     type="file"
                     accept=".zip,application/zip"
-                    onChange={(e) => choose(e.target.files?.[0], setTheme)}
+                    onChange={(e) => choose(e.target.files?.[0], setTheme, "theme")}
                   />
                 </label>
                 <label>
@@ -278,7 +280,7 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
                   <input
                     type="file"
                     accept=".zip,application/zip"
-                    onChange={(e) => choose(e.target.files?.[0], setPaired)}
+                    onChange={(e) => choose(e.target.files?.[0], setPaired, "content")}
                   />
                 </label>
                 <small>
@@ -313,7 +315,7 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
                   <input
                     type="file"
                     accept=".zip,application/zip"
-                    onChange={(e) => choose(e.target.files?.[0], setContent)}
+                    onChange={(e) => choose(e.target.files?.[0], setContent, "content")}
                   />
                 </label>
                 <small>

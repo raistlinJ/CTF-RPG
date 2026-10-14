@@ -1,3 +1,4 @@
+import { THEME_UPLOAD_LIMIT, PACK_IMPORT_REQUEST_LIMIT } from "../lib/pack-limits.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
@@ -162,7 +163,7 @@ const server = createServer(async (req, res) => {
       const chunks = [];
       let length = 0;
       const bodyLimit =
-        url.pathname === "/api/admin/ctfd-import" ? 65 * 1024 * 1024 : url.pathname === "/api/admin/packs" ? 17 * 1024 * 1024 : ["/api/admin/theme-audio", "/api/admin/theme-media"].includes(url.pathname) ? 9 * 1024 * 1024 : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : 524288;
+        url.pathname === "/api/admin/ctfd-import" ? 65 * 1024 * 1024 : url.pathname === "/api/admin/packs" ? PACK_IMPORT_REQUEST_LIMIT : ["/api/admin/theme-audio", "/api/admin/theme-media"].includes(url.pathname) ? THEME_UPLOAD_LIMIT : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : 524288;
       for await (const chunk of req) {
         length += chunk.length;
         chunks.push(chunk);

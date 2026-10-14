@@ -124,7 +124,7 @@ function ImagesPanel({onDirtyChange,onSaved,knownRevision}:{onDirtyChange:(dirty
         </div>
       </section>
 
-      <section className="admin-editor theme-media-section"><h2>Uploaded images</h2><p>PNG, JPEG, WebP, or GIF. Up to 10 images per upload and 4 MB per image; the complete theme must fit within 8 MB. Delete an unused upload here; artwork supplied with the theme is protected.</p>
+      <section className="admin-editor theme-media-section"><h2>Uploaded images</h2><p>PNG, JPEG, WebP, or GIF. Up to 10 images per upload and 4 MB per image; the complete theme must fit within 32 MB, including existing artwork, audio, retained originals, and unused uploads. Delete an unused upload here; artwork supplied with the theme is protected.</p>
         <label>Upload images<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple onChange={e => {
           const selected = Array.from(e.target.files || []); e.target.value = "";
           if (selected.length > 10 || selected.some(file => file.size > 4 * 1024 * 1024)) { setError("Choose at most 10 images, each up to 4 MB."); return; }

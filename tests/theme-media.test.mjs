@@ -115,3 +115,31 @@ test('Media artwork assignments retain the original image, reset it, and preserv
   const after=await(await api(new Request('https://quest.test/api/admin/challenges'))).json();assert.deepEqual(after.theme.world,before.theme.world);
  }finally{sqlite.close();}
 });
+
+test('Agentic Circuit can upload images past 8 MB and export/import the expanded theme',async()=>{
+ const {themePresets}=await import('../lib/theme-presets.mjs');
+ const {deflateSync}=await import('node:zlib');
+ const {THEME_PACK_LIMIT,CONTENT_PACK_LIMIT}=await import('../lib/pack-limits.mjs');
+ const theme=themePresets[0].theme,sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);
+ function png(seed){
+  const crcTable=Array.from({length:256},(_,n)=>{let c=n;for(let j=0;j<8;j++)c=c&1?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
+  const chunk=(type,data)=>{const head=Buffer.from(type),crcData=Buffer.concat([head,data]);let crc=0xffffffff;for(const byte of crcData)crc=crcTable[(crc^byte)&255]^(crc>>>8);const length=Buffer.alloc(4),tail=Buffer.alloc(4);length.writeUInt32BE(data.length);tail.writeUInt32BE((crc^0xffffffff)>>>0);return Buffer.concat([length,head,data,tail]);};
+  const width=512,raw=Buffer.alloc((width*4+1)*width);for(let y=0;y<width;y++)for(let x=0;x<width;x++){const p=y*(width*4+1)+1+x*4;for(let c=0;c<3;c++){seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;raw[p+c]=seed&255;}raw[p+3]=255;}
+  const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(width);ihdr.writeUInt32BE(width,4);ihdr[8]=8;ihdr[9]=6;
+  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]);
+ }
+ try {
+  sqlite.prepare("INSERT INTO theme_catalog(id,payload,revision) VALUES('active',?,1)").run(JSON.stringify(theme));
+  const files=new Map(),config=parseGame('characters:\n - id: web\n   name: Web\naccounts:\n users: []'),store={get:async k=>files.get(k),put:async(k,v)=>files.set(k,v)},db=createSQLiteAdapter(sqlite),readBaseAsset=p=>new Uint8Array(readFileSync('public'+p));
+  const api=createApi({db,config,challenges:[],platformAdmin:true,assetStore:store,readBaseAsset});
+  const form=new FormData();form.set('revision','1');for(let i=1;i<=2;i++)form.append('files',new File([png(i)],`image-${i}.png`,{type:'image/png'}));
+  const upload=await api(new Request('https://quest.test/api/admin/theme-media',{method:'POST',headers:{Origin:'https://quest.test'},body:form}));const uploaded=await upload.json();assert.equal(upload.status,200,JSON.stringify(uploaded));assert.equal(uploaded.uploaded,2);
+  const exported=await api(new Request('https://quest.test/api/admin/packs?kind=theme'));assert.equal(exported.status,200);const bytes=new Uint8Array(await exported.arrayBuffer());assert.ok(bytes.length>CONTENT_PACK_LIMIT);assert.ok(bytes.length<THEME_PACK_LIMIT);
+  const other=new DatabaseSync(':memory:');initializeSchema(other);try{
+   const newFiles=new Map(),target=createApi({db:createSQLiteAdapter(other),config,challenges:[],platformAdmin:true,assetStore:{get:async k=>newFiles.get(k),put:async(k,v)=>newFiles.set(k,v)},readBaseAsset});
+   const importing=new FormData();importing.set('file',new File([bytes],'theme.zip'));importing.set('themeRevision','0');importing.set('contentRevision','0');
+   const imported=await target(new Request('https://quest.test/api/admin/packs?kind=theme',{method:'POST',headers:{Origin:'https://quest.test'},body:importing}));assert.equal(imported.status,200,JSON.stringify(await imported.json()));
+   const media=await(await target(new Request('https://quest.test/api/admin/theme-media'))).json();assert.equal(media.media.length,2);assert.equal(media.characters.length,theme.characters.length);
+  }finally{other.close();}
+ }finally{sqlite.close();}
+});

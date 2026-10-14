@@ -1,3 +1,4 @@
+import { FULL_BACKUP_LIMIT } from "../lib/pack-limits.mjs";
 import { validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { pointAwardSchema } from "./team-points.mjs";
 import { rewardsSchema } from "../lib/inventory.mjs";
@@ -503,8 +504,8 @@ export async function exportFullBackup(state, assets = {}) {
     `CTF-RPG complete backup\n\n1. Extract this ZIP into a new directory.\n2. Install Node.js 24 and run npm ci.\n3. Run npm run restore -- backup.json.\n4. Run npm run start:selfhost and open http://localhost:3000.\n\nThe ready-built frontend is included. You can also modify the included source and run npm run build:selfhost.\nAccounts retain their passwords through salted hashes. Active sessions are excluded.\nIf the original site used only platform-owner administration, promote a restored player with npm run restore -- backup.json --admin USERNAME on the initial restore, or add a new role: admin account to content/game.yaml before starting.\nLocal assets are included; external file URLs continue to depend on their external hosts.\nKeep this ZIP private: it contains password hashes, flags, and student progress.\nSee BACKUPS.md and ADMIN_GUIDE.md for details.\n`,
   );
   const size = Object.values(entries).reduce((s, b) => s + b.length, 0);
-  if (size > 32 * 1024 * 1024)
-    throw Error("The backup exceeds the 32 MB packaging limit.");
+  if (size > FULL_BACKUP_LIMIT)
+    throw Error("The backup exceeds the 64 MB packaging limit.");
   const archive = zipSync(entries, { level: 6 });
   return new Response(archive, {
     headers: {
