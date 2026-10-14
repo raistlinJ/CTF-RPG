@@ -20,7 +20,7 @@ import {
   mapInfo,
   createWorld,
 } from "@/lib/world-data.mjs";
-import { BOSS_STYLES, challengeTiles, challengeSize, drawBossIcon } from "@/lib/challenge-icon.mjs";
+import { BOSS_STYLES, themeBossStyles, challengeTiles, challengeSize, drawBossIcon } from "@/lib/challenge-icon.mjs";
 import { useBossSprites } from "../use-boss-sprites";
 import { challengeLocationAvailable, findChallengeLocation } from "@/lib/challenge-placement.mjs";
 import type { EntityCharacter, EntitySummary } from "@/lib/non-player-entities";
@@ -41,7 +41,7 @@ type Definition = {
   map: string;
   object: string;
   icon?: "star" | "boss";
-  bossStyle?: "classic" | "frost" | "clockwork" | "shadow" | "ember" | "serpent";
+  bossStyle?: string;
   iconSize?: 1 | 2 | 3;
   location: { x: number; y: number };
   region: string;
@@ -114,6 +114,7 @@ function previewWords(value: string, count = 12, maxLength = 160) {
   return preview + (preview.length < normalized.length ? "…" : "");
 }
 export default function Admin() {
+  const [bossStyles,setBossStyles] = useState<{id:string;label:string;sprite?:string}[]>(BOSS_STYLES);
   const [bossSpritePaths, setBossSpritePaths] = useState<Record<string, string>>({});
   const bossSprites = useBossSprites(bossSpritePaths);
   const [access, setAccess] = useState<"loading" | "login" | "ready">(
@@ -203,7 +204,7 @@ export default function Admin() {
       challenges: Definition[];
       revision: number;
       themeRevision: number;
-      theme: { world: typeof activeWorld & { entities?: EntitySummary[] }; characters: EntityCharacter[]; bossSprites: Record<string, string> };
+      theme: { world: typeof activeWorld & { entities?: EntitySummary[] }; characters: EntityCharacter[]; bossSprites: Record<string, string>; bosses: {id:string;label:string}[] };
       error?: string;
     };
     if (r.status === 401 || r.status === 403) {
@@ -220,6 +221,7 @@ export default function Admin() {
     setMapEntities(d.theme.world.entities || []);
     setThemeCharacters(d.theme.characters);
     setBossSpritePaths(d.theme.bossSprites || {});
+    setBossStyles(themeBossStyles(d.theme));
     setAccess("ready");
     if (preserveDraft) return;
     if (!keepSelection && new URLSearchParams(window.location.search).has("map")) setStudioView("editor");
@@ -768,8 +770,8 @@ export default function Admin() {
                 <div className="form-row">
                   <label>Map icon<select aria-label="Map icon" value={draft.icon || "star"} onChange={e => patch({icon: e.target.value as "star" | "boss", iconSize: 1})}><option value="star">Star</option><option value="boss">Boss</option></select></label>
                   {draft.icon === "boss" && <label>Boss size<select aria-label="Boss size" value={draft.iconSize || 1} onChange={e => patch({iconSize: Number(e.target.value) as 1 | 2 | 3})}><option value={1}>1 × 1 tiles</option><option value={2}>2 × 2 tiles</option><option value={3}>3 × 3 tiles</option></select></label>}
-                  {draft.icon === "boss" && <label>Boss appearance<select aria-label="Boss appearance" value={draft.bossStyle || "classic"} onChange={e => patch({bossStyle: e.target.value as Definition["bossStyle"]})}>{BOSS_STYLES.map(style => <option key={style.id} value={style.id}>{style.label}</option>)}</select></label>}
-                  {draft.icon === "boss" && <canvas aria-label={`${BOSS_STYLES.find(style => style.id === (draft.bossStyle || "classic"))?.label} preview: ${challengeSize(draft)} by ${challengeSize(draft)} tiles`} width={24 * challengeSize(draft)} height={24 * challengeSize(draft)} ref={canvas => {
+                  {draft.icon === "boss" && <label>Boss appearance<select aria-label="Boss appearance" value={draft.bossStyle || "classic"} onChange={e => patch({bossStyle: e.target.value as Definition["bossStyle"]})}>{!bossStyles.some(style=>style.id===draft.bossStyle) && draft.bossStyle && <option value={draft.bossStyle}>Unavailable appearance (classic fallback)</option>}{bossStyles.map(style => <option key={style.id} value={style.id}>{style.label}</option>)}</select></label>}
+                  {draft.icon === "boss" && <canvas aria-label={`${bossStyles.find(style => style.id === (draft.bossStyle || "classic"))?.label || "Classic fallback"} preview: ${challengeSize(draft)} by ${challengeSize(draft)} tiles`} width={24 * challengeSize(draft)} height={24 * challengeSize(draft)} ref={canvas => {
                     const ctx = canvas?.getContext("2d");
                     if (ctx && canvas) {
                       ctx.clearRect(0, 0, canvas.width, canvas.height);

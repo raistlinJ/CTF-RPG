@@ -167,3 +167,74 @@ test('Agentic Circuit can upload images past 8 MB and export/import the expanded
   }finally{other.close();}
  }finally{sqlite.close();}
 });
+
+test('appearance catalogs add playable and non-playable looks, custom bosses and standalone map locations with export/import support',async()=>{
+ const {createWorld}=await import('../lib/world-data.mjs');
+ const {themeBossStyles}=await import('../lib/challenge-icon.mjs');
+ const {validateSnapshot}=await import('../server/backup.mjs');
+ const {parse}=await import('yaml');
+ const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);
+ try {
+  const files=new Map(),config=parseGame('characters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users: []'),assetStore={get:async key=>files.get(key),put:async(key,bytes)=>files.set(key,bytes)};
+  const options={db:createSQLiteAdapter(sqlite),config,challenges:[],assetStore,readBaseAsset:path=>new Uint8Array(readFileSync('public'+path)),exportBackup:exportFullBackup};
+  const api=createApi({...options,platformAdmin:true}),guest=createApi(options),url='https://quest.test/api/admin/theme-media';
+  const send=(path,body)=>api(new Request('https://quest.test'+path,{method:'POST',headers:{Origin:'https://quest.test','Content-Type':'application/json'},body:JSON.stringify(body)}));
+  const initial=await(await api(new Request(url))).json();
+  const payload={action:'assign',revision:initial.revision,characterSprites:{},bossSprites:{},mapBackgrounds:{},
+   newAppearances:[{name:'Student look',appearanceFor:'player',sprite:'/sprites/web.png'},{name:'Guide look',appearanceFor:'entity',sprite:'/sprites/web.png'}],
+   newBosses:[{name:'Gateway guardian',sprite:'/sprites/boss-frost.png'}],newMaps:[{name:'Server room',background:'/sprites/boss-frost.png'}]};
+  assert.equal((await guest(new Request(url,{method:'POST',headers:{Origin:'https://quest.test','Content-Type':'application/json'},body:JSON.stringify(payload)}))).status,401);
+  const response=await send('/api/admin/theme-media',payload),saved=await response.json();assert.equal(response.status,200,JSON.stringify(saved));
+  assert.equal(saved.characters.find(c=>c.name==='Student look').appearanceFor,'player');assert.equal(saved.characters.find(c=>c.name==='Guide look').appearanceFor,'entity');
+  assert.equal(saved.adminSprite,null,'admin wizard stays reserved');
+  const boss=saved.bosses[0];assert.match(boss.id,/^boss-/);assert.equal(boss.label,'Gateway guardian');assert.equal(saved.bossSprites[boss.id],'/sprites/boss-frost.png');
+  const map=saved.maps.find(m=>m.name==='Server room');assert.ok(map);
+  let state=await(await api(new Request('https://quest.test/api/admin/challenges'))).json();
+  assert.equal(state.theme.world.buildings.length,initial.maps.length-1);
+  const location=state.theme.world.maps.find(m=>m.id===map.id);assert.equal(location.exit,null);assert.equal(location.ground.length,1120);assert.deepEqual(location.spawn,{x:20,y:14});
+  assert.ok(themeBossStyles(state.theme).some(s=>s.id===boss.id&&s.sprite===saved.bossSprites[boss.id]));
+  assert.equal(createWorld(state.theme.world).canSpawn(map.id,20,14),true);
+  const challenge={id:'custom-boss-question',map:map.id,object:'Gateway',region:'Server room',location:{x:25,y:15},text:'Answer.',flags:['flag'],points:10,icon:'boss',bossStyle:boss.id,iconSize:3};
+  const challengeResponse=await send('/api/admin/challenges',{revision:0,themeRevision:saved.revision,challenge});assert.equal(challengeResponse.status,200,JSON.stringify(await challengeResponse.json()));
+  state=await(await api(new Request('https://quest.test/api/admin/challenges'))).json();
+  const world=createWorld(state.theme.world),town=state.theme.world.maps.find(m=>m.id==='town'),ground=[];
+  for(let y=0;y<28;y++)for(let x=0;x<40;x++)if(!world.terrainBlocked('town',x,y))ground.push([x,y]);
+  const form=new FormData();form.set('map',JSON.stringify({id:'town',ground}));form.set('themeRevision',String(state.themeRevision));form.set('contentRevision',String(state.revision));form.set('transports',JSON.stringify([{id:'server-room-route',map:'town',location:{x:18,y:21},to:map.id}]));
+  const linked=await api(new Request('https://quest.test/api/admin/maps',{method:'POST',headers:{Origin:'https://quest.test'},body:form}));assert.equal(linked.status,200,JSON.stringify(await linked.json()));
+  state=await(await api(new Request('https://quest.test/api/admin/challenges'))).json();const engine=createWorld(state.theme.world);
+  const arrived=engine.step({map:'town',pos:{x:18,y:20}},0,1);assert.equal(arrived.map,map.id);assert.deepEqual(arrived.pos,location.spawn);
+  const returned=engine.step(engine.step(arrived,0,1),0,-1);assert.equal(returned.map,'town');
+  // The custom appearance is loaded through the player's ordinary theme config.
+  let cookie='';const player=async(path,body)=>{const r=await guest(new Request('https://quest.test'+path,{method:body?'POST':'GET',headers:{Origin:'https://quest.test',Cookie:cookie,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}));if(r.headers.has('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];return{status:r.status,data:await r.json()};};
+  assert.equal((await player('/api/auth',{mode:'register',username:'alice',password:'student-password',hero:'web'})).status,200);
+  const playerState=(await player('/api/game')).data;assert.equal(playerState.challenges.find(c=>c.id===challenge.id).bossStyle,boss.id);
+  assert.equal((await player('/api/config')).data.theme.bossSprites[boss.id],state.theme.bossSprites[boss.id]);
+  const themeExport=await api(new Request('https://quest.test/api/admin/packs?kind=theme'));assert.equal(themeExport.status,200);const themeBytes=new Uint8Array(await themeExport.arrayBuffer());
+  const contentExport=await api(new Request('https://quest.test/api/admin/packs?kind=content'));assert.equal(contentExport.status,200);const contentBytes=new Uint8Array(await contentExport.arrayBuffer());
+  const packed=parseTheme(parse(strFromU8(unzipSync(themeBytes)['theme.yaml'])));assert.deepEqual(packed.bosses,[boss]);assert.ok(packed.world.maps.some(m=>m.id===map.id));
+  const backup=await api(new Request('https://quest.test/api/admin/backup'));assert.equal(backup.status,200);const entries=unzipSync(new Uint8Array(await backup.arrayBuffer()));
+  const snapshot=validateSnapshot(JSON.parse(strFromU8(entries['backup.json'])));assert.deepEqual(snapshot.theme.bosses,[boss]);assert.ok(snapshot.theme.world.maps.some(m=>m.id===map.id));
+  const other=new DatabaseSync(':memory:');initializeSchema(other);try{
+   const stored=new Map(),target=createApi({...options,db:createSQLiteAdapter(other),platformAdmin:true,assetStore:{get:async key=>stored.get(key),put:async(key,bytes)=>stored.set(key,bytes)}});
+   const pack=new FormData();pack.set('file',new File([themeBytes],'theme.zip'));pack.set('content',new File([contentBytes],'content.zip'));pack.set('themeRevision','0');pack.set('contentRevision','0');
+   const imported=await target(new Request('https://quest.test/api/admin/packs?kind=theme',{method:'POST',headers:{Origin:'https://quest.test'},body:pack}));assert.equal(imported.status,200,JSON.stringify(await imported.json()));
+   const restored=await(await target(new Request('https://quest.test/api/admin/challenges'))).json();assert.deepEqual(restored.theme.bosses,[boss]);assert.equal(restored.challenges[0].bossStyle,boss.id);assert.ok(restored.theme.world.maps.some(m=>m.id===map.id));
+  }finally{other.close();}
+ }finally{sqlite.close();}
+});
+
+test('new bosses and maps reject invalid images, incomplete names, catalog overflow and stale revisions atomically',async()=>{
+ const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);
+ try {
+  const config=parseGame('characters:\n - id: web\n   name: Web'),db=createSQLiteAdapter(sqlite),api=createApi({db,config,challenges:[],platformAdmin:true,readBaseAsset:path=>new Uint8Array(readFileSync('public'+path))});
+  const send=body=>api(new Request('https://quest.test/api/admin/theme-media',{method:'POST',headers:{Origin:'https://quest.test','Content-Type':'application/json'},body:JSON.stringify({action:'assign',revision:0,characterSprites:{},bossSprites:{},mapBackgrounds:{},...body})}));
+  for(const body of [{newBosses:[{name:'',sprite:'/sprites/web.png'}]},{newBosses:[{name:'Boss',sprite:'/api/assets/unknown.png'}]},{newMaps:[{name:'Room',background:null}]},{newMaps:[{name:'Room',background:'https://example.org/image.png'}]},{newMaps:Array(11).fill({name:'Room',background:'/sprites/web.png'})}])assert.equal((await send(body)).status,400);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM theme_catalog').get().n,0);
+  const saved=await send({newBosses:[{name:'Boss',sprite:'/sprites/web.png'}]});assert.equal(saved.status,200);const state=await saved.json();
+  assert.equal((await send({newMaps:[{name:'Room',background:'/sprites/web.png'}]})).status,409);
+  const before=sqlite.prepare("SELECT payload FROM theme_catalog WHERE id='active'").get().payload;
+  const tooMany={...JSON.parse(before),bosses:Array.from({length:31},(_,i)=>({id:`boss-overflow-${i}`,label:'Boss'})),bossSprites:Object.fromEntries(Array.from({length:31},(_,i)=>[`boss-overflow-${i}`,'/sprites/web.png']))};assert.throws(()=>parseTheme(tooMany));
+  const invalidCustom={...JSON.parse(before),bossSprites:{}};assert.throws(()=>parseTheme(invalidCustom));
+  assert.equal(state.bosses.length,1);assert.equal(sqlite.prepare("SELECT payload FROM theme_catalog WHERE id='active'").get().payload,before);
+ }finally{sqlite.close();}
+});

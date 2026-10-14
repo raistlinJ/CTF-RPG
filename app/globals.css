@@ -2406,6 +2406,11 @@ input::placeholder {
 .theme-media-tabs button[aria-selected="true"] { background:#2b5059; color:#edf7fb; }
 .theme-media-tabs button:focus-visible { outline:2px solid #a3e7ca; outline-offset:2px; }
 .theme-media-section { padding:22px; }
+.theme-media-section[hidden] { display:none; }
+.theme-media-page > .theme-media-tabs { flex-wrap:wrap; margin:0; }
+.theme-media-new { border:0; padding:0; min-width:0; }
+.new-appearance-preview { width:64px; height:64px; object-fit:contain; }
+.appearance-save { display:flex; flex-wrap:wrap; gap:12px; align-items:center; position:sticky; bottom:12px; z-index:5; padding:12px; background:#142e3d; border:1px solid #456977; border-radius:7px; }
 .theme-media-section h2 { margin:0 0 8px; }
 .theme-media-section p { color:#a1bcc3; line-height:1.5; }
 .theme-media-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(145px,1fr)); gap:14px; margin-top:20px; }

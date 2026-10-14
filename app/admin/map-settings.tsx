@@ -50,7 +50,7 @@ type Placement = {
   id: string;
   object: string;
   icon?: "star" | "boss";
-  bossStyle?: "classic" | "frost" | "clockwork" | "shadow" | "ember" | "serpent";
+  bossStyle?: string;
   iconSize?: 1 | 2 | 3;
   map: string;
   location: { x: number; y: number };
@@ -812,7 +812,7 @@ export default function MapSettings({
         <div className="map-settings-controls">
         {panel === "entities" && <div className="map-settings-section">
           <p className="map-tool-help" id="entity-tool-help">Add a character, choose its tile allocation, then click a free map area to place it. Drag a character to move it; Escape cancels. Non-walkable tiles are allowed. Players use Search nearby within one tile of any edge to speak. Save entities to publish your characters and dialogue.</p>
-          <a className="text-button" href="/admin/theme/appearances#selectable-characters">Manage character appearances</a>
+          <a className="text-button" href="/admin/theme/appearances?tab=entities">Manage character appearances</a>
           <button type="button" className="secondary-button" disabled={busy || entities.length >= 100 || !characters.length} onClick={addEntity}>Add character</button>
           <div className="entity-list" aria-label="Characters on this map">{entities.filter(e => e.map === mapId).map(e => <div key={e.id}>
             <button type="button" aria-pressed={selectedEntity === e.id} disabled={busy} onClick={() => { setMapAction(null); setSelectedEntity(e.id); setCursor({ ...e.location }); }}>{e.name || "Unnamed character"} · {e.location.x}, {e.location.y} · {entitySize(e)} × {entitySize(e)}</button>

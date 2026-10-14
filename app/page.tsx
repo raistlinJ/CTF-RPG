@@ -88,7 +88,7 @@ type Challenge = {
   map: string;
   object: string;
   icon?: "star" | "boss";
-  bossStyle?: "classic" | "frost" | "clockwork" | "shadow" | "ember" | "serpent";
+  bossStyle?: string;
   iconSize?: 1 | 2 | 3;
   location: { x: number; y: number };
   region: string;
