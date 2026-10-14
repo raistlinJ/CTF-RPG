@@ -8,6 +8,7 @@ import Dependencies from "../app/admin/challenges/dependencies/page";
 import Submissions from "../app/admin/challenges/submissions/page";
 import Review from "../app/admin/challenges/review/page";
 import PacksAdmin from "../app/admin/data/page";
+import ImageLibraryAdmin from "../app/admin/theme/images/page";
 import MediaAdmin from "../app/admin/theme/media/page";
 import MapsAdmin from "../app/admin/theme/maps/page";
 import EntityDialoguePage from "../app/admin/theme/maps/dialogue/page";
@@ -33,6 +34,8 @@ createRoot(document.getElementById("root")!).render(
       <ChallengeImport />
     ) : window.location.pathname.startsWith("/admin/challenges/review") ? (
       <Review />
+    ) : window.location.pathname.startsWith("/admin/theme/images") ? (
+      <ImageLibraryAdmin />
     ) : window.location.pathname.startsWith("/admin/theme/media") ? (
       <MediaAdmin />
     ) : window.location.pathname.startsWith("/admin/theme/library") ? (

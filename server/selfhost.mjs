@@ -232,6 +232,8 @@ const server = createServer(async (req, res) => {
         "/admin/data/ctfd/",
         "/admin/theme",
         "/admin/theme/",
+        "/admin/theme/images",
+        "/admin/theme/images/",
         "/admin/theme/media",
         "/admin/theme/media/",
         "/admin/theme/maps/dialogue",
