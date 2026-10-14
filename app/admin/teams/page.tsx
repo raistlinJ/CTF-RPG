@@ -38,15 +38,15 @@ export default function TeamsAdmin() {
   const selected = teams.filter(t => selectedIds.includes(t.id));
   const allShown = filtered.length > 0 && filtered.every(t => selectedIds.includes(t.id));
   const someShown = filtered.some(t => selectedIds.includes(t.id));
-  async function applyBulk(action: BulkAction) {
-    if (busy || !selected.length) return;
+  async function applyBulk(action: BulkAction, targets: ManagedTeam[] = selected, clearSelection = true) {
+    if (busy || !targets.length) return;
     setBusy(true); setError(""); setMessage("");
     try {
-      const r = await fetch("/api/admin/teams", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({action, teams:selected.map(t => ({id:t.id,revision:t.revision}))}) });
+      const r = await fetch("/api/admin/teams", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({action, teams:targets.map(t => ({id:t.id,revision:t.revision}))}) });
       const d = await r.json() as {error?:string; updated:number};
       if (!r.ok) throw Error(d.error || "Could not update selected teams.");
-      await load(); setSelectedIds([]);
-      if (action === "delete" && selectedIds.includes(viewedTeam || "")) { setPanelOpen(false); setViewedTeam(null); }
+      await load(); if (clearSelection) setSelectedIds([]);
+      if (action === "delete" && targets.some(t => t.id === viewedTeam)) { setPanelOpen(false); setViewedTeam(null); }
       const descriptions = {mute:"muted in chat",unmute:"unmuted in chat",disable:"disabled",enable:"enabled",delete:"deleted. Members can choose a team again"};
       setMessage(`${d.updated} ${d.updated === 1 ? "team" : "teams"} ${descriptions[action]}.`);
     } catch (e) { setError((e as Error).message); }
@@ -69,7 +69,7 @@ export default function TeamsAdmin() {
             <span>{selected.length} selected</span><button type="button" className="text-button" disabled={busy || !selected.length} onClick={()=>setSelectedIds([])}>Clear selection</button>
           </div>
           <div className="admin-actions">{(Object.keys(actions) as BulkAction[]).map(action=><button key={action} type="button" className={`secondary-button${action==="delete"?" danger-button":""}`} disabled={busy || !selected.length} onClick={()=>action==="delete"?setConfirmDelete(true):void applyBulk(action)}>{actions[action]}</button>)}</div>
-          <p>Mute blocks outgoing chat for all team members. Disable pauses their access and prevents new joins. Enable and unmute restore team access; individual user restrictions still apply.</p>
+          <p>Mute blocks outgoing chat for all team members. Disable pauses their access and prevents new joins. Enable restores access; unmute restores outgoing chat. Individual user restrictions still apply.</p>
         </section>
         <section className="team-roster" aria-label="Team list">
           <div className="roster-tools"><label>Search teams<input type="search" placeholder="Team or member name" value={query} onChange={e=>setQuery(e.target.value)}/></label><button type="button" className="icon-button" aria-label="Refresh teams" disabled={busy} onClick={()=>void refresh()}><RefreshCw size={18}/></button></div>
@@ -82,7 +82,7 @@ export default function TeamsAdmin() {
                 <div className="team-row-members"><b>{t.members} / {max} members</b><small>{names(t.id)||"No members"}</small></div>
                 <span>{(t.score||0).toLocaleString()} pts<small>{(t.pointAwards?.reduce((sum,a)=>sum+a.points,0)||0).toLocaleString()} gifted</small></span>
               </button>
-              <div className="team-row-actions"><button type="button" className="secondary-button" disabled={busy} onClick={()=>{setMessage("");setError("");setGiftTeam(t);}}>Gift points</button></div>
+              <div className="team-row-actions">{!!t.muted && <button type="button" className="secondary-button" aria-label={`Unmute ${t.name}`} disabled={busy} onClick={()=>void applyBulk("unmute", [t], false)}>Unmute</button>}<button type="button" className="secondary-button" disabled={busy} onClick={()=>{setMessage("");setError("");setGiftTeam(t);}}>Gift points</button></div>
               {!!t.pointAwards?.length && <details className="team-gift-history"><summary>Point gift history ({t.pointAwards.length})</summary><ul>{t.pointAwards.map(a=><li key={a.id}><strong>+{a.points.toLocaleString()} points</strong><p>{a.comment}</p><small>{a.awarded_by} · {new Date(a.created_at).toLocaleString()}</small></li>)}</ul></details>}
             </article>)}
             {!filtered.length && <p>{teams.length?"No teams match your search.":"No teams yet. Students create or join a team after signing in."}</p>}

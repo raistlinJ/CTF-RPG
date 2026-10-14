@@ -4,7 +4,7 @@ import { protectedAdminUsername } from '../lib/config-schema.mjs';
 
 export async function bulkUserAction(body, { db, config, viewer, accountList }) {
   const reply = (data, status = 200) => Response.json(data, {status, headers:{'Cache-Control':'no-store'}});
-  if (!['disable', 'delete', 'mute', 'remove-team'].includes(body.action) ||
+  if (!['disable', 'delete', 'mute', 'unmute', 'remove-team'].includes(body.action) ||
       !Array.isArray(body.users) || !body.users.length || body.users.length > 1000 ||
       body.users.some(u => !u || typeof u.username !== 'string' || !/^[a-z0-9_-]{3,24}$/.test(u.username) || !Number.isInteger(u.revision) || u.revision < 0 ||
         (body.action === 'remove-team' && u.team !== null && typeof u.team !== 'string')) ||
@@ -37,9 +37,10 @@ export async function bulkUserAction(body, { db, config, viewer, accountList }) 
   // after the read, before any user's data is changed. D1 batch is transactional.
   const statements = [db.prepare(`INSERT INTO admin_user_action_guard(id,valid) SELECT ?,CASE WHEN (${matching})=? THEN 1 ELSE 0 END`).bind(id, expected, selected.length)];
   const ids = "SELECT json_extract(value,'$.id') FROM json_each(?) WHERE json_extract(value,'$.id') IS NOT NULL";
-  if (body.action === 'disable' || body.action === 'mute') {
+  if (['disable', 'mute', 'unmute'].includes(body.action)) {
     const field = body.action === 'disable' ? 'disabled' : 'muted';
-    statements.push(db.prepare(`UPDATE students SET ${field}=1,revision=revision+1 WHERE id IN (${ids})`).bind(expected));
+    const value = body.action === 'unmute' ? 0 : 1;
+    statements.push(db.prepare(`UPDATE students SET ${field}=?,revision=revision+1 WHERE id IN (${ids})`).bind(value, expected));
     for (const account of selected.filter(a => !a.id)) {
       const cfg = config.accounts.users.find(c => c.username === account.username);
       const credentials = await configuredCredentials(cfg, null);

@@ -134,3 +134,43 @@ test('an in-flight first login or profile save cannot recreate a deleted YAML us
   }finally{s.sqlite.close();}
  }
 });
+
+test('single and bulk user unmute restore chat, preserve independent team/disabled flags, and reject unauthorized or stale changes',async()=>{
+ const s=setup();try{
+  const admin=s.client(),alice=s.client(),bob=s.client();await login(admin);const a=await login(alice,'alice');await login(bob,'bob');
+  const team=(await alice('/api/teams',{mode:'create',name:'Unmute team',password:'team-password'})).data.team;
+  await bob('/api/teams',{mode:'join',id:team.id,password:'team-password'});await alice('/api/game',{id:'lantern',answer:'24'});
+  assert.equal((await bulk(admin,'mute',['alice','bob'])).status,200);
+  const selected=await targets(admin,['alice']);const payload={action:'unmute',users:selected};
+  assert.equal((await s.client()('/api/admin/users',payload)).status,401);
+  assert.equal((await alice('/api/admin/users',payload)).status,403);
+  assert.equal((await admin('/api/admin/users',payload,{Origin:'https://other.test'})).status,403);
+  let r=await admin('/api/admin/users',payload);assert.equal(r.status,200);assert.equal(r.data.updated,1);
+  assert.equal(r.data.users.find(u=>u.username==='alice').muted,false);assert.equal(r.data.users.find(u=>u.username==='bob').muted,true);
+  assert.equal((await alice('/api/team-social',{id:crypto.randomUUID(),team:team.id,text:'Chat restored'})).status,200);
+  assert.equal((await bob('/api/team-social',{id:crypto.randomUUID(),team:team.id,text:'Still muted'})).status,403);
+  assert.equal((await admin('/api/admin/users',payload)).status,409,'old row revisions cannot be reused');
+  const managed=(await admin('/api/admin/teams')).data.teams.find(t=>t.id===team.id);
+  assert.equal((await admin('/api/admin/teams',{action:'mute',teams:[{id:team.id,revision:managed.revision}]})).status,200);
+  assert.equal((await bulk(admin,'disable',['bob'])).status,200);
+  r=await bulk(admin,'unmute',['alice','bob']);assert.equal(r.status,200);assert.equal(r.data.updated,2);
+  assert.ok(r.data.users.filter(u=>['alice','bob'].includes(u.username)).every(u=>!u.muted));
+  assert.equal(r.data.users.find(u=>u.username==='bob').disabled,true);
+  assert.equal(s.sqlite.prepare('SELECT muted FROM teams WHERE id=?').get(team.id).muted,1);
+  assert.equal((await alice('/api/team-social',{id:crypto.randomUUID(),team:team.id,text:'Team remains muted'})).status,403);
+  assert.equal((await alice('/api/game')).data.score,100);assert.equal((await alice('/api/teams')).data.team.id,team.id);
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM sessions WHERE user=?').get(a.id).n,1,'unmute keeps sessions');
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM team_members WHERE team=?').get(team.id).n,2);
+ }finally{s.sqlite.close();}
+});
+
+test('bulk unmute rolls back all selected users if a revision changes during the operation',async()=>{
+ const s=setup();try{
+  const admin=s.client();await login(admin);await login(s.client(),'alice');await login(s.client(),'bob');
+  await bulk(admin,'mute',['alice','bob']);const selection=await targets(admin,['alice','bob']);
+  s.race(()=>s.sqlite.prepare("UPDATE students SET revision=revision+1 WHERE username='alice'").run());
+  const r=await admin('/api/admin/users',{action:'unmute',users:selection});assert.equal(r.status,409);
+  assert.equal(s.sqlite.prepare("SELECT SUM(muted) n FROM students WHERE username IN ('alice','bob')").get().n,2);
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM admin_user_action_guard').get().n,0);
+ }finally{s.sqlite.close();}
+});

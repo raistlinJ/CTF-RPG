@@ -46,10 +46,10 @@ type Draft = Pick<
   Account,
   "username" | "hero" | "spawn" | "role" | "disabled" | "muted" | "revision"
 > & { password: string };
-type BulkAction = "disable" | "delete" | "mute" | "remove-team";
+type BulkAction = "disable" | "delete" | "mute" | "unmute" | "remove-team";
 type Registration = { allowRegistration: boolean; revision: number };
 type IntegrationToken = { id: string; name: string; createdAt: number };
-const actionNames: Record<BulkAction, string> = { disable: "Disable", delete: "Delete", mute: "Mute chat", "remove-team": "Remove from team" };
+const actionNames: Record<BulkAction, string> = { disable: "Disable", delete: "Delete", mute: "Mute chat", unmute: "Unmute chat", "remove-team": "Remove from team" };
 export default function UsersPage() {
   const [users, setUsers] = useState<Account[]>([]),
     [characters, setCharacters] = useState<Character[]>([]),
@@ -249,26 +249,29 @@ export default function UsersPage() {
   const preserved = selected.filter(a => a.protected);
   const deletable = selected.filter(a => !a.protected && (hasProtectedAdmin || a.username !== viewer));
   const profileTeam = editing ? users.find(a => a.username === draft?.username)?.team : null;
-  async function applyBulk(action: BulkAction) {
-    if (busy || !selected.length) return;
+  async function applyBulk(action: BulkAction, targets: Account[] = selected, clearSelection = true) {
+    if (busy || !targets.length) return;
     setBusy(true);
     setError("");
     setMessage("");
     try {
       const r = await fetch("/api/admin/users", {
         method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({action, users: selected.map(a => ({username:a.username, revision:a.revision, team:a.team?.id ?? null}))}),
+        body: JSON.stringify({action, users: targets.map(a => ({username:a.username, revision:a.revision, team:a.team?.id ?? null}))}),
       });
       const d = await r.json() as {users:Account[]; characters:Character[]; updated:number; skipped?:string[]; error?:string};
       if (!r.ok) throw Error(d.error || "Could not update the selected users.");
       setUsers(d.users);
       setCharacters(d.characters);
-      setSelectedUsers([]);
-      if (editing && draft && selectedUsers.includes(draft.username)) {
+      if (clearSelection) setSelectedUsers([]);
+      if (editing && draft && targets.some(a => a.username === draft.username)) {
         const updated = d.users.find(a => a.username === draft.username);
-        if (updated) select(updated); else setDraft(null);
+        if (updated && action === "unmute") {
+          // Keep unrelated profile edits while synchronizing the saved mute/revision.
+          setDraft(current => current?.username === updated.username ? { ...current, muted: updated.muted, revision: updated.revision } : current);
+        } else if (updated) select(updated); else setDraft(null);
       }
-      const descriptions = { disable:"disabled", delete:"deleted", mute:"muted in chat", "remove-team":"removed from their teams" };
+      const descriptions = { disable:"disabled", delete:"deleted", mute:"muted in chat", unmute:"unmuted in chat", "remove-team":"removed from their teams" };
       setMessage(`${d.updated} ${d.updated === 1 ? "user" : "users"} ${descriptions[action]}.${d.skipped?.length ? ` Kept protected administrator: ${d.skipped.join(", ")}.` : ""}`);
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); setConfirmDelete(false); }
@@ -372,6 +375,7 @@ export default function UsersPage() {
                 <button type="button" key={action} className={`secondary-button${action === "delete" ? " danger-button" : ""}`} disabled={busy || !selected.length || ((action === "disable" || action === "delete") && !deletable.length)} onClick={() => action === "delete" ? setConfirmDelete(true) : void applyBulk(action)}>{actionNames[action]}</button>
               ))}
             </div>
+            <p>User and team mutes are separate. Unmuting a user keeps any team mute in place.</p>
             {!!preserved.length && <p>Protected administrator {preserved.map(a => a.username).join(", ")} will be kept when deleting or disabling selected users.</p>}
             {selfSelected && !hasProtectedAdmin && <p>Your own administrator user cannot be disabled or deleted.</p>}
           </section>
@@ -410,7 +414,7 @@ export default function UsersPage() {
               </div>
               <div className="roster-list users-roster-list">
                 {filteredUsers.map((a) => (
-                  <div key={a.username} className={`user-row${draft?.username === a.username ? " selected" : ""}${a.disabled ? " disabled-account" : ""}`}>
+                  <div key={a.username} className={`user-row${draft?.username === a.username ? " selected" : ""}${a.disabled ? " disabled-account" : ""}${a.muted ? " user-row-with-actions" : ""}`}>
                     <input type="checkbox" aria-label={`Select ${a.username}`} checked={selectedUsers.includes(a.username)} disabled={busy} onChange={e => setSelectedUsers(current => e.target.checked ? [...current, a.username] : current.filter(name => name !== a.username))} />
                     <button type="button" aria-label={`Edit ${a.username}`} onClick={() => select(a)} disabled={busy}>
                       <span className="account-avatar">{a.username.slice(0, 2).toUpperCase()}</span>
@@ -422,6 +426,7 @@ export default function UsersPage() {
                       </div>
                       <span>{a.score} pts<small>{a.completed} solved</small></span>
                     </button>
+                    {a.muted && <div className="user-row-actions"><button type="button" className="secondary-button" aria-label={`Unmute ${a.username}`} disabled={busy} onClick={() => void applyBulk("unmute", [a], false)}>Unmute</button></div>}
                   </div>
                 ))}
                 {!filteredUsers.length && <p>{users.length ? "No users match your search." : "No users yet. Create your first explorer."}</p>}

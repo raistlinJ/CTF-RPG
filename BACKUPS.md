@@ -14,14 +14,14 @@ Open `/admin/users` or **Users** in the challenge studio. Authorized admins can:
 - Change an existing account's role, assigned character, and starting map/tile.
 - Reset a password; the previous password stops working and existing sessions are revoked.
 - Disable an account, blocking access and removing it from the scoreboard, or reactivate it with its progress intact.
-- Mute or unmute chat without blocking gameplay or incoming messages.
+- Mute or unmute chat without blocking gameplay or incoming messages. Use **Unmute chat** for checked users or **Unmute** directly on a muted row. User and team restrictions remain independent.
 - View each user’s team and apply bulk actions with selection checkboxes.
 - Remove selected users from their teams without disbanding the teams.
 - Permanently delete selected users and their progress after confirmation.
 
 Usernames stay fixed to preserve account identity and scores. Accounts and credentials are managed in the database. Admin-created accounts can sign in even with open registration disabled. Student self-registration never grants admin privileges. All API actions check the current role and disabled state on the server. The configured protected admin cannot be deleted, disabled or demoted. Other admins cannot disable or demote themselves. Management privileges follow the authenticated account role.
 
-The user list never exposes passwords or hashes. Leaving the password field empty on an edit preserves it. Changes use revisions to reject stale simultaneous edits. Disabling is reversible and keeps history; deleting is permanent and removes the user’s progress and memberships. Select multiple users with their checkboxes to Disable, Delete, Mute chat, or Remove from team. Delete requires confirmation. Bulk delete/disable preserves the configured protected administrator. Removed members can choose another team, while their individual progress remains saved. Deleted users stay deleted after restart and backup restore; creating a new user with that username gives it fresh credentials and progress.
+The user list never exposes passwords or hashes. Leaving the password field empty on an edit preserves it. Changes use revisions to reject stale simultaneous edits. Disabling is reversible and keeps history; deleting is permanent and removes the user’s progress and memberships. Select multiple users with their checkboxes to Disable, Delete, Mute chat, Unmute chat, or Remove from team. Delete requires confirmation. Bulk delete/disable preserves the configured protected administrator. Removed members can choose another team, while their individual progress remains saved. Deleted users stay deleted after restart and backup restore; creating a new user with that username gives it fresh credentials and progress.
 
 ## Full export
 

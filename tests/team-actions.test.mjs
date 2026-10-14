@@ -48,8 +48,11 @@ test('bulk team mute applies to current and future members, preserves user mutes
     assert.ok((await alice('/api/team-social?team='+first.id)).data.messages.some(m=>m.text==='From teacher'));
     assert.equal(sqlite.prepare('SELECT SUM(muted) n FROM students').get().n,0,'account flags are independent');
     sqlite.prepare("UPDATE students SET muted=1 WHERE username='carol'").run();
-    assert.equal((await bulk('unmute')).status,200);
+    assert.equal((await bulk('unmute',[first.id])).status,200);
+    assert.equal(sqlite.prepare('SELECT muted FROM teams WHERE id=?').get(second.id).muted,1,'direct unmute keeps other teams muted');
+    assert.equal((await send(bob,second.id)).status,403);
     assert.equal((await send(alice,first.id)).status,200);
+    assert.equal((await bulk('unmute',[second.id])).status,200);
     assert.equal((await send(carol,first.id)).status,403,'unmute does not clear an individual mute');
   }finally{s.sqlite.close();}
 });

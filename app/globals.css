@@ -2797,3 +2797,12 @@ input::placeholder {
   max-width: none;
   min-width: 0;
 }
+
+/* Direct chat moderation actions use the same compact buttons as team rows. */
+.user-row-with-actions { display:grid; grid-template-columns:auto minmax(0,1fr) auto; padding-right:14px; }
+.user-row-actions { display:flex; gap:8px; }
+.team-row-actions { flex-wrap:wrap; justify-content:flex-end; }
+@media(max-width:500px) {
+  .user-row-with-actions { grid-template-columns:auto minmax(0,1fr); }
+  .user-row-actions { grid-column:2; padding-bottom:14px; }
+}
