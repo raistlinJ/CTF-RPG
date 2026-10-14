@@ -803,7 +803,7 @@ export default function MapSettings({
         <div className="map-settings-controls">
         {panel === "entities" && <div className="map-settings-section">
           <p className="map-tool-help" id="entity-tool-help">Add a character, then click a free map tile to place it. Drag a character to move it; Escape cancels. Non-walkable tiles are allowed. Players use Search nearby within one tile to speak and choose their replies. Save entities to publish your characters and dialogue.</p>
-          <a className="text-button" href="/admin/theme/media#selectable-characters">Manage character appearances in Media</a>
+          <a className="text-button" href="/admin/theme/appearances#selectable-characters">Manage character appearances</a>
           <button type="button" className="secondary-button" disabled={busy || entities.length >= 100 || !characters.length} onClick={addEntity}>Add character</button>
           <div className="entity-list" aria-label="Characters on this map">{entities.filter(e => e.map === mapId).map(e => <div key={e.id}>
             <button type="button" aria-pressed={selectedEntity === e.id} disabled={busy} onClick={() => { setMapAction(null); setSelectedEntity(e.id); setCursor({ ...e.location }); }}>{e.name || "Unnamed character"} · {e.location.x}, {e.location.y}</button>

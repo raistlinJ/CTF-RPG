@@ -1,3 +1,3 @@
 // CTF-RPG — Copyright Jaime C Acosta 2026
-const pages=[{id:"maps",href:"/admin/theme/maps",label:"Maps, entities & transport"},{id:"media",href:"/admin/theme/media",label:"Media & appearances"},{id:"images",href:"/admin/theme/images",label:"Image library"},{id:"library",href:"/admin/theme/library",label:"Theme library"}] as const;
+const pages=[{id:"maps",href:"/admin/theme/maps",label:"Maps, entities & transport"},{id:"appearances",href:"/admin/theme/appearances",label:"Appearances"},{id:"media",href:"/admin/theme/media",label:"Media Library"},{id:"library",href:"/admin/theme/library",label:"Theme library"}] as const;
 export default function ThemeNav({active}:{active:(typeof pages)[number]["id"]}) {return <nav className="theme-subnav" aria-label="Theme pages"><strong>Theme</strong>{pages.map(p=><a key={p.id} href={p.href} aria-current={active===p.id?"page":undefined}>{p.label}</a>)}</nav>;}

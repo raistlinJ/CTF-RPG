@@ -2,12 +2,10 @@
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
-import AdminHeader from "../../admin-header";
-import ThemeNav from "../theme-nav";
 import { IMAGE_FILE_LIMIT } from "@/lib/pack-limits.mjs";
-import type { Media, Settings } from "../media/media-types";
+import type { Media, Settings } from "./media-types";
 
-export default function ImageLibraryAdmin() {
+export default function ImagesPanel({ onDirtyChange, onSaved, knownRevision }: { onDirtyChange: (dirty: boolean) => void; onSaved: (revision: number) => void; knownRevision: number | null }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -22,12 +20,10 @@ export default function ImageLibraryAdmin() {
     }).catch(e => { if (live) setError(e.message); });
     return () => { live = false; };
   }, []);
+  useEffect(() => { onDirtyChange(files.length > 0); }, [files.length, onDirtyChange]);
   useEffect(() => {
-    if (!files.length) return;
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [files.length]);
+    if (knownRevision !== null) setSettings(current => current && current.revision < knownRevision ? { ...current, revision: knownRevision } : current);
+  }, [knownRevision, settings?.revision]);
   async function upload() {
     if (!settings || !files.length || busy) return;
     setBusy(true); setError(""); setMessage("");
@@ -38,8 +34,8 @@ export default function ImageLibraryAdmin() {
       const response = await fetch("/api/admin/theme-media", { method: "POST", body: form });
       const result = await response.json() as Settings & { error?: string; uploaded?: number };
       if (!response.ok) throw Error(result.error || "Images could not be uploaded.");
-      setSettings(result); setFiles([]);
-      setMessage(`${result.uploaded} ${result.uploaded === 1 ? "image" : "images"} added. Assign artwork under Media & appearances.`);
+      setSettings(result); onSaved(result.revision); setFiles([]);
+      setMessage(`${result.uploaded} ${result.uploaded === 1 ? "image" : "images"} added. Assign artwork under Appearances.`);
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -53,18 +49,17 @@ export default function ImageLibraryAdmin() {
       });
       const result = await response.json() as Settings & { error?: string };
       if (!response.ok) throw Error(result.error || "Image could not be deleted.");
-      setSettings(result);
-      setMessage(`Deleted ${item.name} from the image library and future theme exports.`);
+      setSettings(result); onSaved(result.revision);
+      setMessage(`Deleted ${item.name} from the Media Library and future theme exports.`);
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   }
-  return <main className="admin-studio"><AdminHeader active="theme" /><section className="admin-workspace">
-    <ThemeNav active="images" />
-    <h1>Image library</h1>
-    <p className="admin-page-description">Upload and browse your theme’s images here. Choose which images players, characters, bosses, and maps use in <a href="/admin/theme/media">Media &amp; appearances</a>.</p>
+  return <section aria-label="Image media">
+    <h2>Images</h2>
+    <p className="admin-page-description">Upload and browse your theme’s images here. Choose which images players, characters, bosses, and maps use in <a href="/admin/theme/appearances">Appearances</a>.</p>
     {error && <p className="error" role="alert">{error}</p>}
     {message && <p role="status">{message}</p>}
-    {!settings ? !error && <p>Loading image library…</p> : <div className="theme-media-page">
+    {!settings ? !error && <p>Loading Media Library…</p> : <div className="theme-media-page">
       <section className="admin-editor theme-media-section"><h2>Uploaded images</h2>
         <p>PNG, JPEG, WebP, or GIF. Up to 10 images per upload and 4 MB per image; the complete theme must fit within 32 MB, including existing artwork, audio, retained originals, and unused uploads. Only unused uploads can be deleted.</p>
         <label>Choose images<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple disabled={busy} onChange={e => {
@@ -82,11 +77,11 @@ export default function ImageLibraryAdmin() {
           <button className="text-button" type="button" disabled={busy} onClick={() => void deleteImage(item)}>Delete upload</button>
         </article>)}{!settings.media.some(item => item.source === "upload") && <p>No uploaded images yet.</p>}</div>
       </section>
-      <section className="admin-editor theme-media-section"><h2>Theme artwork</h2><p>These images came with the theme or the game. They can be assigned to roles in Media &amp; appearances and are read only here.</p>
+      <section className="admin-editor theme-media-section"><h2>Theme artwork</h2><p>These images came with the theme or the game. They can be assigned to roles in Appearances and are read only here.</p>
         <div className="theme-media-grid">{settings.suppliedMedia.map(item => <article className="theme-media-card" key={item.src}>
           <img src={item.src} alt="" /><strong>{item.name}</strong><span className="theme-media-protected">Theme artwork</span>
         </article>)}</div>
       </section>
     </div>}
-  </section></main>;
+  </section>;
 }
