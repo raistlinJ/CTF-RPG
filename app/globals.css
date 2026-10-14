@@ -2718,3 +2718,11 @@ input::placeholder {
 .admin-header-links { flex:1 1 540px; gap:6px 18px; }
 @media(max-width:800px) { .admin-utility-links { border-left:0; border-top:1px solid #304652; padding:8px 0 0; flex-basis:100%; } }
 #selectable-characters,#map-artwork { scroll-margin-top:20px; }
+
+/* Standalone admin panels fill the workspace; grid layouts keep their columns. */
+.admin-workspace .theme-media-page,
+.admin-workspace .admin-editor {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
