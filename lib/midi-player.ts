@@ -24,6 +24,7 @@ export class MidiPlayer {
   private closed = false;
   private abort = new AbortController();
   private ready = false;
+  private activated = false;
   private queue: {name:string; midi:string}[] = [];
   private previous: string | undefined;
   private transitioning = false;
@@ -33,9 +34,21 @@ export class MidiPlayer {
     this.master.gain.value = config.volume;
     this.master.connect(this.context.destination);
   }
+  // Avoid a pending resume promise when autoplay needs a user gesture.
+  async playIfAllowed() {
+    if (this.closed) return;
+    if (this.context.state !== "running") {
+      if (!this.activated) return;
+      await this.context.resume();
+    }
+    this.activated = true;
+    if (!this.ready) await this.loadNext();
+  }
   async play() {
     if (this.closed) return;
     await this.context.resume();
+    if (this.closed) return;
+    this.activated = true;
     if (!this.ready) await this.loadNext();
   }
   private async loadNext() {
@@ -136,6 +149,7 @@ export class MidiPlayer {
     await this.context.suspend();
   }
   dispose() {
+    if (this.closed) return;
     this.closed = true;
     this.abort.abort();
     if (this.timer) clearInterval(this.timer);

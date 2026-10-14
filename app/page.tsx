@@ -719,7 +719,7 @@ export default function Game() {
     [feedbackSuccess, setFeedbackSuccess] = useState(false),
     [hintMessage, setHintMessage] = useState(""),
     [notice, setNotice] = useState("Follow the paths. Look for a glimmer."),
-    [muted, setMuted] = useState(true);
+    [muted, setMuted] = useState(false);
   const { map, pos } = place;
   const audio = useRef<AudioContext | null>(null);
   const music = useRef<MidiPlayer | null>(null);
@@ -822,13 +822,44 @@ export default function Game() {
       if (d.solved.includes(q.id) && q.solveVideo && !q.solveCutsceneSeen) void playCutscene(q, "solve");
     }
   }
+  function musicError(e: Error) {
+    music.current?.dispose();
+    music.current = null;
+    setAudioError(e.message);
+    setMuted(true);
+  }
   useEffect(() => {
-    if (cutsceneOpen) void music.current?.mute();
-    else if (!muted) void music.current?.play().catch(e => {
-      setAudioError((e as Error).message);
-      setMuted(true);
-    });
-  }, [cutsceneOpen, muted]);
+    let live = true;
+    const failed = (e: Error) => { if (live) musicError(e); };
+    if (!config || muted || cutsceneOpen) {
+      void music.current?.mute().catch(failed);
+      if (muted) void audio.current?.suspend().catch(failed);
+      return () => { live = false; };
+    }
+    try {
+      if (config.audio.midi || config.audio.playlist?.length)
+        music.current ??= new MidiPlayer(config.audio, musicError);
+      // Some browsers allow immediate audio; others require a real interaction.
+      void music.current?.playIfAllowed().catch(failed);
+      const stopListening = () => {
+        window.removeEventListener("pointerdown", activate, true);
+        window.removeEventListener("keydown", activate, true);
+      };
+      const activate = (event: Event) => {
+        if (event.target instanceof Element && event.target.closest("#game-sound-toggle")) return;
+        try {
+          audio.current ??= new AudioContext();
+          // Resume both contexts inside the gesture, before any asynchronous load.
+          void Promise.all([music.current?.play(), audio.current.resume()])
+            .then(stopListening).catch(failed);
+        } catch (e) { failed(e as Error); }
+      };
+      window.addEventListener("pointerdown", activate, true);
+      window.addEventListener("keydown", activate, true);
+      return () => { live = false; stopListening(); };
+    } catch (e) { failed(e as Error); }
+    return () => { live = false; };
+  }, [config?.audio, cutsceneOpen, muted]);
   useEffect(() => {
     if (user && presence.gameRevision !== undefined) void loadGame().catch((e) => setNotice(e.message));
   }, [presence.gameRevision]);
@@ -878,7 +909,9 @@ export default function Game() {
       .finally(() => setLoading(false));
     return () => {
       music.current?.dispose();
+      music.current = null;
       if (audio.current) void audio.current.close();
+      audio.current = null;
     };
   }, []);
   useEffect(() => {
@@ -910,13 +943,10 @@ export default function Game() {
         if (audio.current) await audio.current.suspend();
         setMuted(true);
       } else {
-        if (!config?.audio.midi && !config?.audio.playlist?.length)
-          throw Error("No background music is configured.");
-        music.current ??= new MidiPlayer(config.audio, (e) => {
-          setAudioError(e.message); setMuted(true); music.current = null;
-        });
-        await music.current.play();
-        if (audio.current) await audio.current.resume();
+        if (config && (config.audio.midi || config.audio.playlist?.length))
+          music.current ??= new MidiPlayer(config.audio, musicError);
+        audio.current ??= new AudioContext();
+        await Promise.all([cutsceneOpen ? undefined : music.current?.play(), audio.current.resume()]);
         setMuted(false);
       }
     } catch (e) {
@@ -1275,10 +1305,11 @@ export default function Game() {
             </a>
           )}
           <button
+            id="game-sound-toggle"
             className="icon-button"
             aria-label={muted ? "Enable sound" : "Mute sound"}
             onClick={toggleMusic}
-            disabled={audioBusy || (!config?.audio.midi && !config?.audio.playlist?.length)}
+            disabled={audioBusy || !config}
           >
             {muted ? <VolumeX size={19} /> : <Volume2 size={19} />}
           </button>
