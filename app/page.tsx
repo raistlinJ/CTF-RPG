@@ -1,5 +1,5 @@
 "use client";
-import { drawBossIcon, challengeSize, challengeDistance, challengeTiles } from "@/lib/challenge-icon.mjs";
+import { drawBossIcon, challengeSize, challengeDistance, challengeTiles, challengeBounds, drawChallengeFootprint } from "@/lib/challenge-icon.mjs";
 import { useBossSprites } from "./use-boss-sprites";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
@@ -301,7 +301,7 @@ export function World({
   const [selectedSolvedId, setSelectedSolvedId] = useState<string | null>(null);
   const selectedSolved = challenges.find(q => q.id === selectedSolvedId && q.map === map && solved.includes(q.id));
   const ref = useRef<HTMLCanvasElement>(null);
-  const drag = useRef<{ id: string; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
+  const drag = useRef<{ id: string; pointerId: number; startX: number; startY: number; offsetX: number; offsetY: number; active: boolean } | null>(null);
   const suppressClick = useRef(false);
   const [dragPreview, setDragPreview] = useState<{ id: string; x: number; y: number } | null>(null);
   function tileAt(canvas: HTMLCanvasElement, clientX: number, clientY: number) {
@@ -396,7 +396,8 @@ export function World({
       const distance =
         Math.abs(pos.x - q.location.x) + Math.abs(pos.y - q.location.y);
       if (q.icon === "boss") {
-        drawBossIcon(ctx, location.x * t, location.y * t, t * challengeSize(q), q.bossStyle, bossSprites[q.bossStyle || "classic"]);
+        const bounds = challengeBounds(q, t, location);
+        drawBossIcon(ctx, bounds.left, bounds.top, bounds.width, q.bossStyle, bossSprites[q.bossStyle || "classic"]);
         continue;
       }
       ctx.fillStyle = distance <= 3 ? "#d6a44e" : "#bed5db";
@@ -421,17 +422,16 @@ export function World({
         ctx.lineTo(960, y * t);
         ctx.stroke();
       }
+      const selected = challenges.find(q => q.id === selectedChallengeId && q.map === map);
       ctx.fillStyle = "#f5cf7544";
-      ctx.fillRect(pos.x * t, pos.y * t, t, t);
       ctx.strokeStyle = "#eab950";
       ctx.lineWidth = 3;
-      ctx.strokeRect(pos.x * t + 1, pos.y * t + 1, t - 2, t - 2);
+      drawChallengeFootprint(ctx, selected, t, pos);
       if (dragPreview) {
         const valid = (selectionAllowed || canPlaceChallenge)(map, dragPreview.x, dragPreview.y);
         ctx.fillStyle = valid ? "#4ade8055" : "#f8717155";
-        ctx.fillRect(dragPreview.x * t, dragPreview.y * t, t, t);
         ctx.strokeStyle = valid ? "#4ade80" : "#f87171";
-        ctx.strokeRect(dragPreview.x * t + 1, dragPreview.y * t + 1, t - 2, t - 2);
+        drawChallengeFootprint(ctx, challenges.find(q => q.id === dragPreview.id), t, dragPreview);
       }
     } else drawCharacter(ctx, pos.x * t + 12, pos.y * t + 12, hero, image, 42);
     ctx.fillStyle = "#264954";
@@ -447,6 +447,7 @@ export function World({
     solved,
     onSelect,
     selectionAllowed,
+    selectedChallengeId,
     unlockedTransports,
     dragPreview,
   ]);
@@ -467,7 +468,7 @@ export function World({
             const selected = challenges.find(c => c.id === selectedChallengeId && c.map === map && challengeTiles(c).some(p => p.x === tile.x && p.y === tile.y));
             if (!selected) return;
             e.currentTarget.focus({ preventScroll: true });
-            drag.current = { id: selected.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false };
+            drag.current = { id: selected.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, offsetX: tile.x - selected.location.x, offsetY: tile.y - selected.location.y, active: false };
             e.currentTarget.setPointerCapture(e.pointerId);
           } : undefined}
           onPointerMove={onChallengeDrop ? e => {
@@ -476,7 +477,8 @@ export function World({
             if (!current.active && Math.hypot(e.clientX - current.startX, e.clientY - current.startY) < 4) return;
             current.active = true;
             e.preventDefault();
-            setDragPreview({ id: current.id, ...tileAt(e.currentTarget, e.clientX, e.clientY) });
+            const tile = tileAt(e.currentTarget, e.clientX, e.clientY);
+            setDragPreview({ id: current.id, x: tile.x - current.offsetX, y: tile.y - current.offsetY });
           } : undefined}
           onPointerUp={onChallengeDrop ? e => {
             const current = drag.current;
@@ -486,7 +488,7 @@ export function World({
             if (current.active) {
               suppressClick.current = true;
               const tile = tileAt(e.currentTarget, e.clientX, e.clientY);
-              onChallengeDrop(current.id, tile.x, tile.y);
+              onChallengeDrop(current.id, tile.x - current.offsetX, tile.y - current.offsetY);
             }
             if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
           } : undefined}

@@ -20,7 +20,7 @@ import {
   mapInfo,
   createWorld,
 } from "@/lib/world-data.mjs";
-import { BOSS_STYLES, challengeTiles, drawBossIcon } from "@/lib/challenge-icon.mjs";
+import { BOSS_STYLES, challengeTiles, challengeSize, drawBossIcon } from "@/lib/challenge-icon.mjs";
 import { useBossSprites } from "../use-boss-sprites";
 import { challengeLocationAvailable, findChallengeLocation } from "@/lib/challenge-placement.mjs";
 import type { EntityCharacter, EntitySummary } from "@/lib/non-player-entities";
@@ -294,11 +294,12 @@ export default function Admin() {
   }
   function selectTile(x: number, y: number) {
     if (!draft || busy || uploadingVideo) return;
+    if (challengeTiles(draft).some(p => p.x === x && p.y === y)) return;
     const existing = catalog.find(
       (c) => c.map === draft.map && challengeTiles(c).some(p => p.x === x && p.y === y),
     );
-    if (existing && existing.id !== editingId) {
-      if (canDiscard()) choose(toDraft(existing), existing.id);
+    if (existing) {
+      if (existing.id !== editingId && canDiscard()) choose(toDraft(existing), existing.id);
     } else patch({ location: { x, y } });
   }
   function selectExisting(c: Definition) {
@@ -618,7 +619,7 @@ export default function Admin() {
                     onMove={noop}
                     onSelect={selectTile}
                     selectionAllowed={(map, x, y) => challengeLocationAvailable(placementWorld, catalog, map, x, y, editingId, draft)}
-                    selectedChallengeId={editingId}
+                    selectedChallengeId={draft.id}
                     onChallengeDrop={!busy && !uploadingVideo && editingId ? (id, x, y) => {
                       if (id === editingId) void moveChallenge(draft.map, { x, y });
                     } : undefined}
@@ -759,7 +760,15 @@ export default function Admin() {
                   <label>Map icon<select aria-label="Map icon" value={draft.icon || "star"} onChange={e => patch({icon: e.target.value as "star" | "boss", iconSize: 1})}><option value="star">Star</option><option value="boss">Boss</option></select></label>
                   {draft.icon === "boss" && <label>Boss size<select aria-label="Boss size" value={draft.iconSize || 1} onChange={e => patch({iconSize: Number(e.target.value) as 1 | 2 | 3})}><option value={1}>1 × 1 tiles</option><option value={2}>2 × 2 tiles</option><option value={3}>3 × 3 tiles</option></select></label>}
                   {draft.icon === "boss" && <label>Boss appearance<select aria-label="Boss appearance" value={draft.bossStyle || "classic"} onChange={e => patch({bossStyle: e.target.value as Definition["bossStyle"]})}>{BOSS_STYLES.map(style => <option key={style.id} value={style.id}>{style.label}</option>)}</select></label>}
-                  {draft.icon === "boss" && <canvas aria-label={`${BOSS_STYLES.find(style => style.id === (draft.bossStyle || "classic"))?.label} preview`} width={48} height={48} ref={canvas => { const ctx = canvas?.getContext("2d"); if (ctx) { ctx.clearRect(0, 0, 48, 48); drawBossIcon(ctx, 0, 0, 48, draft.bossStyle, bossSprites[draft.bossStyle || "classic"]); } }} />}
+                  {draft.icon === "boss" && <canvas aria-label={`${BOSS_STYLES.find(style => style.id === (draft.bossStyle || "classic"))?.label} preview: ${challengeSize(draft)} by ${challengeSize(draft)} tiles`} width={24 * challengeSize(draft)} height={24 * challengeSize(draft)} ref={canvas => {
+                    const ctx = canvas?.getContext("2d");
+                    if (ctx && canvas) {
+                      ctx.clearRect(0, 0, canvas.width, canvas.height);
+                      drawBossIcon(ctx, 0, 0, canvas.width, draft.bossStyle, bossSprites[draft.bossStyle || "classic"]);
+                      ctx.strokeStyle = "#456d7b"; ctx.lineWidth = 1;
+                      for (let y = 0; y < challengeSize(draft); y++) for (let x = 0; x < challengeSize(draft); x++) ctx.strokeRect(x * 24 + 0.5, y * 24 + 0.5, 23, 23);
+                    }
+                  }} />}
                 </div>
                 <p className="muted">Location is the icon’s top-left tile. Every occupied tile must be usable and free.</p>
                 <label>

@@ -1,5 +1,5 @@
 "use client";
-import { drawBossIcon, challengeTiles, challengeSize } from "@/lib/challenge-icon.mjs";
+import { drawBossIcon, challengeTiles, challengeBounds, drawChallengeFootprint } from "@/lib/challenge-icon.mjs";
 import { useBossSprites } from "../use-boss-sprites";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -56,7 +56,7 @@ type Placement = {
   location: { x: number; y: number };
 };
 type MapItem = { kind: "entity" | "transport" | "challenge" | "spawn"; id: string; destination?: string; readOnly?: boolean };
-type ItemDrag = MapItem & { pointerId: number; startX: number; startY: number; active: boolean; target: { x: number; y: number } };
+type ItemDrag = MapItem & { pointerId: number; startX: number; startY: number; offsetX: number; offsetY: number; active: boolean; target: { x: number; y: number } };
 export default function MapSettings({
   world,
   mapId,
@@ -367,14 +367,15 @@ export default function MapSettings({
           : "#ff8585";
         ctx.font = "bold 20px Arial";
         ctx.textAlign = "center";
-        const size = challengeSize(c);
+        const location = dragPreview?.kind === "challenge" && dragPreview.id === c.id ? dragPreview : c.location;
+        const bounds = challengeBounds(c, 24, location);
         if (c.icon === "boss") {
-          drawBossIcon(ctx, c.location.x * 24, c.location.y * 24, size * 24, c.bossStyle, bossSprites[c.bossStyle || "classic"]);
-        } else ctx.fillText("✦", c.location.x * 24 + 12, c.location.y * 24 + 19);
+          drawBossIcon(ctx, bounds.left, bounds.top, bounds.width, c.bossStyle, bossSprites[c.bossStyle || "classic"]);
+        } else ctx.fillText("✦", bounds.left + 12, bounds.top + 19);
         if (c.id === selectedChallenge) {
           ctx.strokeStyle = "#ffe393";
           ctx.lineWidth = 3;
-          ctx.strokeRect(c.location.x * 24 + 1, c.location.y * 24 + 1, size * 24 - 2, size * 24 - 2);
+          ctx.strokeRect(bounds.left + 1, bounds.top + 1, bounds.width - 2, bounds.height - 2);
         }
       }
       for (const p of [
@@ -399,11 +400,13 @@ export default function MapSettings({
       if (dragPreview) {
         ctx.strokeStyle = dragPreview.kind === "entity" ? "#ffe293" : "#c4adff";
         ctx.lineWidth = 3; ctx.setLineDash([4, 3]);
-        ctx.strokeRect(dragPreview.x * 24 + 1, dragPreview.y * 24 + 1, 22, 22);
+        const challenge = dragPreview.kind === "challenge" ? placements.find(c => c.id === dragPreview.id) : undefined;
+        ctx.fillStyle = "transparent";
+        drawChallengeFootprint(ctx, challenge, 24, dragPreview);
         ctx.setLineDash([]);
-        if (dragPreview.kind !== "entity") {
+        if (dragPreview.kind !== "entity" && dragPreview.kind !== "challenge") {
           ctx.fillStyle = ctx.strokeStyle; ctx.font = "bold 20px Arial"; ctx.textAlign = "center";
-          ctx.fillText(dragPreview.kind === "transport" ? "⇄" : dragPreview.kind === "challenge" ? "✦" : "◆", dragPreview.x * 24 + 12, dragPreview.y * 24 + 19);
+          ctx.fillText(dragPreview.kind === "transport" ? "⇄" : "◆", dragPreview.x * 24 + 12, dragPreview.y * 24 + 19);
         }
       }
     };
@@ -1042,7 +1045,9 @@ export default function MapSettings({
             e.currentTarget.setPointerCapture(e.pointerId);
             const item = itemAt(e);
             if (item) {
-              itemDrag.current = { ...item, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, active: false, target: pointerTile(e) };
+              const tile = pointerTile(e), challenge = item.kind === "challenge" ? placements.find(c => c.id === item.id) : undefined;
+              const offsetX = challenge ? tile.x - challenge.location.x : 0, offsetY = challenge ? tile.y - challenge.location.y : 0;
+              itemDrag.current = { ...item, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, offsetX, offsetY, active: false, target: { x: tile.x - offsetX, y: tile.y - offsetY } };
               // Opening the selected item's controls can shift the canvas on mobile.
               // Keep the layout steady until the pointer is released.
               setError("");
@@ -1054,7 +1059,8 @@ export default function MapSettings({
             if (drag?.pointerId === e.pointerId) {
               if (drag.readOnly) return;
               if (!drag.active && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 4) return;
-              drag.active = true; drag.target = pointerTile(e);
+              const tile = pointerTile(e);
+              drag.active = true; drag.target = { x: tile.x - drag.offsetX, y: tile.y - drag.offsetY };
               setDragPreview({ kind: drag.kind, id: drag.id, destination: drag.destination, ...drag.target });
               return;
             }
@@ -1064,7 +1070,7 @@ export default function MapSettings({
           }}
           onPointerUp={(e) => {
             const drag = itemDrag.current;
-            const target = pointerTile(e), pressed = mapPress.current === e.pointerId;
+            const tile = pointerTile(e), target = drag?.active ? { x: tile.x - drag.offsetX, y: tile.y - drag.offsetY } : tile, pressed = mapPress.current === e.pointerId;
             cancelGesture();
             if (drag?.pointerId === e.pointerId) {
               selectMapItem(drag, target);
