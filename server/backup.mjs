@@ -24,6 +24,7 @@ const account = z
     hash: z.string().regex(/^[a-f0-9]{64}$/),
     salt: z.string().min(1).max(128),
     hero: z.string(),
+    heroSelected: z.number().int().min(0).max(1).default(1),
     spawn: spawnSchema.nullable().default(null),
     role: z.enum(["student", "admin"]),
     muted: z.number().int().min(0).max(1).default(0),
@@ -371,6 +372,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       hash: credentials.hash,
       salt: credentials.salt,
       hero: effective.hero,
+      heroSelected: row.hero_selected ?? 1,
       spawn: effective.spawn,
       role: effective.role,
       disabled: row.disabled || 0,
@@ -495,7 +497,6 @@ export async function exportFullBackup(state, assets = {}) {
   }
 
   entries["backup.json"] = strToU8(JSON.stringify(snapshot, null, 2));
-  entries["content/game.yaml"] = strToU8(stringify(snapshot.config));
   entries["content/challenges.yaml"] = strToU8(
     stringify({ challenges: snapshot.challenges }),
   );
@@ -507,7 +508,7 @@ export async function exportFullBackup(state, assets = {}) {
     JSON.stringify({ d1: "DB", r2: "QUEST_FILES" }, null, 2),
   );
   entries["RESTORE.md"] = strToU8(
-    `CTF-RPG complete backup\n\n1. Extract this ZIP into a new directory.\n2. Install Node.js 24 and run npm ci.\n3. Run npm run restore -- backup.json.\n4. Run npm run start:selfhost and open http://localhost:3000.\n\nThe ready-built frontend is included. You can also modify the included source and run npm run build:selfhost.\nAccounts retain their passwords through salted hashes. Active sessions are excluded.\nIf the original site used only platform-owner administration, promote a restored player with npm run restore -- backup.json --admin USERNAME on the initial restore, or add a new role: admin account to content/game.yaml before starting.\nLocal assets are included; external file URLs continue to depend on their external hosts.\nKeep this ZIP private: it contains password hashes, flags, and student progress.\nSee BACKUPS.md and ADMIN_GUIDE.md for details.\n`,
+    `CTF-RPG complete backup\n\n1. Extract this ZIP into a new directory.\n2. Install Node.js 24 and run npm ci.\n3. Run npm run restore -- backup.json.\n4. Run npm run start:selfhost and open http://localhost:3000.\n\nThe ready-built frontend is included. You can also modify the included source and run npm run build:selfhost.\nAccounts retain their passwords through salted hashes. Active sessions are excluded.\nRestore creates a root .env containing the protected administrator username. Sign in with the restored account password. To choose another restored account as the protected admin, use --admin USERNAME during restore. ADMIN_PASSWORD is needed only when creating a new protected administrator.\nLocal assets are included; external file URLs continue to depend on their external hosts.\nKeep this ZIP private: it contains password hashes, flags, and student progress.\nSee BACKUPS.md and ADMIN_GUIDE.md for details.\n`,
   );
   const size = Object.values(entries).reduce((s, b) => s + b.length, 0);
   if (size > FULL_BACKUP_LIMIT)

@@ -1,3 +1,4 @@
+import { defaultGameConfig } from "../lib/runtime-config.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -70,7 +71,7 @@ test("course preset downloads are admin-only and contain no challenges, accounts
   const sqlite = new DatabaseSync(":memory:");
   initializeSchema(sqlite);
   const db = createSQLiteAdapter(sqlite),
-    config = parseGame(readFileSync("content/game.yaml", "utf8")),
+    config = defaultGameConfig(),
     challenges = parseChallenges(
       readFileSync("content/challenges.yaml", "utf8"),
     ),

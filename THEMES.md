@@ -96,7 +96,7 @@ buildings:
     color: '#654321'
 ```
 
-The existing North Pole is now defined in `lib/default-world.json`, with map PNGs in `public/maps` and hero PNGs in `public/sprites`. These are baseline theme assets. `content/game.yaml` supplies baseline character/music settings. Admin imports persist the active theme in the database and override those baselines without rebuilding. Shared interface controls and the fallback character renderer remain application code, while the theme owns world artwork, layout, and characters.
+The existing North Pole is now defined in `lib/default-world.json`, with map PNGs in `public/maps` and hero PNGs in `public/sprites`. These are baseline theme assets. The built-in North Pole theme supplies default characters and music. Admin imports persist the active theme in the database and override those baselines without rebuilding. Shared interface controls and the fallback character renderer remain application code, while the theme owns world artwork, layout, and characters.
 
 ## Edit a content ZIP
 
@@ -218,15 +218,7 @@ The destination and return positions follow map spawn settings automatically. **
 
 In **Manage → Users**, select an account, choose its starting map, then click a reachable tile to set its spawn position. Use **Theme default** to clear the assignment. These positions apply on sign-in and reload; students do not choose them. Assignments are included in full account backups. If a new theme removes a map or blocks an assigned tile, the explorer starts at the new theme’s default spawn until an admin updates the assignment.
 
-Accounts in `content/game.yaml` can also set:
-
-```yaml
-spawn:
-  map: castle
-  location: { x: 20, y: 23 }
-```
-
-Map IDs match the active theme; tile coordinates are zero-based on the 40 × 28 grid. Omit `spawn` or use `spawn: null` for the theme’s default. Admin edits take precedence over YAML for managed accounts.
+Map IDs match the active theme; tile coordinates are zero-based on the 40 × 28 grid. Starting positions are managed in the UI and saved in the database.
 
 ## Included demo adventures
 

@@ -68,14 +68,14 @@ test("HTTPS bootstrap never overwrites a partial or empty certificate pair", () 
 test("HTTPS Compose works alone and with the base file while inheriting the app build and persistent volume", t => {
   const available=spawnSync("docker",["compose","version","--short"],{encoding:"utf8"});
   if (available.status!==0) { t.skip("Docker Compose CLI is unavailable"); return; }
-  const env={...process.env,APP_BIND:"127.0.0.1",APP_PORT:"39000",HTTP_PORT:"39080",HTTPS_PORT:"39443",PUBLIC_ORIGIN:"https://ctf.example.test:39443",GAME_CONFIG:"/app/content/test-config.yaml",SECURE_COOKIES:"false"};
+  const env={...process.env,APP_BIND:"127.0.0.1",APP_PORT:"39000",HTTP_PORT:"39080",HTTPS_PORT:"39443",PUBLIC_ORIGIN:"https://ctf.example.test:39443",ADMIN_USERNAME:"test-admin",ADMIN_PASSWORD:"test-admin-password",SECURE_COOKIES:"false"};
   const models=[];
   for(const files of [["compose.https.yaml"],["compose.yaml","compose.https.yaml"]]) {
     const r=spawnSync("docker",["compose","--env-file","/dev/null","--project-name","ctf-rpg-compose-test",...files.flatMap(file=>["-f",file]),"config","--format","json"],{env,encoding:"utf8"});
     assert.equal(r.status,0,r.stderr);const model=JSON.parse(r.stdout);models.push(model);
     const app=model.services['ctf-rpg'],proxy=model.services.nginx;
     assert.equal(app.image,'ctf-rpg:local');assert.equal(app.build.context,resolve('.'));
-    assert.equal(app.environment.GAME_CONFIG,env.GAME_CONFIG);
+    assert.equal(app.environment.ADMIN_USERNAME,env.ADMIN_USERNAME);assert.equal(app.environment.ADMIN_PASSWORD,env.ADMIN_PASSWORD);assert.equal(app.environment.GAME_CONFIG,undefined);
     assert.equal(app.environment.PUBLIC_ORIGIN,env.PUBLIC_ORIGIN);assert.equal(app.environment.SECURE_COOKIES,'true');
     assert.equal(app.ports[0].host_ip,'127.0.0.1');assert.equal(String(app.ports[0].published),'39000');
     assert.equal(app.volumes.find(v=>v.target==='/app/data').source,'quest-data');

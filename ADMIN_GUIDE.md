@@ -4,32 +4,18 @@ Open `/admin` (or **Manage challenges** in the game's header when authorized). T
 
 ## Admin access
 
-### Your own server
+Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in the project root `.env` before the first local launch. Copy `.env.sample` as a starting point:
 
-Specify `admin.protectedUsername` and add its matching YAML-managed account with `role: admin` in `content/game.yaml` or your private `GAME_CONFIG` file, then restart the server:
-
-```yaml
-admin:
-  protectedUsername: teacher01
-accounts:
-  allowRegistration: false
-  users:
-    - username: teacher01
-      password: replace-with-a-unique-password
-      role: admin
-      hero: shield
-    - username: student01
-      password: use-a-different-password
-      role: student
+```dotenv
+ADMIN_USERNAME=ctf-admin
+ADMIN_PASSWORD='choose-a-unique-password'
 ```
 
-Keep your existing character, audio, and other configuration. Student is the default role. Admin accounts are explicitly designated in server-side YAML or created/promoted through authenticated user management; registering a student account cannot grant admin privileges. Admin sign-in uses the same salted password hashes and server sessions as the game. For unmanaged YAML accounts, removing `role: admin` revokes management access on subsequent API requests. Studio-managed roles take precedence; use the Users screen to change them.
+The named account is created with the admin role and cannot be deleted, disabled or demoted. If it already exists, startup preserves its password and character and restores its admin access. `ADMIN_PASSWORD` is used only to create a missing account; change an existing password in **Users → select account → Reset password → Save user**.
 
-The standalone server never uses incoming platform identity headers to grant admin access. Keep the account YAML private, as described in [SELF_HOSTING.md](SELF_HOSTING.md).
+Create additional accounts and assign their admin/student role in **Users**. Users choose among all player appearances at first sign-in; later logins keep their saved character. Admin accounts use the reserved admin appearance. Management access follows the authenticated account's admin role, in both hosting modes. Platform owner emails and incoming identity headers do not grant administrator privileges. Hosted Sites uses server-side `ADMIN_USERNAME` / `ADMIN_PASSWORD` runtime values; local Node and Compose read `.env`.
 
-### Hosted Sites version
-
-Your private site's owner email is configured in `admin.platformEmails`. The hosted server checks the trusted Sites-authenticated email against this allowlist, so the owner can open the studio without creating another password. Other authorized visitors still need a YAML-admin account or an explicitly allowed platform email. The list is server-only; it is not included in `/api/config`. This platform allowlist has no effect on your standalone Node server.
+`content/game.yaml` has been removed. Registration, accounts, spawn points, team size, player visibility, messaging, appearances and audio are managed through the UI and persisted in the database/theme.
 
 ## Create and edit discoveries
 
@@ -67,7 +53,7 @@ The discovery editor uses **Challenge**, **Rewards**, **Cutscenes**, and **Hints
 
 Students create a team with a name and password, or join an existing team after signing in. Team passwords have 8–128 characters and are stored as salted hashes. Team names are unique ignoring case. Membership persists across logins; students cannot leave or switch teams. Only admins may disband a team, which releases its members to choose again without changing individual scores.
 
-Admins use **Manage** in the game header. **Teams → Team size** (`/admin/teams/configuration`) sets the team limit. **Players & messages** (`/admin/teams/players`) controls player visibility and team messaging; **Scoreboard** (`/admin/teams/scoreboard`) controls ranking access and defaults. **Teams → Manage teams** (`/admin/teams`) shows searchable team rows with names, status, members, scores and point gifts. Check individual rows or **Select all shown teams**, then use **Mute chat**, **Unmute chat**, **Disable**, **Enable**, or **Delete**. Selection remains available while filtering; **Clear selection** removes all selected teams. Click a team row to view its card and messages; **Gift points** and expandable gift history remain available on each row. Set the maximum team size from 1–100 (default 4, initially configured by `teams.maxMembers` in `content/game.yaml`). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. All management pages enforce admin authorization.
+Admins use **Manage** in the game header. **Teams → Team size** (`/admin/teams/configuration`) sets the team limit. **Players & messages** (`/admin/teams/players`) controls player visibility and team messaging; **Scoreboard** (`/admin/teams/scoreboard`) controls ranking access and defaults. **Teams → Manage teams** (`/admin/teams`) shows searchable team rows with names, status, members, scores and point gifts. Check individual rows or **Select all shown teams**, then use **Mute chat**, **Unmute chat**, **Disable**, **Enable**, or **Delete**. Selection remains available while filtering; **Clear selection** removes all selected teams. Click a team row to view its card and messages; **Gift points** and expandable gift history remain available on each row. Set the maximum team size from 1–100 (default 4). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. All management pages enforce admin authorization.
 
 Team mute prevents all current and future members from sending team or instructor messages; they can still receive and read messages. Unmuting a team keeps any individual account mutes. Disable pauses student access and sign-in, prevents new joins, and hides the team from player lists and rankings without changing individual account flags, memberships or earned progress. **Enable** restores participation. Administrators retain access to management. **Delete** requires confirmation, disbands selected teams, removes team-owned chat and point gifts, and releases members to choose a team again. Accounts, individual points and challenge progress remain saved. A stale selected team rejects the entire bulk action; refresh before retrying. Full backups retain team mute/disable status and revisions.
 
@@ -91,11 +77,11 @@ The built-in **Agentic Circuit** theme is available under **Theme → Theme libr
 
 ## Starting positions and live players
 
-Use **Manage → Users**, select an explorer, choose **Starting map**, and click reachable ground in the map preview. **Use this map’s spawn** chooses its normal arrival tile; **Theme default** clears the account-specific assignment. Save the account. This starting position applies at sign-in and reload; students cannot choose or override it. Gray tiles are unavailable. New or incompatible theme layouts safely use the main map’s default spawn until you update the assignment. YAML accounts can set `spawn: { map: castle, location: { x: 20, y: 23 } }`; studio edits take priority.
+Use **Manage → Users**, select an explorer, choose **Starting map**, and click reachable ground in the map preview. **Use this map’s spawn** chooses its normal arrival tile; **Theme default** clears the account-specific assignment. Save the account. This starting position applies at sign-in and reload; students cannot choose or override it. Gray tiles are unavailable. New or incompatible theme layouts safely use the main map’s default spawn until you update the assignment.
 
 **Manage → Teams → Players & messages → Players visible on the map** offers **Teammates only** (default), **All players**, or **Off**. With visibility enabled, students also see instructors on their map; administrators see active students so they can moderate them. Live explorers appear with their assigned sprites and usernames on the same map; teammate labels use green. Players do not block one another or reveal challenge answers. Visibility is enforced by the server. Each visible game tab exchanges positions every three seconds. Hidden tabs pause, stationary positions refresh less often, and disconnected players disappear within 20 seconds. The response is capped at 100 other players per map. This is a shared exploration view, not synchronized combat.
 
-Standalone YAML can set `presence: { visibility: team }` (`team`, `all`, or `off`). Once an admin saves visibility, the database setting takes priority. Full backups retain assigned starts and visibility; theme/content packs exclude these account/classroom settings, and temporary live positions are never exported.
+Visibility (`team`, `all`, or `off`) is managed through the UI and stored in the database. Full backups retain assigned starts and visibility; theme/content packs exclude these account/classroom settings, and temporary live positions are never exported.
 
 ## Team cards and messages
 
@@ -122,7 +108,7 @@ teams:
       messaging: false
 ```
 
-Saved admin settings take priority over YAML. Older saved settings and YAML without `everyone` initially apply their existing switches to both scopes; saving the new controls makes the scopes independent. Full backups include these switches and private messages; theme/content packs exclude them. Disbanding a team removes conversations involving it and preserves account progress.
+Team and everyone visibility/message switches are managed independently in the UI and saved to the database. Full backups include these switches and private messages; theme/content packs exclude them. Disbanding a team removes conversations involving it and preserves account progress.
 
 ## Teammate halos and leading-team crowns
 

@@ -13,7 +13,8 @@ import {
 } from "node:fs";
 import { resolve, dirname, extname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseGame, parseChallenges, requireStartupAdmin } from "../lib/config-schema.mjs";
+import { parseChallenges } from "../lib/config-schema.mjs";
+import { runtimeConfig } from "../lib/runtime-config.mjs";
 import { ensureStartupAdmin } from "./protected-admin.mjs";
 import { createSQLiteAdapter, initializeSchema } from "./sqlite.mjs";
 import { exportFullBackup } from "./backup.mjs";
@@ -21,22 +22,15 @@ import { readdirSync, lstatSync } from "node:fs";
 import { createApi } from "./api.mjs";
 import { byteRange } from "./byte-range.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const config = parseGame(
-  readFileSync(
-    resolve(process.env.GAME_CONFIG || resolve(root, "content/game.yaml")),
-    "utf8",
-  ),
-);
+// The root .env is loaded for native Node; Compose passes the same values as env.
+if (existsSync(resolve(root, ".env"))) process.loadEnvFile(resolve(root, ".env"));
+const config = runtimeConfig(process.env);
 const challenges = parseChallenges(
-  readFileSync(
-    resolve(
-      process.env.CHALLENGES_CONFIG || resolve(root, "content/challenges.yaml"),
-    ),
-    "utf8",
-  ),
+  existsSync(resolve(process.env.CHALLENGES_CONFIG || resolve(root, "content/challenges.yaml")))
+    ? readFileSync(resolve(process.env.CHALLENGES_CONFIG || resolve(root, "content/challenges.yaml")), "utf8")
+    : "challenges: []",
   null,
 );
-requireStartupAdmin(config);
 const output = resolve(root, "selfhost/dist");
 if (!existsSync(resolve(output, "index.html")))
   throw Error("Run npm run build:selfhost first.");
@@ -47,7 +41,7 @@ mkdirSync(dirname(databasePath), { recursive: true });
 const sqlite = new DatabaseSync(databasePath);
 initializeSchema(sqlite);
 const db = createSQLiteAdapter(sqlite);
-await ensureStartupAdmin(db, config);
+await ensureStartupAdmin(db, config, process.env.ADMIN_PASSWORD);
 const secure = process.env.SECURE_COOKIES === "true";
 function publicAssets() {
   const files = {};

@@ -13,6 +13,7 @@ export const students = sqliteTable("students", {
   hash: text("hash").notNull(),
   salt: text("salt").notNull(),
   hero: text("hero").notNull(),
+  heroSelected: integer("hero_selected").notNull().default(1),
   spawn: text("spawn"),
   role: text("role").notNull().default("student"),
   muted: integer("muted").notNull().default(0),

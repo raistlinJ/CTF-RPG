@@ -155,7 +155,7 @@ export async function handleIntegrationApi(req, { db, config, accountList }) {
   const hash = await passwordHash(body.password, salt);
   try {
     await db.batch([
-      db.prepare("INSERT INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision) VALUES(?,?,?,?,?,'student',0,1,1,1)")
+      db.prepare("INSERT INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision,hero_selected) VALUES(?,?,?,?,?,'student',0,1,1,1,0)")
         .bind(id, name, hash, salt, hero),
       db.prepare("DELETE FROM deleted_accounts WHERE username=?").bind(name),
     ]);

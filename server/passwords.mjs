@@ -39,7 +39,7 @@ export function effectiveAccount(row, cfg, config) {
     hero: row?.managed
       ? row.hero
       : cfg?.hero || row?.hero || config.characters[0].id,
-    role: row?.managed ? row.role : cfg?.role || "student",
+    role: row?.managed ? row.role : cfg?.role || row?.role || "student",
     spawn: row?.managed
       ? row.spawn
         ? JSON.parse(row.spawn)

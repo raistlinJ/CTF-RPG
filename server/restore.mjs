@@ -1,4 +1,4 @@
-import { readFileSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync, existsSync, chmodSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
@@ -84,7 +84,7 @@ try {
     ])
       sqlite.prepare(`DELETE FROM ${table}`).run();
     const insert = sqlite.prepare(
-      "INSERT INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision,spawn,muted) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO students(id,username,hash,salt,hero,role,disabled,managed,provisioned,revision,spawn,muted,hero_selected) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
     );
     for (const a of snapshot.accounts)
       insert.run(
@@ -95,11 +95,12 @@ try {
         a.hero,
         a.role,
         a.disabled,
-        a.managed,
-        a.provisioned,
+        1,
+        1,
         a.revision,
         a.spawn ? JSON.stringify(a.spawn) : null,
         a.muted,
+        a.heroSelected,
       );
     for (const a of snapshot.deletedAccounts) sqlite.prepare("INSERT INTO deleted_accounts(username,deleted_at) VALUES(?,?)").run(a.username,a.deleted_at);
     for (const t of snapshot.teams)
@@ -246,7 +247,17 @@ try {
     throw e;
   }
   mkdirSync(resolve(root, "content"), { recursive: true });
-  writeFileSync(resolve(root, "content/game.yaml"), stringify(snapshot.config));
+  // Credentials remain in the restored database. Only the protected name belongs
+  // in deployment configuration; never export an original .env or plaintext pass.
+  const envPath = resolve(root, ".env");
+  const sourceEnv = existsSync(envPath) ? readFileSync(envPath, "utf8")
+    : existsSync(resolve(root, ".env.sample")) ? readFileSync(resolve(root, ".env.sample"), "utf8") : "ADMIN_USERNAME=\nADMIN_PASSWORD=\n";
+  const name = snapshot.config.admin.protectedUsername || "";
+  const restoredEnv = /^ADMIN_USERNAME=.*$/m.test(sourceEnv)
+    ? sourceEnv.replace(/^ADMIN_USERNAME=.*$/m, `ADMIN_USERNAME=${name}`)
+    : sourceEnv + `\nADMIN_USERNAME=${name}\n`;
+  writeFileSync(envPath, restoredEnv, { mode: 0o600 });
+  chmodSync(envPath, 0o600);
   writeFileSync(
     resolve(root, "content/challenges.yaml"),
     stringify({ challenges: snapshot.challenges }),
@@ -256,7 +267,7 @@ try {
   );
   if (!snapshot.config.admin.protectedUsername)
     console.log(
-      "Local startup requires admin.protectedUsername and its matching role: admin account in content/game.yaml. Configure them before launching, or restore with --admin USERNAME.",
+      "Set ADMIN_USERNAME in the root .env to an admin in this backup, or restore with --admin USERNAME. Existing passwords are restored from the database; ADMIN_PASSWORD is needed only to create a new administrator.",
     );
 } finally {
   sqlite.close();

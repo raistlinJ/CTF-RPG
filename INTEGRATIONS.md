@@ -28,7 +28,7 @@ curl -H "Authorization: Bearer $CTF_RPG_TOKEN" \
   https://game.example.com/api/integrations/v1/scoreboard
 ```
 
-The scoreboard response has `users` and `teams` arrays. Each entry includes an ID, name, score, and competition rank; user entries also include character, team, and completion count. The users endpoint includes pending YAML accounts with a null ID. Student score rows exclude disabled accounts and accounts barred by the current registration setting. Team totals include team point gifts.
+The scoreboard response has `users` and `teams` arrays. Each entry includes an ID, name, score, and competition rank; user entries also include character, team, and completion count. Newly provisioned users can choose their character on first sign-in; subsequent logins retain that choice. Student score rows exclude disabled accounts and accounts barred by the current registration setting. Team totals include team point gifts.
 
 Full backups include token hashes, so existing tokens continue to work after a restore. Raw token values are never stored or exported. Revoke a token in the UI when an integration no longer needs access.
 

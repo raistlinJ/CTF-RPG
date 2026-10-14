@@ -497,6 +497,7 @@ export default function UsersPage() {
                     </SelectContent>
                   </Select>
                 </label>
+                {!editing && <p>Users can choose any player appearance on their first sign-in. This character is the default; admins use their reserved appearance in the game.</p>}
                 <fieldset className="account-spawn">
                   <legend>Starting position</legend>
                   <label>

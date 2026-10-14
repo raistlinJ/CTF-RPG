@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NO
     ["managed", "INTEGER", "0"],
     ["provisioned", "INTEGER", "0"],
     ["revision", "INTEGER", "0"],
+    ["hero_selected", "INTEGER", "1"],
   ])
     if (!columns.includes(name))
       sqlite.exec(

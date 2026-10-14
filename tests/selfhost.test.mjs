@@ -1,273 +1,61 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { resolve } from "node:path";
-import { createServer } from "node:net";
-import { parseGame, publicConfig, requireStartupAdmin } from "../lib/config-schema.mjs";
-const config = `admin:
-  protectedUsername: teacher01
-characters:
-  - id: custom-hero
-    name: Custom Hero
-    sprite: /sprites/custom.png
-    fallback: shield
-  - id: snow-knight
-    name: Snow Knight
-    fallback: thunder
-accounts:
-  allowRegistration: false
-  users:
-    - username: teacher01
-      password: teacher-password
-      role: admin
-    - username: student01
-      password: configured-password
-    - username: assigned01
-      password: assigned-password
-      hero: snow-knight
-audio:
-  midi: /audio/north-pole.mid
-  loop: true
-  volume: 0.2
-`;
-async function port() {
-  const s = createServer();
-  await new Promise((r) => s.listen(0, "127.0.0.1", r));
-  const p = s.address().port;
-  await new Promise((r) => s.close(r));
-  return p;
-}
-async function start(dir, p) {
-  const process = spawn("node", ["server/selfhost.mjs"], {
-    env: {
-      ...globalThis.process.env,
-      HOST: "127.0.0.1",
-      PORT: String(p),
-      GAME_CONFIG: resolve(dir, "game.yaml"),
-      DATABASE_PATH: resolve(dir, "quest.sqlite"),
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let logs = "";
-  process.stderr.on("data", (d) => (logs += d));
-  await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      process.kill();
-      reject(Error("Server startup timeout " + logs));
-    }, 10000);
-    process.stdout.on("data", (d) => {
-      if (d.toString().includes("listening")) {
-        clearTimeout(timeout);
-        resolve();
-      }
-    });
-    process.on("exit", (code) => {
-      clearTimeout(timeout);
-      reject(Error("Server exited " + code + " " + logs));
-    });
-  });
-  return process;
-}
-async function stop(proc) {
-  await new Promise((resolve) => {
-    proc.once("exit", resolve);
-    proc.kill("SIGTERM");
-  });
-}
-test("schema protects credentials and validates roster", () => {
-  const parsed = parseGame(config);
-  const safe = publicConfig(parsed);
-  assert.equal(safe.characters[0].name, "Custom Hero");
-  assert.equal(safe.characters[0].sprite, "/sprites/custom.png");
-  assert.equal(safe.audio.midi, "/audio/north-pole.mid");
-  assert.ok(!JSON.stringify(safe).includes("configured-password"));
-  assert.ok(!("accounts" in safe));
-  assert.throws(() =>
-    parseGame(config.replace("hero: snow-knight", "hero: missing")),
-  );
-  assert.throws(() =>
-    parseGame(config.replace("/sprites/custom.png", "/../secret.png")),
-  );
+// CTF-RPG — Copyright (c) 2026 Jaime C Acosta
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdtempSync,writeFileSync,rmSync,mkdirSync,cpSync,symlinkSync,readFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {resolve} from 'node:path';
+import {createServer} from 'node:net';
+import {DatabaseSync} from 'node:sqlite';
+import {runtimeConfig,defaultGameConfig} from '../lib/runtime-config.mjs';
+import {publicConfig} from '../lib/config-schema.mjs';
+import {initializeSchema,createSQLiteAdapter} from '../server/sqlite.mjs';
+import {ensureStartupAdmin} from '../server/protected-admin.mjs';
+async function port(){const s=createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const p=s.address().port;await new Promise(r=>s.close(r));return p;}
+function fixture(){const dir=mkdtempSync(resolve(tmpdir(),'ctf-rpg-env-'));cpSync('server',resolve(dir,'server'),{recursive:true});for(const p of ['lib','themes','public','selfhost','node_modules'])symlinkSync(resolve(p),resolve(dir,p),'dir');mkdirSync(resolve(dir,'content'));writeFileSync(resolve(dir,'content/challenges.yaml'),readFileSync('content/challenges.yaml'));writeFileSync(resolve(dir,'.env'),"ADMIN_USERNAME=teacher01\nADMIN_PASSWORD='initial-pass#with$dollar'\n");return dir;}
+async function start(dir,p){const env={...process.env,HOST:'127.0.0.1',PORT:String(p),DATABASE_PATH:resolve(dir,'quest.sqlite')};delete env.ADMIN_USERNAME;delete env.ADMIN_PASSWORD;const child=spawn(process.execPath,['server/selfhost.mjs'],{cwd:dir,env,stdio:['ignore','pipe','pipe']});let logs='';child.stderr.on('data',d=>logs+=d);await new Promise((done,fail)=>{const timer=setTimeout(()=>{child.kill();fail(Error('Startup timeout '+logs));},10000);child.stdout.on('data',d=>{if(d.toString().includes('listening')){clearTimeout(timer);done();}});child.on('exit',code=>{clearTimeout(timer);fail(Error('Server exited '+code+' '+logs));});});return child;}
+async function stop(child){if(child.exitCode!==null)return;await new Promise(r=>{child.once('exit',r);child.kill();});}
+test('runtime configuration uses a validated protected name and theme defaults, never platform email privileges',()=>{
+ assert.throws(()=>runtimeConfig({}),/ADMIN_USERNAME/);assert.throws(()=>runtimeConfig({ADMIN_USERNAME:'bad name'}),/ADMIN_USERNAME/);
+ const c=runtimeConfig({ADMIN_USERNAME:'Teacher01',ADMIN_PASSWORD:'private-bootstrap',GAME_CONFIG:'/missing.yaml'});
+ assert.equal(c.admin.protectedUsername,'teacher01');assert.equal(c.admin.platformEmails,undefined);assert.equal(c.accounts.users.length,0);
+ assert.equal(c.characters.length,defaultGameConfig().characters.length);assert.ok(!JSON.stringify(publicConfig(c)).includes('private-bootstrap'));
 });
-test('local startup requires an explicitly configured protected administrator',()=>{
-  assert.equal(requireStartupAdmin(parseGame(config)),'teacher01');
-  assert.throws(()=>requireStartupAdmin(parseGame(config.replace('admin:\n  protectedUsername: teacher01\n',''))),/Local startup requires/);
-  assert.throws(()=>parseGame(config.replace('protectedUsername: teacher01','protectedUsername: student01')),/role: admin/);
-  assert.throws(()=>parseGame(config.replace('protectedUsername: teacher01','protectedUsername: missing')),/role: admin/);
+test('a missing administrator requires a bootstrap password; existing administrators need no environment password',async()=>{
+ const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);const db=createSQLiteAdapter(sqlite),config=runtimeConfig({ADMIN_USERNAME:'instructor'});
+ try {
+  await assert.rejects(()=>ensureStartupAdmin(db,config),/ADMIN_PASSWORD/);
+  await assert.rejects(()=>ensureStartupAdmin(db,config,'short'),/ADMIN_PASSWORD/);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM students').get().n,0);
+  await ensureStartupAdmin(db,config,'initial-admin-password');const before=sqlite.prepare('SELECT * FROM students').get();
+  assert.equal(before.role,'admin');assert.equal(before.hero_selected,0);assert.ok(!JSON.stringify(before).includes('initial-admin-password'));
+  await ensureStartupAdmin(db,config);assert.deepEqual(sqlite.prepare('SELECT * FROM students').get(),before);
+ } finally {sqlite.close();}
 });
-test("standalone server: YAML accounts, sprite/music config, persistence and protected files", async () => {
-  const dir = mkdtempSync(resolve(tmpdir(), "north-pole-test-"));
-  writeFileSync(resolve(dir, "game.yaml"), config);
-  const p = await port(),
-    base = `http://127.0.0.1:${p}`;
-  let server = await start(dir, p),
-    cookie = "";
-  const call = async (
-    path,
-    body,
-    method = body ? "POST" : "GET",
-    origin = base,
-  ) => {
-    const r = await fetch(base + path, {
-      method,
-      headers: {
-        Origin: origin,
-        "Content-Type": "application/json",
-        Cookie: cookie,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const c = r.headers.get("set-cookie");
-    if (c) cookie = c.split(";")[0];
-    const text = await r.text();
-    return {
-      status: r.status,
-      headers: r.headers,
-      data: r.headers.get("content-type")?.includes("json")
-        ? JSON.parse(text)
-        : text,
-    };
-  };
-  try {
-    assert.equal((await call("/")).status, 200);
-    // Deep links and reloads must serve the app shell as well as navigation from /admin.
-    for (const route of ["/admin/data", "/admin/data/ctfd", "/admin/challenges/review", "/admin/theme", "/admin/theme/maps", "/admin/theme/maps?tab=entities", "/admin/theme/maps/dialogue", "/admin/theme/media", "/admin/theme/media?tab=audio", "/admin/theme/appearances", "/admin/theme/library", "/admin/teams/players", "/admin/teams/scoreboard"]) {
-      for (const suffix of ["", "/", "?map=castle"]) {
-        const page = await call(route + suffix);
-        assert.equal(page.status, 200, route + suffix);
-        assert.match(page.headers.get("content-type"), /text\/html/);
-        assert.match(page.data, /id="root"/);
-      }
-    }
-    let r = await call("/api/config");
-    assert.equal(r.data.characters[0].id, "custom-hero");
-    assert.ok(!JSON.stringify(r.data).includes("password"));
-    assert.ok(!JSON.stringify(r.data).includes("student01"));
-    for (const path of [
-      "/admin/theme/images",
-      "/content/game.yaml",
-      "/content/challenges.yaml",
-      "/data/quest.sqlite",
-      "/server/selfhost.mjs",
-      "/package.json",
-      "/%2e%2e/content/game.yaml",
-    ])
-      assert.equal((await call(path)).status, 404, path);
-    assert.equal(
-      (await call("/audio/north-pole.mid")).headers.get("content-type"),
-      "audio/midi",
-    );
-    assert.equal((await call("/api/game")).status, 401);
-    assert.equal(
-      (
-        await call("/api/auth", {
-          username: "student01",
-          password: "configured-password",
-          hero: "custom-hero",
-          mode: "register",
-        })
-      ).status,
-      403,
-    );
-    assert.equal(
-      (
-        await call(
-          "/api/auth",
-          {
-            username: "student01",
-            password: "configured-password",
-            hero: "custom-hero",
-            mode: "login",
-          },
-          "POST",
-          "https://evil.invalid",
-        )
-      ).status,
-      403,
-    );
-    assert.equal(
-      (
-        await call("/api/auth", {
-          username: "student01",
-          password: "wrong-password",
-          hero: "custom-hero",
-          mode: "login",
-        })
-      ).status,
-      401,
-    );
-    r = await call("/api/auth", {
-      username: "Student01",
-      password: "configured-password",
-      hero: "custom-hero",
-      mode: "login",
-    });
-    assert.equal(r.status, 200);
-    assert.equal(r.data.user.hero, "custom-hero");
-    assert.match(r.headers.get("set-cookie"), /HttpOnly/);
-    r = await call("/api/game");
-    assert.ok(r.data.challenges.every((c) => !("answers" in c)));
-    assert.equal(
-      (await call("/api/game", { id: "lantern", answer: "incorrect" })).data
-        .correct,
-      false,
-    );
-    await call("/api/game", { id: "lantern", answer: "24" });
-    await call("/api/game", { id: "lantern", answer: "24" });
-    assert.equal((await call("/api/game")).data.score, 100);
-    await stop(server);
-    server = await start(dir, p);
-    assert.equal((await call("/api/auth")).data.user.hero, "custom-hero");
-    assert.equal((await call("/api/game")).data.score, 100);
-    await call("/api/auth", undefined, "DELETE");
-    r = await call("/api/auth", {
-      username: "student01",
-      password: "configured-password",
-      hero: "snow-knight",
-      mode: "login",
-    });
-    assert.equal(r.data.user.hero, "custom-hero");
-    await call("/api/auth", undefined, "DELETE");
-    r = await call("/api/auth", {
-      username: "assigned01",
-      password: "assigned-password",
-      hero: "custom-hero",
-      mode: "login",
-    });
-    assert.equal(r.data.user.hero, "snow-knight");
-    await stop(server);
-    writeFileSync(
-      resolve(dir, "game.yaml"),
-      config.replace("configured-password", "changed-password"),
-    );
-    server = await start(dir, p);
-    cookie = "";
-    assert.equal(
-      (
-        await call("/api/auth", {
-          username: "student01",
-          password: "configured-password",
-          hero: "custom-hero",
-          mode: "login",
-        })
-      ).status,
-      401,
-    );
-    assert.equal(
-      (
-        await call("/api/auth", {
-          username: "student01",
-          password: "changed-password",
-          hero: "custom-hero",
-          mode: "login",
-        })
-      ).status,
-      200,
-    );
-  } finally {
-    await stop(server);
-    rmSync(dir, { recursive: true, force: true });
-  }
+test('standalone reads root .env without game.yaml; UI users select once, roles authorize, passwords and progress survive restart',async()=>{
+ const dir=fixture(),p=await port(),base=`http://127.0.0.1:${p}`;let child=await start(dir,p);
+ function client(){let cookie='';return async(path,body,method=body?'POST':'GET',origin=base)=>{const res=await fetch(base+path,{method,headers:{Origin:origin,Cookie:cookie,'Content-Type':'application/json','oai-authenticated-user-email':'owner@example.com'},body:body?JSON.stringify(body):undefined});if(res.headers.has('set-cookie'))cookie=res.headers.get('set-cookie').split(';')[0];return{status:res.status,headers:res.headers,data:res.headers.get('content-type')?.includes('json')?await res.json():await res.text()};};}
+ const admin=client(),student=client(),guest=client();
+ try{
+  assert.equal((await guest('/')).status,200);
+  for(const route of ['/admin','/admin/data','/admin/theme/media','/admin/theme/appearances','/admin/theme/maps','/admin/challenges/submissions','/admin/teams/players','/admin/users'])assert.equal((await guest(route)).status,200,route);
+  for(const path of ['/.env','/content/game.yaml','/content/challenges.yaml','/data/quest.sqlite','/server/selfhost.mjs','/package.json','/%2e%2e/.env'])assert.equal((await guest(path)).status,404,path);
+  const config=(await guest('/api/config')).data;assert.ok(config.characters.length>=3);assert.ok(config.characters.every(c=>c.appearanceFor!=='entity'));assert.ok(!JSON.stringify(config).includes('initial-pass'));
+  assert.equal((await guest('/api/auth')).data.admin,false);assert.equal((await guest('/api/admin/users')).status,401);
+  assert.equal((await admin('/api/auth',{mode:'login',username:'Teacher01',password:'initial-pass#with$dollar',hero:'shield'})).data.admin,true);
+  const initial=(await admin('/api/admin/users')).data;assert.equal(initial.users.find(u=>u.username==='teacher01').protected,true);
+  assert.equal((await guest('/api/auth',{mode:'register',username:'unauthorized',password:'student-password',hero:'web',role:'admin'})).status,403);
+  const created=await admin('/api/admin/users',{username:'student01',password:'student-password',role:'student',hero:'web',disabled:false,editing:false,revision:0});assert.equal(created.status,200);
+  assert.equal((await student('/api/auth',{mode:'login',username:'student01',password:'wrong-password',hero:'thunder'})).status,401);
+  assert.equal((await student('/api/auth',{mode:'login',username:'student01',password:'student-password',hero:'thunder'},'POST','https://evil.invalid')).status,403);
+  const login=await student('/api/auth',{mode:'login',username:'student01',password:'student-password',hero:'thunder',role:'admin'});assert.equal(login.status,200);assert.equal(login.data.user.hero,'thunder');assert.equal(login.data.admin,false);assert.match(login.headers.get('set-cookie'),/HttpOnly/);assert.equal((await student('/api/admin/users')).status,403);
+  assert.equal((await student('/api/game',{id:'lantern',answer:'24'})).status,200);assert.equal((await student('/api/game')).data.score,100);
+  const state=(await admin('/api/admin/users')).data,teacher=state.users.find(u=>u.username==='teacher01');assert.equal((await admin('/api/admin/users',{...teacher,password:'changed-admin-password',editing:true,themeRevision:state.themeRevision})).status,200);
+  await stop(child);writeFileSync(resolve(dir,'.env'),'ADMIN_USERNAME=teacher01\nADMIN_PASSWORD=another-bootstrap-password\n');child=await start(dir,p);
+  assert.equal((await student('/api/game')).data.score,100);
+  await student('/api/auth',undefined,'DELETE');assert.equal((await student('/api/auth',{mode:'login',username:'student01',password:'student-password',hero:'shield'})).data.user.hero,'thunder');
+  assert.equal((await guest('/api/auth',{mode:'login',username:'teacher01',password:'another-bootstrap-password',hero:'web'})).status,401);
+  assert.equal((await guest('/api/auth',{mode:'login',username:'teacher01',password:'changed-admin-password',hero:'web'})).data.admin,true);
+  const db=new DatabaseSync(resolve(dir,'quest.sqlite'));assert.equal(db.prepare("SELECT hero FROM students WHERE username='teacher01'").get().hero,'shield');db.close();
+ }finally{await stop(child);rmSync(dir,{recursive:true,force:true});}
 });

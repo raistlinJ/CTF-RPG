@@ -8,9 +8,9 @@ Open **Scores** from the game to view the scoreboard in a modal, or visit `/scor
 
 Open `/admin/users` or **Users** in the challenge studio. Authorized admins can:
 
-- Set **Account creation** to allow self-registration or restrict sign-in to admin-created and YAML-listed accounts. The saved choice overrides `accounts.allowRegistration` in YAML and is included in full backups.
+- Set **Account creation** to allow self-registration or restrict sign-in to admin-created accounts. The setting is stored in the database and included in full backups.
 
-- Create student or administrator accounts with an assigned character and password.
+- Create student or administrator accounts with a default character and password. Users choose their appearance on first sign-in.
 - Change an existing account's role, assigned character, and starting map/tile.
 - Reset a password; the previous password stops working and existing sessions are revoked.
 - Disable an account, blocking access and removing it from the scoreboard, or reactivate it with its progress intact.
@@ -19,9 +19,9 @@ Open `/admin/users` or **Users** in the challenge studio. Authorized admins can:
 - Remove selected users from their teams without disbanding the teams.
 - Permanently delete selected users and their progress after confirmation.
 
-Usernames stay fixed to preserve account identity and scores. Saving a YAML account in the studio makes its credentials, role, and hero database-managed; later YAML changes do not override that managed account. Studio-created or managed accounts can sign in even with open registration disabled. Student self-registration never grants admin privileges. All API actions check the current role and disabled state on the server. Admins using a local admin account cannot disable or demote themselves; trusted platform-owner access remains independent.
+Usernames stay fixed to preserve account identity and scores. Accounts and credentials are managed in the database. Admin-created accounts can sign in even with open registration disabled. Student self-registration never grants admin privileges. All API actions check the current role and disabled state on the server. The configured protected admin cannot be deleted, disabled or demoted. Other admins cannot disable or demote themselves. Management privileges follow the authenticated account role.
 
-The user list never exposes passwords or hashes. Leaving the password field empty on an edit preserves it. Changes use revisions to reject stale simultaneous edits. Disabling is reversible and keeps history; deleting is permanent and removes the user’s progress and memberships. Select multiple users with their checkboxes to Disable, Delete, Mute chat, or Remove from team. Delete requires confirmation. Your own administrator user cannot be disabled or deleted in bulk. Removed members can choose another team, while their individual progress remains saved. Deleted YAML users stay deleted after restart and backup restore; creating a new user with that username gives it fresh credentials and progress.
+The user list never exposes passwords or hashes. Leaving the password field empty on an edit preserves it. Changes use revisions to reject stale simultaneous edits. Disabling is reversible and keeps history; deleting is permanent and removes the user’s progress and memberships. Select multiple users with their checkboxes to Disable, Delete, Mute chat, or Remove from team. Delete requires confirmation. Bulk delete/disable preserves the configured protected administrator. Removed members can choose another team, while their individual progress remains saved. Deleted users stay deleted after restart and backup restore; creating a new user with that username gives it fresh credentials and progress.
 
 ## Full export
 
@@ -29,9 +29,9 @@ Use **Full backup** in either admin screen. `/api/admin/backup` is admin-only an
 
 - Application source, the ready-built standalone frontend, Node server, dependency lockfile, and hosting instructions.
 - All local public assets included in the hosted build; on your own server, current files in `public/` are also collected at export time. This covers sprites, MIDI audio, and local challenge downloads.
-- Effective `content/game.yaml` configuration and the current challenge set, including flags, hints, costs, file links, and challenge dependencies.
-- Deleted-user markers, which prevent deleted YAML accounts from returning after restore.
-- Every active account, including YAML accounts that have not signed in, roles, assigned heroes and starting positions, disabled state, salted password hashes, and account IDs.
+- Effective game settings (stored in `backup.json`) and the current challenge set, including flags, hints, costs, file links, and challenge dependencies.
+- Deleted-user markers and account revisions.
+- Every account, including accounts that have not signed in, roles, heroes and first-login selection status, starting positions, disabled state, salted password hashes, and account IDs.
 - Integration token hashes and names, so configured integrations continue to work after restore. Raw token values are never exported.
 - Awarded scores/completions, purchased hints with their recorded point and item costs, earned inventory, unlocked transports, cutscene playback history, entity activations, and team point gifts with comments.
 - `backup.json`, the restore program, and a short `RESTORE.md` guide.
@@ -52,13 +52,13 @@ npm run start:selfhost
 
 Open `http://localhost:3000`. The ready-built game is included, so a frontend build is not needed merely to run the restored application. You can edit the included source and run `npm run build:selfhost` later. The restore initializes a new SQLite database, restores account IDs and progress, writes the exported configuration, and activates the exported challenge catalogue. Every visitor must sign in again.
 
-If the source site's only admin was its platform owner, you can promote an existing exported player during the first restore:
+To designate a different restored account as the protected administrator, use:
 
 ```sh
 npm run restore -- backup.json --admin teacher01
 ```
 
-That player keeps their password and gains local admin access; restore also writes `admin.protectedUsername` and the matching account into the restored YAML. If no account exists yet, set `admin.protectedUsername` and add its matching account with `role: admin` and a unique password to the restored `content/game.yaml` before starting, following [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
+That player keeps their password and gains admin access. Restore writes the protected username to the recreated root `.env`; credentials remain in the database. If you need a new account instead, set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env` before launching, following [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
 
 The restore refuses to replace a populated database by default. When you explicitly intend to replace its accounts and progress, stop the game server, back up that database, then use:
 
@@ -66,17 +66,17 @@ The restore refuses to replace a populated database by default. When you explici
 npm run restore -- backup.json --replace
 ```
 
-Use `DATABASE_PATH` to select a different database path. Configuration is written to `content/game.yaml` and `content/challenges.yaml` in the recreated application. Restore on the host before mounting configuration read-only in Docker. Reconfigure the new server's hostname, port, HTTPS proxy, and secure cookies using [SELF_HOSTING.md](SELF_HOSTING.md); these deployment choices are not carried over from the original machine.
+Use `DATABASE_PATH` to select a different database path. Restore writes the protected admin name to the root `.env` and challenge definitions to `content/challenges.yaml`. Other settings, theme, accounts and passwords are restored to the database. The original deployment `.env` and its plaintext bootstrap password are never exported. Restore on the host before starting Docker. Reconfigure the new server's hostname, port, HTTPS proxy, and secure cookies using [SELF_HOSTING.md](SELF_HOSTING.md); these deployment choices are not carried over from the original machine.
 
 ## Existing installations
 
-Self-hosting adds account-management columns automatically on startup. Cloudflare previews need `drizzle/0003_chief_xorn.sql` applied once; hosted Sites applies it during publication. Existing accounts retain their passwords and scores. Initial YAML remains supported; database-managed accounts and the admin-saved challenge set take precedence after studio edits.
+Self-hosting adds account-management columns automatically on startup. Cloudflare previews need `drizzle/0003_chief_xorn.sql` applied once; hosted Sites applies it during publication. Existing accounts retain their passwords and scores. Accounts are managed in the database; there is no startup game YAML. The admin-saved challenge set takes precedence over the initial challenge YAML.
 
 ## Teams
 
 Students create a team with a name and password, or join an existing team after signing in. Team passwords have 8–128 characters and are stored as salted hashes. Team names are unique ignoring case. Membership persists across logins; students cannot leave or switch teams. Only admins may disband a team, which releases its members to choose again without changing individual scores.
 
-Admins use **Manage** in the game header. **Teams → Team size** (`/admin/teams/configuration`) sets the team limit. **Players & messages** (`/admin/teams/players`) controls player visibility and team messaging; **Scoreboard** (`/admin/teams/scoreboard`) controls ranking access and defaults. **Teams → Manage teams** (`/admin/teams`) shows teams, point gifts, and disband controls. Set the maximum team size from 1–100 (default 4, initially configured by `teams.maxMembers` in `content/game.yaml`). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. All management pages enforce admin authorization.
+Admins use **Manage** in the game header. **Teams → Team size** (`/admin/teams/configuration`) sets the team limit. **Players & messages** (`/admin/teams/players`) controls player visibility and team messaging; **Scoreboard** (`/admin/teams/scoreboard`) controls ranking access and defaults. **Teams → Manage teams** (`/admin/teams`) shows teams, point gifts, and disband controls. Set the maximum team size from 1–100 (default 4). The creator and disabled members count toward capacity. Lowering the limit retains existing members but prevents joins to full teams. All management pages enforce admin authorization.
 
 Use **Gift points** on a team to award 1–10,000 whole points with a required comment. Gifts count once toward the team total and remain separate from individual earned points. Members see **+N pts added** on the game screen; hover, focus, or tap to read the comment. Manage shows gift history. Full backups preserve gifts and comments. Disbanding a team removes its gifts; members retain individual progress.
 

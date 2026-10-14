@@ -518,6 +518,13 @@ function createRequestApi({
             account.hero = selected;
           }
         }
+        if (account.hero_selected === 0) {
+          const selected = hero ?? account.hero;
+          if (!config.characters.some(c => c.id === selected))
+            return json({ error: "Choose an available hero for your first sign-in." }, 400);
+          await db.prepare("UPDATE students SET hero=?,hero_selected=1,revision=revision+CASE WHEN hero<>? THEN 1 ELSE 0 END WHERE id=? AND hero_selected=0").bind(selected, selected, account.id).run();
+          account = await db.prepare("SELECT * FROM students WHERE id=?").bind(account.id).first();
+        }
         if (!config.characters.some((c) => c.id === account.hero))
           return json(
             { error: "Your hero is unavailable. Contact your teacher." },
@@ -776,7 +783,7 @@ function createRequestApi({
           const id = crypto.randomUUID();
           const result = await db
             .prepare(
-              "INSERT OR IGNORE INTO students(id,username,hash,salt,hero,role,disabled,spawn,muted,managed,provisioned,revision) SELECT ?,?,?,?,?,?,?,?,?,1,1,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=? AND (?=0 OR NOT EXISTS(SELECT 1 FROM deleted_accounts WHERE username=?))",
+              "INSERT OR IGNORE INTO students(id,username,hash,salt,hero,role,disabled,spawn,muted,managed,provisioned,revision,hero_selected) SELECT ?,?,?,?,?,?,?,?,?,1,1,1,0 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=? AND (?=0 OR NOT EXISTS(SELECT 1 FROM deleted_accounts WHERE username=?))",
             )
             .bind(
               id,

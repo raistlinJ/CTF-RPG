@@ -1,3 +1,4 @@
+import { defaultGameConfig } from "../lib/runtime-config.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -342,6 +343,7 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
     const admin = makeClient();
     await teacher(admin);
     const created = await create(admin, "alice");
+    await create(admin, "firstlogin");
     const spawn = { map: "castle", location: { x: 20, y: 23 } };
     assert.equal(
       (
@@ -380,6 +382,7 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       challenges: baseline,
     });
     assert.equal(snapshot.registrationSettings.allowRegistration, false);
+    assert.equal(snapshot.accounts.find(a => a.username === "firstlogin").heroSelected, 0);
     assert.equal(snapshot.integrationTokens.length, 1);
     assert.ok(!JSON.stringify(snapshot).includes(integration.data.token));
     assert.ok(snapshot.accounts.some((a) => a.username === "pending01"));
@@ -405,7 +408,6 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       "public/audio/north-pole.mid",
       "public/downloads/packing-list.txt",
       "backup.json",
-      "content/game.yaml",
       "content/challenges.yaml",
       "app/page.tsx",
     ])
@@ -415,11 +417,8 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
     assert.ok(
       !JSON.parse(strFromU8(entries[".openai/hosting.json"])).project_id,
     );
-    assert.ok(
-      parseGame(strFromU8(entries["content/game.yaml"])).accounts.users.every(
-        (a) => !a.password && a.passwordHash,
-      ),
-    );
+    assert.equal(entries["content/game.yaml"], undefined);
+    assert.equal(entries["lib/runtime-config.mjs"] !== undefined, true);
     for (const [path, bytes] of Object.entries(entries)) {
       assert.ok(!path.startsWith("/") && !path.split("/").includes(".."));
       const target = resolve(dir, path);
@@ -434,10 +433,10 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
     assert.equal(result.status, 0, result.stderr);
     const restored = new DatabaseSync(resolve(dir, "data/quest.sqlite"));
     try {
-      const restoredConfig = parseGame(
-        readFileSync(resolve(dir, "content/game.yaml"), "utf8"),
-      );
-      assert.equal(restoredConfig.accounts.allowRegistration, false);
+      const restoredConfig = defaultGameConfig();
+      restoredConfig.admin.protectedUsername = 'teacher01';
+      assert.match(readFileSync(resolve(dir, '.env'), 'utf8'), /^ADMIN_USERNAME=teacher01$/m);
+      assert.match(readFileSync(resolve(dir, '.env'), 'utf8'), /^ADMIN_PASSWORD=$/m);
       assert.equal(restored.prepare("SELECT allow_registration FROM registration_settings WHERE id='active'").get().allow_registration, 0);
       assert.equal(restored.prepare("SELECT COUNT(*) AS n FROM integration_tokens").get().n, 1);
       const api = createApi({
@@ -485,12 +484,15 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
         ).status,
         200,
       );
+      const restoredFirst = client(api);
+      assert.equal((await restoredFirst("/api/auth", { username: "firstlogin", password: "new-student-password", mode: "login", hero: "web" })).data.user.hero, "web");
+      assert.equal(restored.prepare("SELECT hero_selected FROM students WHERE username='firstlogin'").get().hero_selected, 1);
       const restoredAdmin = client(api);
       await teacher(restoredAdmin);
       assert.equal((await restoredAdmin("/api/admin/users")).status, 200);
       assert.equal(
         restored.prepare("SELECT COUNT(*) AS n FROM sessions").get().n,
-        3,
+        4,
       );
     } finally {
       restored.close();

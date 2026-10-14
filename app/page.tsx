@@ -1454,7 +1454,7 @@ export default function Game() {
             <p className="save-note">
               {mode === "register"
                 ? "Your hero stays with your account. Your points are saved as you explore."
-                : "Use your teacher-provided account. Your choice applies on first sign-in; a saved or assigned hero takes priority."}
+                : "Choose any available explorer for your first sign-in. Your choice stays with your account. Administrators use their reserved admin appearance in the game."}
             </p>
             {error && (
               <p role="alert" className="error">

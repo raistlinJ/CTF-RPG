@@ -8,7 +8,8 @@ services:
     environment:
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-}
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
-      GAME_CONFIG: ${GAME_CONFIG:-/app/content/game.yaml}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:?Set ADMIN_USERNAME in the root .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     volumes:
       - quest-data:/app/data
       - ./content:/app/content:ro

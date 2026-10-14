@@ -1,3 +1,4 @@
+import { defaultGameConfig } from "../lib/runtime-config.mjs";
 // CTF-RPG — Copyright Jaime C Acosta 2026
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,9 +14,9 @@ import {themeContentValid} from '../server/packs.mjs';
 import {initializeSchema,createSQLiteAdapter} from '../server/sqlite.mjs';
 import {createApi} from '../server/api.mjs';
 test('default character catalog keeps player and entity appearances separate',()=>{
- const config=parseGame(readFileSync('content/game.yaml','utf8'));
+ const config=defaultGameConfig();
  assert.equal(publicConfig(config).characters.length,8);
- assert.equal(defaultTheme(config).characters.filter(c=>c.appearanceFor==='entity').length,5);
+ assert.equal(defaultTheme(config).characters.filter(c=>c.appearanceFor==='entity').length,7);
  assert.ok(publicConfig(config).characters.every(c=>c.appearanceFor!=='entity'));
 });
 for(const preset of themePresets) {
