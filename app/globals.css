@@ -2158,8 +2158,7 @@ input::placeholder {
 .entity-dialogue label { display: grid; flex: 1; gap: 6px; min-width: 0; font-size: 14px; }
 .entity-dialogue input { width: 100%; min-width: 0; padding: 10px; background: #102532; color: #edf7fb; border: 1px solid #41616e; border-radius: 5px; font-size: 16px; }
 .entity-dialogue .primary { padding: 10px 15px; }
-.entity-dialogue-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
-.entity-dialogue-end { color: #a8c7bc; font-size: 14px; }
+.entity-dialogue-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 14px; }
 .entity-dialogue > small { color: #a8c7bc; line-height: 1.6; }
 @media (max-width: 400px) { .entity-dialogue form { flex-direction: column; align-items: stretch; }.entity-dialogue form .primary { align-self: flex-end; } }
 .map-settings-tabs button[aria-pressed="true"] { background: #234451; color: #e6f4ef; }
