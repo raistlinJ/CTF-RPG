@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {zipSync,unzipSync,strToU8,strFromU8} from 'fflate';
 import {prepareCtfdArchive,CTFD_PREPARATION_FILE} from '../lib/ctfd-prepare.mjs';
 import {readCtfdImportResponse} from '../lib/ctfd-import-response.mjs';
+import {ctfdTable} from '../lib/ctfd-table.mjs';
 const db=(name,rows)=>['db/'+name+'.json',strToU8(JSON.stringify({results:rows}))];
 const metadata=()=>Object.fromEntries([
  db('challenges',[{id:1,name:'Large backup challenge',description:'Find the answer',value:100,type:'standard',state:'visible'}]),
@@ -11,6 +12,13 @@ const metadata=()=>Object.fromEntries([
  db('files',[{id:1,challenge_id:1,location:'small/note.txt'}]),
  ['uploads/small/note.txt',strToU8('useful attachment')],
 ]);
+test('CTFd empty table files represent no rows; populated malformed tables still fail clearly',()=>{
+ const entries={...metadata(),'db/files.json':new Uint8Array(),'db/users.json':new Uint8Array(),'db/teams.json':strToU8(' \n'),'db/tags.json':new Uint8Array(),'db/solutions.json':new Uint8Array()};
+ const prepared=unzipSync(prepareCtfdArchive(zipSync(entries)));
+ for(const name of ['files','users','teams','tags','solutions'])assert.deepEqual(ctfdTable(prepared,name,true),[]);
+ assert.throws(()=>ctfdTable({},'users',true),/Missing CTFd table: users/);
+ for(const value of ['{','null','{}','[null]'])assert.throws(()=>ctfdTable({'db/tags.json':strToU8(value)},'tags'),/Invalid CTFd table/);
+});
 test('a 248 MB source ZIP becomes a small deterministic upload while preserving challenges, flags, accounts and referenced files',()=>{
  const bytes=zipSync({...metadata(),'uploads/unused-large.bin':new Uint8Array(248*1024*1024),'db/solves.json':strToU8('[{"historical":"ignored"}]')},{level:0});
  assert.ok(bytes.length>248*1024*1024);

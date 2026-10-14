@@ -1,5 +1,6 @@
 import {CTFD_UPLOAD_ZIP_LIMIT,CTFD_IMPORT_REQUEST_LIMIT} from '../lib/pack-limits.mjs';
 import {CTFD_PREPARATION_FILE,ctfdUploadPath} from '../lib/ctfd-prepare.mjs';
+import {ctfdTable as table} from '../lib/ctfd-table.mjs';
 import { challengeTiles } from "../lib/challenge-icon.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import {unzipSync,strFromU8} from 'fflate';
@@ -16,7 +17,6 @@ function unpack(bytes){
  let size=0,count=0;const names=new Set();
  return unzipSync(bytes,{filter:f=>{if(++count>10000||names.has(f.name)||f.name.startsWith('/')||f.name.includes('\\')||f.name.includes('\0')||f.name.split('/').includes('..'))throw Error('Unsafe or duplicate export path.');names.add(f.name);size+=f.originalSize;if(size>128*1024*1024||f.originalSize>32*1024*1024)throw Error('Expanded export exceeds 128 MB total or 32 MB per entry.');return !f.name.endsWith('/')&&(f.name.startsWith('db/')||f.name.startsWith('uploads/')||f.name===CTFD_PREPARATION_FILE);}});
 }
-function table(entries,name,required=false){const data=entries['db/'+name+'.json'];if(!data){if(required)throw Error('Missing CTFd table: '+name);return [];}const value=JSON.parse(strFromU8(data));const rows=Array.isArray(value)?value:value.results;if(!Array.isArray(rows)||rows.length>10000||rows.some(r=>!r||typeof r!=='object'||Array.isArray(r)))throw Error('Invalid CTFd table: '+name);return rows;}
 const id=ctfdSourceId;
 function distinct(rows,name){const ids=rows.map(r=>id(r.id));if(new Set(ids).size!==ids.length)throw Error('Duplicate '+name+' IDs.');}
 function hasRequirements(value){
