@@ -156,7 +156,7 @@ export default function MapSettings({
       next = new Set<string>();
     for (let y = 0; y < 28; y++)
       for (let x = 0; x < 40; x++)
-        if (!engine.blocked(mapId, x, y)) next.add(`${x},${y}`);
+        if (!engine.terrainBlocked(mapId, x, y)) next.add(`${x},${y}`);
     setMap(structuredClone(original));
     setCells(next);
     setCursor({ ...original.spawn });
@@ -230,7 +230,7 @@ export default function MapSettings({
   const entityValidation = entitiesSchema.safeParse(entities);
   const entityProblems = [
     ...(!entityValidation.success ? entityValidation.error.issues.map(i => `Character ${i.path[0] === undefined ? "" : Number(i.path[0]) + 1}: ${i.message}`) : []),
-    ...entities.flatMap(e => !characters.some(c => c.id === e.characterId) || !entityLocationAvailable(engine, placements, entities, e.map, e.location.x, e.location.y, e.id) ? [`${e.name || "Character"} needs a valid appearance and a free footprint away from challenges, doors and transport.`] : []),
+    ...entities.flatMap(e => !characters.some(c => c.id === e.characterId) || !entityLocationAvailable(engine, placements, entities, e.map, e.location.x, e.location.y, e.id) ? [`${e.name || "Character"} needs a valid appearance and a free footprint away from challenges, spawns, doors and transport.`] : []),
   ];
   function updateEntity(entity: NonPlayerEntity) {
     setEntities(all => all.map(e => e.id === entity.id ? entity : e)); setMessage(""); setError("");
@@ -458,7 +458,7 @@ export default function MapSettings({
       if (existing && !moving) { setSelectedEntity(existing.id); setError(""); return; }
       const entity = moving ? entities.find(e => e.id === moving.id) : selectedNpc;
       if (!entity) { setError("Add or select a character, then click its location on the map."); return; }
-      if (!entityLocationAvailable(engine, placements, entities, mapId, x, y, entity.id)) { setError("The full tile allocation must fit in an unoccupied area away from challenges, doors and transport. Non-walkable tiles are allowed."); return; }
+      if (!entityLocationAvailable(engine, placements, entities, mapId, x, y, entity.id)) { setError("The full tile allocation must fit in an unoccupied area away from challenges, spawns, doors and transport. Non-walkable tiles are allowed."); return; }
       updateEntity({ ...entity, location: { x, y } }); setMapAction(null); return;
     }
     if (moving?.kind === "transport" || (!moving && panel === "transport")) {
@@ -1116,7 +1116,7 @@ export default function MapSettings({
             }
           }}
         />
-        <div className="entity-map-layer">{entities.filter(e => e.map === mapId).map(e => <EntityMarker key={e.id} entity={dragPreview?.kind === "entity" && dragPreview.id === e.id ? { ...e, location: { x: dragPreview.x, y: dragPreview.y } } : e} character={characters.find(c => c.id === e.characterId)} selected={e.id === selectedEntity || (dragPreview?.kind === "entity" && dragPreview.id === e.id)} />)}</div></div>
+        <div className="entity-map-layer">{entities.filter(e => e.map === mapId).map(e => <EntityMarker key={e.id} entity={dragPreview?.kind === "entity" && dragPreview.id === e.id ? { ...e, location: { x: dragPreview.x, y: dragPreview.y } } : e} character={characters.find(c => c.id === e.characterId)} showName selected={e.id === selectedEntity || (dragPreview?.kind === "entity" && dragPreview.id === e.id)} />)}</div></div>
         <div className="map-canvas-meta">
           <div className="map-legend">
             <span>

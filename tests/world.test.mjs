@@ -114,3 +114,40 @@ test("explicit walkable ground controls movement and challenge reachability", as
     pos: p,
   });
 });
+
+test("every NPC allocated tile blocks movement and spawns while preserving underlying painted ground", async () => {
+  const { defaultWorld, createWorld } = await import("../lib/world-data.mjs");
+  for (const size of [1, 2, 3]) {
+    const world = structuredClone(defaultWorld), map = world.maps.find(m => m.id === world.startMap);
+    map.ground = Array.from({length:100}, (_,i) => [10+i%10, 18+Math.floor(i/10)]);
+    map.spawn = {x:10,y:18};
+    world.entities = [{id:"guide",map:map.id,location:{x:12,y:20},size}];
+    const engine = createWorld(world);
+    for (let y=20;y<20+size;y++) for (let x=12;x<12+size;x++) {
+      assert.equal(engine.terrainBlocked(map.id,x,y),false);
+      assert.equal(engine.blocked(map.id,x,y),true);
+      assert.equal(engine.reachable(map.id,x,y),false);
+      assert.equal(engine.canSpawn(map.id,x,y),false);
+      const from={map:map.id,pos:{x:x-1,y}};
+      assert.equal(engine.step(from,1,0),from);
+    }
+    assert.equal(engine.blocked(map.id,11,20),false);
+    assert.equal(engine.reachable(map.id,12+size,20),true,"players can go around the footprint");
+    assert.equal(engine.blocked("castle",12,20),false,"blocking belongs to its map");
+    const restored=createWorld({...world,entities:[]});
+    assert.equal(restored.blocked(map.id,12,20),false,"removing an entity restores painted ground");
+    assert.equal(restored.reachable(map.id,12,20),true);
+  }
+});
+
+test("an NPC blocks passage through a painted corridor and placement cannot cover a map spawn", async () => {
+  const { defaultWorld, createWorld } = await import("../lib/world-data.mjs");
+  const { entityLocationAvailable } = await import("../lib/non-player-entities.mjs");
+  const world=structuredClone(defaultWorld),map=world.maps.find(m=>m.id===world.startMap);
+  map.spawn={x:10,y:20};map.ground=[[10,20],[11,20],[12,20],[13,20]];
+  world.entities=[{id:"gatekeeper",map:map.id,location:{x:11,y:20},size:1}];
+  const engine=createWorld(world);
+  assert.equal(engine.reachable(map.id,13,20),false);
+  assert.equal(entityLocationAvailable(engine,[],world.entities,map.id,10,20,"gatekeeper"),false);
+  assert.equal(entityLocationAvailable(engine,[],[],map.id,9,19,undefined,{size:2}),false,"a non-anchor spawn overlap is forbidden");
+});

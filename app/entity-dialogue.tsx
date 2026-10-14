@@ -15,23 +15,23 @@ export function EntityPortrait({ character, onImageLoad, onImageError }: { chara
     {character?.sprite && !failed ? <img src={character.sprite} alt="" onLoad={e => onImageLoad?.(e.currentTarget)} onError={() => { setFailed(true); onImageError?.(); }} /> : <UserRound aria-hidden="true" />}
   </span>;
 }
-export function EntityMarker({ entity, character, selected = false }: { entity: EntitySummary; character?: EntityCharacter; selected?: boolean }) {
+export function EntityMarker({ entity, character, selected = false, showName = false }: { entity: EntitySummary; character?: EntityCharacter; selected?: boolean; showName?: boolean }) {
   const [artwork, setArtwork] = useState<{ source: string; top: number; right: number; bottom: number; center: number } | null>(null);
   const bounds = artwork?.source === character?.sprite ? artwork : null;
   const size = entitySize(entity);
   const style = {
-    left: `${(entity.location.x + size / 2) / 40 * 100}%`, top: `${(entity.location.y + size / 2) / 28 * 100}%`,
-    ...(size > 1 && { width: `${size / 40 * 100}%`, transform: "translate(-50%, -50%)" }),
+    left: `${entity.location.x / 40 * 100}%`, top: `${entity.location.y / 28 * 100}%`,
+    width: `${size / 40 * 100}%`, height: `${size / 28 * 100}%`,
     ...(bounds && { "--entity-visible-top": `${bounds.top}%`, "--entity-visible-right": `${bounds.right}%`, "--entity-visible-bottom": `${bounds.bottom}%`, "--entity-visible-center": `${bounds.center}%` }),
   } as CSSProperties;
-  return <>{selected && <div className="entity-footprint" style={{ left: `${entity.location.x / 40 * 100}%`, top: `${entity.location.y / 28 * 100}%`, width: `${size / 40 * 100}%`, height: `${size / 28 * 100}%` }} />}<div className="entity-marker" style={style} data-entity-id={entity.id} aria-label={`Character: ${entity.name}`}>
+  return <>{selected && <div className="entity-footprint" style={{ left: `${entity.location.x / 40 * 100}%`, top: `${entity.location.y / 28 * 100}%`, width: `${size / 40 * 100}%`, height: `${size / 28 * 100}%` }} />}<div className="entity-marker" style={style} data-entity-id={entity.id} aria-label={showName ? `Character: ${entity.name}` : "Non-player character"}>
     <EntityPortrait key={character?.sprite || character?.id} character={character} onImageError={() => setArtwork(null)} onImageLoad={image => {
       const visible = visibleSprite(image), size = Math.max(image.naturalWidth, image.naturalHeight);
       const offsetX = (size - image.naturalWidth) / 2, offsetY = (size - image.naturalHeight) / 2;
       setArtwork({ source: character!.sprite!, top: (offsetY + visible.y) / size * 100, right: (offsetX + visible.x + visible.w) / size * 100, bottom: (offsetY + visible.y + visible.h) / size * 100, center: (offsetX + visible.x + visible.w / 2) / size * 100 });
     }} />
     <MessageCircle className="entity-talk-icon" aria-hidden="true" />
-    <span className="entity-map-name">{entity.name}</span>
+    {showName && <span className="entity-map-name">{entity.name}</span>}
   </div></>;
 }
 function DialogueView({ entity, character, node, busy, error, onChoose, onClose, preview = false }: {

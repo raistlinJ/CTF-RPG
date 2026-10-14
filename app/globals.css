@@ -2140,7 +2140,9 @@ input::placeholder {
 .map-settings-tabs button { flex-basis: 120px; }
 .entity-map-surface { position: relative; min-width: 0; }
 .entity-map-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.entity-marker { position: absolute; transform: translate(-50%, -70%); width: 4.4%; aspect-ratio: 1; display: grid; place-items: center; }
+.entity-marker { position: absolute; box-sizing: border-box; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; padding: 2px; }
+.entity-marker .entity-portrait { min-width: 0; min-height: 0; overflow: hidden; }
+.entity-marker .entity-portrait img { filter: none; }
 .entity-portrait { display: grid; place-items: center; width: 100%; height: 100%; }
 .entity-portrait img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 0 2px #ffd783); }
 .entity-portrait > svg { width: 85%; height: 85%; color: #ffe293; fill: #3a5a61; }

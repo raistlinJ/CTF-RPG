@@ -27,7 +27,7 @@ function setup(size = 1) {
   let hook;
   const db={...base,prepare(sql){const statement=base.prepare(sql);return{bind(...args){const bound=statement.bind(...args);return{...bound,_sql:sql,async run(){if(hook?.match(sql)){const h=hook;hook=null;h.run();}return bound.run();}};}};},async batch(statements){if(hook && statements.some(s=>hook.match(s._sql))){const h=hook;hook=null;h.run();}return base.batch(statements);}};
   const config=parseGame('characters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web');
-  const theme=defaultTheme(config);theme.world.entities=[{...entity,size},{...entity,id:'castle-guide',name:'Castle guide',map:'castle',location:{x:19,y:20}}];
+  const theme=defaultTheme(config);theme.world.entities=[{...entity,size,...(size===3?{location:{x:14,y:20}}:{})},{...entity,id:'castle-guide',name:'Castle guide',map:'castle',location:{x:19,y:20}}];
   theme.world.portalOverrides=[{id:'entrance-castle',location:createWorld(theme.world).portals.find(p=>p.id==='entrance-castle').location,to:'castle',lock:{type:'key',color:'green'}}];
   const validTheme=parseTheme(theme);sqlite.prepare("INSERT INTO theme_catalog(id,payload,revision) VALUES('active',?,1)").run(JSON.stringify(validTheme));
   const challenges=parseChallenges(stringify({challenges:[{id:'quest',map:'town',object:'Key quest',location:{x:18,y:19},region:'Square',text:'Find the flag.',flags:['answer'],points:50,rewards:{keys:['red'],incantations:[]}}]}));
@@ -66,22 +66,22 @@ test('entity definitions validate dialogue links, appearances and spatial rules,
 
 test('entity sizes reserve every tile and use the full perimeter for interaction',()=>{
   const {sqlite,theme,challenges}=setup();try{
-    const world=createWorld(theme.world),large={...entity,size:3};
+    const world=createWorld(theme.world),large={...entity,size:3,location:{x:14,y:20}};
     assert.equal(entitiesSchema.parse([entity])[0].size,1);
     for(const size of [1,2,3])assert.equal(entitiesSchema.parse([{...entity,size}])[0].size,size);
     for(const patch of [{size:4},{size:2,location:{x:39,y:20}},{size:3,location:{x:16,y:26}}])assert.throws(()=>entitiesSchema.parse([{...entity,...patch}]));
-    assert.throws(()=>entitiesSchema.parse([large,{...entity,id:'overlap',location:{x:18,y:22}}]));
-    assert.equal(entityLocationAvailable(world,challenges,[large],'town',16,20,large.id),true);
-    assert.equal(entityLocationAvailable(world,[{...challenges[0],location:{x:18,y:22}}],[large],'town',16,20,large.id),false);
+    assert.throws(()=>entitiesSchema.parse([large,{...entity,id:'overlap',location:{x:16,y:22}}]));
+    assert.equal(entityLocationAvailable(world,challenges,[large],'town',14,20,large.id),true);
+    assert.equal(entityLocationAvailable(world,[{...challenges[0],location:{x:16,y:22}}],[large],'town',14,20,large.id),false);
     const door=world.portals.find(p=>p.map==='town');
     assert.equal(entityLocationAvailable(world,[],[],'town',door.location.x-1,door.location.y-1,undefined,{size:2}),false);
-    for(const p of [{x:19,y:22},{x:18,y:23},{x:15,y:21},{x:17,y:19},{x:18,y:22}])assert.equal(entityInInteractionRange(large,'town',p.x,p.y),true);
-    for(const p of [{x:19,y:23},{x:20,y:22},{x:14,y:21}])assert.equal(entityInInteractionRange(large,'town',p.x,p.y),false);
+    for(const p of [{x:17,y:22},{x:16,y:23},{x:13,y:21},{x:15,y:19}])assert.equal(entityInInteractionRange(large,'town',p.x,p.y),true);
+    for(const p of [{x:17,y:23},{x:18,y:22},{x:12,y:21},{x:16,y:22}])assert.equal(entityInInteractionRange(large,'town',p.x,p.y),false);
     const expanded=structuredClone(theme);expanded.world.entities[0]=large;
-    const overlap={...challenges[0],location:{x:18,y:22}};
+    const overlap={...challenges[0],location:{x:16,y:22}};
     const plan=planChallengePlacement(expanded,[overlap]);assert.equal(plan.moved.length,1);
     const relocated=plan.challenges[0].location;
-    assert.ok(relocated.x<16||relocated.x>18||relocated.y<20||relocated.y>22);
+    assert.ok(relocated.x<14||relocated.x>16||relocated.y<20||relocated.y>22);
     const nearest=findEntityLocation(world,[overlap],[large],'town',large.location,large.id);
     assert.ok(nearest);assert.notDeepEqual(nearest,large.location);
     assert.equal(entityLocationAvailable(world,[overlap],[large],'town',nearest.x,nearest.y,large.id),true);
@@ -91,14 +91,14 @@ test('entity sizes reserve every tile and use the full perimeter for interaction
 test('large entity allocations save, reject overlaps, support edge dialogue and survive exports',async()=>{
   const {sqlite,theme,client}=setup();try{
     const admin=client(),student=client();await login(admin,'teacher');await login(student);
-    const edited=structuredClone(theme.world.entities);edited[0].size=3;
+    const edited=structuredClone(theme.world.entities);edited[0].size=3;edited[0].location={x:14,y:20};
     assert.equal((await admin('/api/admin/maps',entityUpdate(1,edited))).status,200);
     const current=(await admin('/api/admin/challenges')).data;assert.equal(current.theme.world.entities[0].size,3);
     const invalid=structuredClone(edited);invalid[0].location={x:16,y:18};
     assert.equal((await admin('/api/admin/maps',entityUpdate(2,invalid))).status,400);
     assert.equal((await admin('/api/admin/challenges')).data.themeRevision,2);
-    assert.equal((await admin('/api/admin/challenges',{action:'move',id:'quest',map:'town',location:{x:18,y:22},revision:0,themeRevision:2})).status,400);
-    const talk=await student('/api/game',dialogue([],{x:19,y:21,themeRevision:2}));assert.equal(talk.status,200,JSON.stringify(talk.data));
+    assert.equal((await admin('/api/admin/challenges',{action:'move',id:'quest',map:'town',location:{x:16,y:22},revision:0,themeRevision:2})).status,400);
+    const talk=await student('/api/game',dialogue([],{x:17,y:21,themeRevision:2}));assert.equal(talk.status,200,JSON.stringify(talk.data));
     assert.equal((await student('/api/config')).data.theme.world.entities[0].size,3);
     const pack=await admin('/api/admin/packs?kind=theme');assert.equal(pack.status,200);
     assert.equal(parseTheme(parse(strFromU8(unzipSync(pack.bytes)['theme.yaml']))).world.entities[0].size,3);
@@ -123,7 +123,7 @@ test('entities may use non-walkable map tiles while map limits and occupied loca
     const door=world.portals.find(p=>p.map==='town');
     assert.equal(entityLocationAvailable(world,[],[],'town',door.location.x,door.location.y),false);
     placed.world.entities[0].location=door.location;
-    assert.throws(()=>parseTheme(placed),/doors and transport/);
+    assert.throws(()=>parseTheme(placed),/spawns, doors, transport/);
     assert.equal(world.canPlaceChallenge('town',0,0),false,'challenge placement still requires walkable ground');
   }finally{sqlite.close();}
 });
@@ -164,12 +164,12 @@ test('saving a non-walkable entity preserves terrain and supports conversation f
 test('entity interactions allow one cardinal tile and reject two tiles or a diagonal before activation',async()=>{
   const {sqlite,client}=setup();try{
     const student=client(),admin=client();await login(student);await login(admin,'teacher');
-    for(const pos of [{x:18,y:20},{x:16,y:22},{x:17,y:21}]){
+    for(const pos of [{x:18,y:20},{x:16,y:22},{x:17,y:21},{x:16,y:20}]){
       assert.equal(entityInInteractionRange(entity,'town',pos.x,pos.y),false);
       for(const call of [student,admin])assert.equal((await call('/api/game',dialogue([],pos))).status,400);
     }
     assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM entity_activations').get().n,0);
-    for(const pos of [{x:15,y:20},{x:17,y:20},{x:16,y:19},{x:16,y:21},{x:16,y:20}]){
+    for(const pos of [{x:15,y:20},{x:17,y:20},{x:16,y:19},{x:16,y:21}]){
       assert.equal(entityInInteractionRange(entity,'town',pos.x,pos.y),true);
       assert.equal((await student('/api/game',dialogue([],pos))).status,200);
     }
@@ -190,8 +190,8 @@ test('Search conversations expose only reached dialogue, validate choices and pr
     assert.equal((await bob('/api/game',dialogue())).data.dialogue.id,'hello');assert.equal((await alice('/api/game',dialogue())).data.dialogue.id,'hello');
     for(const body of [dialogue(['spell']),dialogue(['portal','back']),dialogue(Array(101).fill('key')),dialogue([], {x:0,y:0}),dialogue([],{x:18.5}),dialogue([],{map:'castle'}),dialogue([],{choices:'invalid'})])assert.equal((await alice('/api/game',body)).status,400);
     assert.equal((await alice('/api/game',dialogue([],{id:'missing'}))).status,404);assert.equal((await alice('/api/game',dialogue([],{themeRevision:0}))).status,409);
-    assert.equal((await alice('/api/game',dialogue([],{id:'castle-guide',map:'castle',x:19,y:20}))).status,403);
-    assert.equal((await admin('/api/game',dialogue([],{id:'castle-guide',map:'castle',x:19,y:20}))).status,200);
+    assert.equal((await alice('/api/game',dialogue([],{id:'castle-guide',map:'castle',x:18,y:20}))).status,403);
+    assert.equal((await admin('/api/game',dialogue([],{id:'castle-guide',map:'castle',x:18,y:20}))).status,200);
     const state=(await alice('/api/game')).data;assert.equal(state.score,0);assert.deepEqual(state.inventory,{keys:[],incantations:[]});assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM solved').get().n,0);
   } finally {sqlite.close();}
 });

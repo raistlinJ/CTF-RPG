@@ -1032,7 +1032,7 @@ function createRequestApi({
           const items = await inventoryState(db, u.id, theme);
           if (!admin && !accessibleMaps(theme, items.unlockedTransports, u.spawn.map).has(entity.map))
             return json({ error: "Unlock a route to this map before speaking with its characters." }, 403);
-          if (!entityInInteractionRange(entity, body.map, body.x, body.y))
+          if (!entityInInteractionRange(entity, body.map, body.x, body.y) || !createWorld(theme.world).reachable(body.map, body.x, body.y))
             return json({ error: "Move within one tile of this character and Search nearby to speak." }, 400);
           const choices = body.choices ?? [];
           if (!Array.isArray(choices) || choices.length > 100 || choices.some(c => typeof c !== "string" || c.length > 80))

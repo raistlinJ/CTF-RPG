@@ -561,7 +561,7 @@ export function World({
         {!onSelect && solveShines.map((shine) => (
           <div key={shine.key} className="challenge-solve-shine" role="status" aria-label="A challenge was solved" style={{ left: `${((shine.x + 0.5) / 40) * 100}%`, top: `${((shine.y + 0.5) / 28) * 100}%` }}>✦</div>
         ))}
-        <div className="entity-map-layer">{entities.filter(e => e.map === map).map(e => <EntityMarker key={e.id} entity={e} character={characters.find(c => c.id === e.characterId)} />)}</div>
+        <div className="entity-map-layer">{entities.filter(e => e.map === map).map(e => <EntityMarker key={e.id} entity={e} character={characters.find(c => c.id === e.characterId)} showName={!!onSelect || entityInInteractionRange(e, map, pos.x, pos.y)} />)}</div>
         {!onSelect && selfPlayer && (
           <div className="nearby-player-layer" aria-label="Players on this map">
             {messageCount > 0 && (
