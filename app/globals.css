@@ -2699,3 +2699,13 @@ input::placeholder {
 .theme-media-assignment > .portrait { width:48px; height:48px; background:#132631; border-radius:6px; }
 .theme-media-admin-avatar { margin:14px 0 20px; }
 .theme-media-admin-avatar > span { color:#aac2ca; font-size:13px; }
+
+/* Navigation hierarchy: main header, section navigation, then local controls. */
+.theme-subnav { background:#112a3b; border:1px solid #345369; border-left:3px solid #74cafa; border-radius:8px; padding:10px 14px; gap:8px 16px; font-size:13px; font-weight:500; }
+.theme-subnav strong { font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:#8fb9ce; }
+.theme-subnav a { color:#b9dcef; padding:7px 9px; border-radius:5px; }
+.theme-subnav a[aria-current="page"] { color:#e6f5ff; background:#244c65; border-bottom:2px solid #74cafa; font-weight:700; }
+.theme-subnav a:hover { background:#1c3b50; }
+.map-settings-tabs,.theme-media-tabs,.challenge-editor-tabs,.challenge-view-nav { background:#201e32; border:1px solid #443d60; padding:5px; border-radius:7px; }
+.map-settings-tabs button,.theme-media-tabs button,.challenge-editor-tabs button,.challenge-view-nav button { font-family:inherit; font-size:12px; font-weight:500; letter-spacing:.02em; color:#c0b7d8; }
+.map-settings-tabs button[aria-pressed="true"],.theme-media-tabs button[aria-selected="true"],.challenge-editor-tabs button[aria-selected="true"],.challenge-view-nav button[aria-pressed="true"] { background:#3c3156; color:#f1eaff; border-color:#ae95d7; font-weight:700; }

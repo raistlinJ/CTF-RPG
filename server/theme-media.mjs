@@ -17,7 +17,7 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
       ...value.world.maps.flatMap(m => [m.background && { src: m.background, name: `${m.name} background` }, m.originalBackground && { src: m.originalBackground, name: `${m.name} original background` }]).filter(Boolean),
       ...BOSS_STYLES.map(style => ({ src: value.bossSprites[style.id] || style.sprite, name: style.label })),
     ].filter(item => !uploaded.has(item.src));
-    return { media: value.media, suppliedMedia: [...new Map(supplied.map(item => [item.src, item])).values()], characters: value.characters, bossSprites: value.bossSprites, maps: value.world.maps.map(({ id, name, background }) => ({ id, name, background })), revision };
+    return { media: value.media, suppliedMedia: [...new Map(supplied.map(item => [item.src, item])).values()], characters: value.characters, bossSprites: value.bossSprites, maps: value.world.maps.map(({ id, name, background, originalBackground }) => ({ id, name, background, ...(originalBackground !== undefined ? {originalBackground} : {}) })), revision };
   };
   if (req.method === 'GET') return reply(state(theme, themeRevision));
   if (req.method !== 'POST') return reply({ error: 'Method not allowed.' }, 405);
@@ -74,7 +74,12 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
       }
       const bossSprites = { ...theme.bossSprites };
       for (const [id, src] of Object.entries(bosses)) { if (src === null) delete bossSprites[id]; else bossSprites[id] = src; }
-      const world = { ...theme.world, maps: theme.world.maps.map(m => Object.hasOwn(maps, m.id) ? { ...m, background: maps[m.id] } : m) };
+      const world = { ...theme.world, maps: theme.world.maps.map(m => {
+        if (!Object.hasOwn(maps,m.id) || maps[m.id] === m.background) return m;
+        const nextMap = { ...m, background: maps[m.id], originalBackground: Object.hasOwn(m,"originalBackground") ? m.originalBackground : m.background };
+        if (nextMap.background === nextMap.originalBackground) delete nextMap.originalBackground;
+        return nextMap;
+      }) };
       const removedSet = new Set(removed);
       if (removedSet.size !== removed.length || removed.some(id => !theme.media.some(item => item.id === id && item.source === 'upload'))) throw Error('Only images uploaded here can be deleted.');
       const media = theme.media.filter(item => !removedSet.has(item.id));

@@ -9,7 +9,7 @@ import { Portrait, AdminAvatarPreview } from "@/app/page";
 
 type Media = { id: string; name: string; src: string; source: "upload" | "theme" };
 type Character = { id: string; name: string; subtitle: string; sprite: string | null; fallback: "web" | "thunder" | "shield"; appearanceFor: "player" | "entity" | "both" };
-type MapArtwork = { id: string; name: string; background: string | null };
+type MapArtwork = { id: string; name: string; background: string | null; originalBackground?: string | null };
 type Settings = { media: Media[]; suppliedMedia: { name: string; src: string }[]; characters: Character[]; bossSprites: Record<string, string>; maps: MapArtwork[]; revision: number };
 type NewAppearance = { name: string; appearanceFor: Character["appearanceFor"]; sprite: string };
 const blank: NewAppearance = { name: "", appearanceFor: "player", sprite: "" };
@@ -146,10 +146,11 @@ function ImagesPanel() {
           {imagePicker(`Image for ${style.label}`, settings.bossSprites[style.id] || null, src => update({ ...settings, bossSprites: { ...settings.bossSprites, [style.id]: src || "" } }), "Built-in artwork")}
         </div>)}</div>
       </section>
-      <section className="admin-editor theme-media-section"><h2>Map backgrounds</h2><p>Assign an uploaded image to any map. You can still edit map ground and transport in Maps &amp; transport.</p>
+      <section className="admin-editor theme-media-section"><h2>Map artwork</h2><p>Upload an image in the image library, then assign it to a map below. Images fill the 40 × 28 grid. Artwork changes preserve ground, challenges, entities, spawn, and transport. Edit those separately in Maps &amp; transport. Artwork changes and resets take effect when you save media assignments.</p>
         <div className="theme-media-assignments">{settings.maps.map(map => <div className="theme-media-assignment" key={map.id}>
           {map.background && <img src={map.background} alt="" />}<strong>{map.name}</strong>
           {imagePicker(`Background for ${map.name}`, map.background, src => update({ ...settings, maps: settings.maps.map(m => m.id === map.id ? { ...m, background: src } : m) }), "No background image")}
+          {Object.hasOwn(map,"originalBackground") && <button type="button" className="text-button" disabled={busy} onClick={()=>update({...settings,maps:settings.maps.map(m=>m.id===map.id?{...m,background:m.originalBackground ?? null}:m)})}>Reset original artwork</button>}
         </div>)}</div>
       </section>
       <button className="primary" type="button" disabled={busy || !dirty || (!!newAppearance.name.trim() !== !!newAppearance.sprite)} onClick={() => void save()}>{busy ? "Saving…" : "Save media assignments"}</button>

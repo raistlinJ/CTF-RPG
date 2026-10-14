@@ -37,7 +37,7 @@ export default function MapsAdmin() {
     <section className="admin-workspace">
       <ThemeNav active="maps" />
       <div className="roster-heading">
-        <div><h1>Maps &amp; transport</h1><p className="admin-page-description">Edit artwork, reachable ground, doors, portals, and their lock requirements.</p></div>
+        <div><h1>Maps &amp; transport</h1><p className="admin-page-description">Edit reachable ground, non-player entities, doors, portals, and their lock requirements. Manage map artwork in Media.</p></div>
         {state && <div className="entity-editor-actions"><a className="secondary-button" href={`/admin/theme/entities?map=${encodeURIComponent(mapId)}`}>Edit non-player entities</a><a className="secondary-button" href={`/admin?map=${encodeURIComponent(mapId)}`}>Place challenges on this map</a></div>}
       </div>
       {error && <p className="error" role="alert">{error}</p>}

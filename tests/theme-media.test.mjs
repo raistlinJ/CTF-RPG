@@ -99,3 +99,19 @@ test('admins upload and assign theme media, and exports include the uploaded ima
     assert.ok(afterEntries['assets' + src]);
   } finally { sqlite.close(); }
 });
+
+test('Media artwork assignments retain the original image, reset it, and preserve geometry and entities',async()=>{
+ const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);
+ try {
+  const assets=new Map(),api=createApi({db:createSQLiteAdapter(sqlite),config:parseGame('characters:\n - id: web\n   name: Web\naccounts:\n users: []'),challenges:[],platformAdmin:true,assetStore:{get:async key=>assets.get(key),put:async(key,value)=>assets.set(key,value)},readBaseAsset:path=>new Uint8Array(readFileSync('public'+path))});
+  const url='https://quest.test/api/admin/theme-media';const get=async()=>await(await api(new Request(url))).json();
+  const initial=await get(),before=await(await api(new Request('https://quest.test/api/admin/challenges'))).json(),map=initial.maps[0];
+  const upload=new FormData();upload.set('revision',String(initial.revision));upload.append('files',new File([readFileSync('public/sprites/web.png')],'replacement.png'));
+  const uploaded=await(await api(new Request(url,{method:'POST',headers:{Origin:'https://quest.test'},body:upload}))).json();const src=uploaded.media[0].src;
+  const assign=async(revision,background)=>{const r=await api(new Request(url,{method:'POST',headers:{Origin:'https://quest.test','Content-Type':'application/json'},body:JSON.stringify({action:'assign',revision,characterSprites:{},bossSprites:{},mapBackgrounds:{[map.id]:background}})}));assert.equal(r.status,200);return r.json();};
+  const replaced=await assign(uploaded.revision,src);assert.equal(replaced.maps[0].background,src);assert.equal(replaced.maps[0].originalBackground,map.background);
+  const again=await assign(replaced.revision,uploaded.suppliedMedia.find(item=>item.src!==map.background&&item.src!==src).src);assert.equal(again.maps[0].originalBackground,map.background);
+  const reset=await assign(again.revision,map.background);assert.equal(reset.maps[0].background,map.background);assert.equal(Object.hasOwn(reset.maps[0],'originalBackground'),false);
+  const after=await(await api(new Request('https://quest.test/api/admin/challenges'))).json();assert.deepEqual(after.theme.world,before.theme.world);
+ }finally{sqlite.close();}
+});
