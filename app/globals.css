@@ -1076,6 +1076,7 @@ input::placeholder {
 .reward-key-options legend { margin-bottom: 12px; }
 .reward-key-options label { display: flex; flex-direction: row; gap: 8px; align-items: center; text-transform: capitalize; }
 .reward-key-options input { width: auto; margin: 0; }
+.challenge-reward-settings .reward-incantations { display:block; margin-top:20px; padding-top:18px; border-top:1px solid #385561; }
 .key-swatch { width: 12px; height: 12px; flex: 0 0 12px; border-radius: 50%; }
 .challenge-inventory-rewards { color: #bde9cf; font-size: 14px; }
 .challenge-video-settings .admin-repeater {

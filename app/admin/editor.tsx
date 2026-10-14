@@ -861,6 +861,7 @@ export default function Admin() {
                 <section className="admin-repeaters challenge-reward-settings">
                   <h3>Inventory rewards <small>Optional</small></h3>
                   <p>Award these items when the challenge is solved or manually graded. Keys are reusable.</p>
+                  <p>Keys and incantations can be required by <a href="/admin/theme/maps?tab=transport">transport locks</a> to control access to certain areas.</p>
                   <fieldset className="reward-key-options">
                     <legend>Keys to grant</legend>
                     {KEY_COLORS.map(color => <label key={color}>
@@ -870,7 +871,7 @@ export default function Admin() {
                       <span className="key-swatch" style={{ background: KEY_PALETTE[color as keyof typeof KEY_PALETTE] }} />{color} key
                     </label>)}
                   </fieldset>
-                  <label>Incantations to grant <small>One short phrase per line, up to 80 characters each.</small>
+                  <label className="reward-incantations">Incantations to grant <small>One short phrase per line, up to 80 characters each.</small>
                     <textarea rows={3} maxLength={1620} value={draft.rewards.incantations.join("\n")} placeholder="open sesame" onChange={e => patch({ rewards: { ...draft.rewards, incantations: e.target.value.split(/\r?\n/) } })} />
                   </label>
                   <small>Players see the phrases in Inventory after earning them. Previously earned rewards stay unchanged when you edit a challenge.</small>
