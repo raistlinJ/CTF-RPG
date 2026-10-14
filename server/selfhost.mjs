@@ -1,4 +1,4 @@
-import { THEME_UPLOAD_LIMIT, PACK_IMPORT_REQUEST_LIMIT } from "../lib/pack-limits.mjs";
+import { THEME_UPLOAD_LIMIT, PACK_IMPORT_REQUEST_LIMIT, CTFD_IMPORT_REQUEST_LIMIT } from "../lib/pack-limits.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
@@ -160,14 +160,19 @@ const server = createServer(async (req, res) => {
       const chunks = [];
       let length = 0;
       const bodyLimit =
-        url.pathname === "/api/admin/ctfd-import" ? 65 * 1024 * 1024 : url.pathname === "/api/admin/packs" ? PACK_IMPORT_REQUEST_LIMIT : ["/api/admin/theme-audio", "/api/admin/theme-media"].includes(url.pathname) ? THEME_UPLOAD_LIMIT : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : 524288;
-      for await (const chunk of req) {
+        url.pathname === "/api/admin/ctfd-import" ? CTFD_IMPORT_REQUEST_LIMIT : url.pathname === "/api/admin/packs" ? PACK_IMPORT_REQUEST_LIMIT : ["/api/admin/theme-audio", "/api/admin/theme-media"].includes(url.pathname) ? THEME_UPLOAD_LIMIT : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : 524288;
+      const rejectUpload = () => {
+        req.resume(); // Drain without retaining the rejected upload or closing before the response flushes.
+        res.writeHead(413, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify({ error: url.pathname === "/api/admin/ctfd-import"
+          ? "CTFd request exceeds 65 MB. Use the web importer to prepare exports up to 512 MB before uploading."
+          : `Upload exceeds the ${Number((bodyLimit / 1024 / 1024).toFixed(2))} MB request limit.` }));
+      };
+      if (Number(req.headers["content-length"]) > bodyLimit) { rejectUpload(); return; }
+      for await (const chunk of req.iterator({ destroyOnReturn: false })) {
         length += chunk.length;
+        if (length > bodyLimit) { rejectUpload(); return; }
         chunks.push(chunk);
-        if (length > bodyLimit) {
-          res.writeHead(413);
-          return res.end();
-        }
       }
       const body = Buffer.concat(chunks);
       const headers = new Headers();
@@ -267,8 +272,10 @@ const server = createServer(async (req, res) => {
     if (req.method === "HEAD" || range?.status === 416) return res.end();
     createReadStream(file, range ? {start:range.start,end:range.end} : undefined).pipe(res);
   } catch {
-    res.writeHead(400);
-    res.end("Invalid request");
+    if (req.url?.startsWith("/api/")) {
+      res.writeHead(400, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ error: "Invalid API request." }));
+    } else { res.writeHead(400); res.end("Invalid request"); }
   }
 });
 const host = process.env.HOST || "0.0.0.0",

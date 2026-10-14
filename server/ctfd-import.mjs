@@ -1,3 +1,5 @@
+import {CTFD_UPLOAD_ZIP_LIMIT,CTFD_IMPORT_REQUEST_LIMIT} from '../lib/pack-limits.mjs';
+import {CTFD_PREPARATION_FILE,ctfdUploadPath} from '../lib/ctfd-prepare.mjs';
 import { challengeTiles } from "../lib/challenge-icon.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import {unzipSync,strFromU8} from 'fflate';
@@ -10,9 +12,9 @@ import {assetTypes,assertAsset,readAsset} from './packs.mjs';
 const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const hash=async(bytes)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
 function unpack(bytes){
- if(bytes.length>64*1024*1024)throw Error('CTFd export ZIP must be at most 64 MB.');
+ if(bytes.length>CTFD_UPLOAD_ZIP_LIMIT)throw Error('CTFd export ZIP must be at most 64 MB.');
  let size=0,count=0;const names=new Set();
- return unzipSync(bytes,{filter:f=>{if(++count>10000||names.has(f.name)||f.name.startsWith('/')||f.name.includes('\\')||f.name.includes('\0')||f.name.split('/').includes('..'))throw Error('Unsafe or duplicate export path.');names.add(f.name);size+=f.originalSize;if(size>128*1024*1024||f.originalSize>32*1024*1024)throw Error('Expanded export exceeds 128 MB total or 32 MB per entry.');return !f.name.endsWith('/')&&(f.name.startsWith('db/')||f.name.startsWith('uploads/'));}});
+ return unzipSync(bytes,{filter:f=>{if(++count>10000||names.has(f.name)||f.name.startsWith('/')||f.name.includes('\\')||f.name.includes('\0')||f.name.split('/').includes('..'))throw Error('Unsafe or duplicate export path.');names.add(f.name);size+=f.originalSize;if(size>128*1024*1024||f.originalSize>32*1024*1024)throw Error('Expanded export exceeds 128 MB total or 32 MB per entry.');return !f.name.endsWith('/')&&(f.name.startsWith('db/')||f.name.startsWith('uploads/')||f.name===CTFD_PREPARATION_FILE);}});
 }
 function table(entries,name,required=false){const data=entries['db/'+name+'.json'];if(!data){if(required)throw Error('Missing CTFd table: '+name);return [];}const value=JSON.parse(strFromU8(data));const rows=Array.isArray(value)?value:value.results;if(!Array.isArray(rows)||rows.length>10000||rows.some(r=>!r||typeof r!=='object'||Array.isArray(r)))throw Error('Invalid CTFd table: '+name);return rows;}
 const id=ctfdSourceId;
@@ -30,6 +32,10 @@ function teamName(name,sourceId,used){const base=String(name||'CTFd team '+sourc
 async function state(db,config){const users=(await db.prepare('SELECT id,username,revision FROM students ORDER BY id').bind().all()).results,teams=(await db.prepare('SELECT id,name_key FROM teams ORDER BY id').bind().all()).results,members=(await db.prepare('SELECT user,team FROM team_members ORDER BY user').bind().all()).results,limit=(await db.prepare("SELECT max_members FROM team_settings WHERE id='active'").bind().first())?.max_members??config.teams.maxMembers;return{users,teams,members,limit,fingerprint:await hash(new TextEncoder().encode(JSON.stringify({users,teams,members,limit,roster:config.accounts.users.map(u=>u.username)})))};}
 async function plan(entries,digest,options,{db,config,theme,themeRevision,challenges,contentRevision,readBaseAsset,assetStore}){
  const current=await state(db,config),warnings=[],prefix='ctfd-'+digest.slice(0,16)+'-',sourceChallenges=table(entries,'challenges',true),flags=table(entries,'flags'),hints=table(entries,'hints'),files=table(entries,'files'),tags=table(entries,'tags'),sourceUsers=options.users?table(entries,'users',true):[],sourceTeams=options.teams?table(entries,'teams',true):[];
+ const prepared=entries[CTFD_PREPARATION_FILE]?JSON.parse(strFromU8(entries[CTFD_PREPARATION_FILE])):null;
+ if(prepared&&(prepared.format!=='prepared-ctfd'||prepared.version!==1||!Array.isArray(prepared.omittedFiles)||prepared.omittedFiles.length>10000||prepared.omittedFiles.some(f=>typeof f.path!=='string'||f.path.length>1000||typeof f.reason!=='string'||f.reason.length>500)||!Array.isArray(prepared.ignoredTables)||prepared.ignoredTables.some(n=>typeof n!=='string'||n.length>100)))throw Error('Invalid large-export preparation details.');
+ const omittedPaths=new Map((prepared?.omittedFiles||[]).map(f=>[f.path,f.reason])),omittedAttachments=[];
+ if(prepared?.ignoredTables.length)warnings.push('Large export: unsupported history/configuration tables omitted: '+prepared.ignoredTables.join(', ')+'.');
  for(const [rows,label] of [[sourceChallenges,'challenge'],[sourceUsers,'user'],[sourceTeams,'team']])distinct(rows,label);
  if(options.teams&&!options.users)throw Error('Import users when importing team memberships.');
  const dependencyPlan=planCtfdDependencies(sourceChallenges,prefix),placed=new Set();
@@ -57,13 +63,14 @@ async function plan(entries,digest,options,{db,config,theme,themeRevision,challe
   if(skipped.length){excluded.push({id:prefix+cid,object:name,reason:'Prerequisite not imported: '+skipped.map(parent=>String(dependencyPlan.source.get(parent).name||parent)).join(', ')+'.'});continue;}
   if(challenges.length+newChallenges.length>=100){excluded.push({id:prefix+cid,object:name,reason:'The catalog limit of 100 challenges has been reached.'});continue;}
   const position=spaces.pop();if(!position){excluded.push({id:prefix+cid,object:name,reason:'No free reachable map tile.'});continue;}
-  const downloads=[];let text=String(row.description||name);
-  for(const f of files.filter(f=>String(f.challenge_id)===cid)){
+  const downloads=[],sourceFiles=files.filter(f=>String(f.challenge_id)===cid);let text=String(row.description||name);
+  const omit=(location,reason)=>{review=true;notes.push('Attachment omitted: '+location+' — '+reason);omittedAttachments.push({challenge:name,location,reason});};
+  for(const f of sourceFiles){
    const location=String(f.location||'');if(/^https:\/\//i.test(location)){downloads.push({name:location.split('/').pop()||'File',url:location});continue;}
-   const path=location.replace(/^\/?(?:uploads|files)\//,'').split('?')[0];const bytes=entries['uploads/'+path];if(!bytes){review=true;notes.push('Missing attachment: '+location);continue;}
-   if(bytes.length>4*1024*1024)throw Error(name+': attachment exceeds the current 4 MB content-pack per-file limit.');
+   const path=ctfdUploadPath(location);const bytes=entries['uploads/'+path];if(!bytes){omit(location,omittedPaths.get(path)||'Attachment not present in the export.');continue;}
+   if(bytes.length>4*1024*1024){omit(location,'File exceeds the 4 MB per-attachment limit.');continue;}
    const rawExt=path.split('.').pop().toLowerCase(),ext=assetTypes[rawExt]?rawExt:'bin';assertAsset(bytes,ext);const key=await hash(bytes)+'.'+ext;
-   if(!assets.has(key)){if(!oldPaths.has('/api/assets/'+key))assetSize+=bytes.length;if(assetSize>8*1024*1024)throw Error('Referenced attachments exceed the current 8 MB content-pack limit.');assets.set(key,{key,bytes,type:assetTypes[ext]});}
+   if(!assets.has(key)){const added=oldPaths.has('/api/assets/'+key)?0:bytes.length;if(assetSize+added>8*1024*1024){omit(location,'File would exceed the 8 MB total attachment limit.');continue;}assetSize+=added;assets.set(key,{key,bytes,type:assetTypes[ext]});}
    const url='/api/assets/'+key,filename=(path.split('/').pop()||'file').replace(/[^a-zA-Z0-9_.-]/g,'_');downloads.push({name:path.split('/').pop()||'File',url,filename});
    text=text.split('/files/'+path).join(url).split('/uploads/'+path).join(url);
   }
@@ -74,7 +81,7 @@ async function plan(entries,digest,options,{db,config,theme,themeRevision,challe
   if(sourceHints.some(h=>h.type&&h.type!=='standard')){review=true;notes.push('Custom hint behavior requires review.');}
   if(downloads.length>20||convertedHints.length>20)throw Error(name+': at most 20 files/links and 20 hints are supported.');
   notes.forEach(note=>warnings.push(name+': '+note));
-  const definition={id:prefix+cid,...position,dependsOn:dependency.dependsOn,object:name,region:String(row.category||'CTFd'),text,points,flags:rules.map(r=>r.value),...(rules.length?{flagRules:rules}:{}),caseSensitive:rules.every(r=>r.caseSensitive),grading:review&&(!rules.length||rules.length!==sourceFlags.length||row.logic&&row.logic!=='any')?'manual':'automatic',visibility:review||row.state!=='visible'?'hidden':'visible',hints:convertedHints,downloads,ctfd:{challenge:row,flags:sourceFlags,hints:sourceHints,tags:sourceTags,solutions:table(entries,"solutions").filter(s=>String(s.challenge_id)===cid),notes}};
+  const definition={id:prefix+cid,...position,dependsOn:dependency.dependsOn,object:name,region:String(row.category||'CTFd'),text,points,flags:rules.map(r=>r.value),...(rules.length?{flagRules:rules}:{}),caseSensitive:rules.every(r=>r.caseSensitive),grading:review&&(!rules.length||rules.length!==sourceFlags.length||row.logic&&row.logic!=='any')?'manual':'automatic',visibility:review||row.state!=='visible'?'hidden':'visible',hints:convertedHints,downloads,ctfd:{challenge:row,files:sourceFiles,flags:sourceFlags,hints:sourceHints,tags:sourceTags,solutions:table(entries,"solutions").filter(s=>String(s.challenge_id)===cid),notes}};
   if(challenges.some(c=>c.id===definition.id))throw Error('An imported challenge ID conflicts with existing content.');
   newChallenges.push(parseChallenges(stringify({challenges:[definition]}),theme.world.maps.map(m=>m.id),false,[...challenges.map(c=>c.id),...sourceChallenges.map(c=>prefix+id(c.id))])[0]);placed.add(cid);
  }
@@ -87,18 +94,19 @@ async function plan(entries,digest,options,{db,config,theme,themeRevision,challe
  if(sourceUsers.length||sourceTeams.length)warnings.push('CTFd password hashes are not reused. New temporary user/team passwords will be provided in a credentials CSV after import.');
  if(sourceUsers.some(u=>u.hidden)||sourceTeams.some(t=>t.hidden))warnings.push('CTFd hidden-account/team scoreboard state is not imported; use scoreboard visibility controls or review accounts.');
  const skipped=['solves','fails','awards','solutions','notifications','pages','field_entries','ratings','comments'].filter(n=>table(entries,n).length);if(skipped.length)warnings.push('Not imported: '+skipped.join(', ')+'.');
- return{digest,users,teams,newChallenges,assets,current,report:{challenges:newChallenges.map(c=>({id:c.id,name:c.object,map:c.map,location:c.location,points:c.points,grading:c.grading,visibility:c.visibility,dependsOn:c.dependsOn})),users:users.map(u=>({sourceId:u.sourceId,sourceName:u.sourceName,username:u.username})),teams:teams.map(t=>({sourceId:t.sourceId,sourceName:t.sourceName,name:t.name})),warnings,excluded,requiredMax,currentMax:current.limit,fingerprint:current.fingerprint,themeRevision,contentRevision}};
+ return{digest,users,teams,newChallenges,assets,current,report:{challenges:newChallenges.map(c=>({id:c.id,name:c.object,map:c.map,location:c.location,points:c.points,grading:c.grading,visibility:c.visibility,dependsOn:c.dependsOn})),users:users.map(u=>({sourceId:u.sourceId,sourceName:u.sourceName,username:u.username})),teams:teams.map(t=>({sourceId:t.sourceId,sourceName:t.sourceName,name:t.name})),warnings,omittedAttachments,excluded,requiredMax,currentMax:current.limit,fingerprint:current.fingerprint,themeRevision,contentRevision}};
 }
 export async function handleCtfdImport(req,state){
  const {db,config,user,platformAdmin,assetStore}=state,u=await user(req);if(!platformAdmin&&u?.role!=='admin')return reply({error:'Administrator access required.'},u?403:401);if(req.method!=='POST')return reply({error:'Method not allowed.'},405);
  try{
-  if(Number(req.headers.get('content-length'))>65*1024*1024)throw Error('CTFd upload exceeds 64 MB.');const f=await req.formData(),file=f.get('file');if(!file||typeof file.arrayBuffer!=='function'||file.size>64*1024*1024)throw Error('Choose a CTFd export ZIP up to 64 MB.');const bytes=new Uint8Array(await file.arrayBuffer()),digest=await hash(bytes),prior=await db.prepare('SELECT report FROM ctfd_imports WHERE digest=?').bind(digest).first();if(prior)return reply({alreadyImported:true,report:JSON.parse(prior.report)});
+  if(Number(req.headers.get('content-length'))>CTFD_IMPORT_REQUEST_LIMIT)return reply({error:'CTFd request exceeds 65 MB. Use the web importer to prepare large exports before upload.'},413);const f=await req.formData(),file=f.get('file');if(!file||typeof file.arrayBuffer!=='function'||file.size>CTFD_UPLOAD_ZIP_LIMIT)throw Error('Choose a CTFd export ZIP up to 64 MB.');const bytes=new Uint8Array(await file.arrayBuffer()),digest=await hash(bytes),prior=await db.prepare('SELECT report FROM ctfd_imports WHERE digest=?').bind(digest).first();if(prior)return reply({alreadyImported:true,report:JSON.parse(prior.report)});
   const current=await state.catalog(),options={users:f.get('users')==='true',teams:f.get('teams')==='true'},p=await plan(unpack(bytes),digest,options,{...state,challenges:current.challenges,contentRevision:current.revision});
   if(JSON.stringify(p.report).length>4000000)throw Error('Import report exceeds the supported size. Split the export into smaller batches.');
   if(f.get('action')!=='apply')return reply({preview:true,report:p.report});
   if(Number(f.get('themeRevision'))!==state.themeRevision||Number(f.get('contentRevision'))!==current.revision||f.get('fingerprint')!==p.current.fingerprint)return reply({error:'The theme, accounts or content changed. Preview the import again.'},409);
   if(p.report.excluded.length&&f.get('dropOverflow')!=='true')return reply({error:'Some challenges cannot be imported. Review the skipped challenges and their dependencies before allowing them to be skipped.'},400);
   if(p.report.requiredMax>p.current.limit&&f.get('raiseTeamLimit')!=='true')return reply({error:'Imported team size exceeds the team limit. Explicitly allow raising it in the preview.'},400);
+  if(p.report.omittedAttachments.length&&f.get('allowMissingAttachments')!=='true')return reply({error:'Some attachments cannot be imported. Review the omitted attachments and explicitly allow importing without them.'},400);
   if(p.assets.size&&!assetStore)throw Error('Attachment storage is unavailable.');for(const a of p.assets.values())await assetStore.put(a.key,a.bytes,a.type);
   const run=crypto.randomUUID(),now=Date.now(),credentials=[],records=[];
   for(const t of p.teams){const password=credential(),salt=crypto.randomUUID();records.push({kind:'team',...t,salt,hash:await passwordHash(password,salt)});credentials.push({kind:'team',sourceName:t.sourceName,login:t.name,password});}

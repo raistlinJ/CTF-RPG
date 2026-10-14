@@ -35,6 +35,7 @@ Use a valid player `hero` ID from `GET /api/config` if supplying a character on 
 | GET, POST | `/api/admin/challenge-dependencies` | Read/edit progression dependencies. |
 | GET, POST | `/api/admin/registration` | Configure self-registration. |
 | GET, POST | `/api/admin/packs` | Read, export and import themes/content. |
+| POST | `/api/admin/ctfd-import` | Preview/apply a multipart CTFd import, with explicit skipped-file decisions. |
 | POST | `/api/admin/maps` | Edit ground, spawns, entities and transports. |
 | GET, POST | `/api/admin/theme-media` | Manage appearance/image catalogs. |
 | GET, POST | `/api/admin/theme-audio` | Manage MIDI tracks and playback settings. |
@@ -66,3 +67,5 @@ curl -b ctf-cookies.txt "$BASE_URL/api/admin/backup" -o ctf-rpg-backup.zip
 
 curl -b ctf-cookies.txt -X DELETE -H "Origin: $BASE_URL" "$BASE_URL/api/auth"
 ```
+
+CTFd source ZIPs up to 512 MB can be prepared through the web importer. Direct REST uploads are limited to 64 MB ZIP / 65 MB multipart requests. When a preview lists `omittedAttachments`, applying requires `allowMissingAttachments: "true"` in the form; affected challenges remain hidden for review.

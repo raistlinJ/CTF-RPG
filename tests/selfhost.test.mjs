@@ -6,6 +6,8 @@ import {mkdtempSync,writeFileSync,rmSync,mkdirSync,cpSync,symlinkSync,readFileSy
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {createServer} from 'node:net';
+import {request as httpRequest} from 'node:http';
+import {CTFD_IMPORT_REQUEST_LIMIT} from '../lib/pack-limits.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {runtimeConfig,defaultGameConfig} from '../lib/runtime-config.mjs';
 import {publicConfig} from '../lib/config-schema.mjs';
@@ -57,5 +59,19 @@ test('standalone reads root .env without game.yaml; UI users select once, roles 
   assert.equal((await guest('/api/auth',{mode:'login',username:'teacher01',password:'another-bootstrap-password',hero:'web'})).status,401);
   assert.equal((await guest('/api/auth',{mode:'login',username:'teacher01',password:'changed-admin-password',hero:'web'})).data.admin,true);
   const db=new DatabaseSync(resolve(dir,'quest.sqlite'));assert.equal(db.prepare("SELECT hero FROM students WHERE username='teacher01'").get().hero,'shield');db.close();
+ }finally{await stop(child);rmSync(dir,{recursive:true,force:true});}
+});
+
+test('oversized CTFd and streamed API requests return JSON 413 errors before dispatch and keep the server available',async()=>{
+ const dir=fixture(),p=await port(),child=await start(dir,p);
+ try {
+  const response=await new Promise((resolve,reject)=>{
+   const req=httpRequest({host:'127.0.0.1',port:p,path:'/api/admin/ctfd-import',method:'POST',headers:{'Content-Length':CTFD_IMPORT_REQUEST_LIMIT+1}},res=>{let body='';res.on('data',c=>body+=c);res.on('end',()=>resolve({status:res.statusCode,type:res.headers['content-type'],body}));});
+   req.setTimeout(5000,()=>req.destroy(Error('Upload rejection timeout')));req.on('error',reject);req.end('x');
+  });
+  assert.equal(response.status,413);assert.match(response.type,/application\/json/);assert.match(JSON.parse(response.body).error,/512 MB/);
+  const body=new ReadableStream({start(c){c.enqueue(new Uint8Array(600000));c.close();}});
+  const streamed=await fetch(`http://127.0.0.1:${p}/api/auth`,{method:'POST',duplex:'half',body});assert.equal(streamed.status,413);assert.match((await streamed.json()).error,/request limit/);
+  assert.equal((await fetch(`http://127.0.0.1:${p}/api/config`)).status,200);
  }finally{await stop(child);rmSync(dir,{recursive:true,force:true});}
 });
