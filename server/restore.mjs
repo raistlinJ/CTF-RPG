@@ -58,7 +58,6 @@ try {
       "scoreboard_settings",
       "challenge_settings",
       "registration_settings",
-      "integration_tokens",
       "team_messages",
       "team_social_settings",
       "player_presence",
@@ -222,7 +221,6 @@ try {
     for(const n of snapshot.notificationRecipients)sqlite.prepare("INSERT INTO notification_recipients(notification,username) VALUES(?,?)").run(n.notification,n.username);
     for(const n of snapshot.notificationReads)sqlite.prepare("INSERT INTO notification_reads(notification,user,read_at) VALUES(?,?,?)").run(n.notification,n.user,n.read_at);
     for(const n of snapshot.ctfdImports)sqlite.prepare("INSERT INTO ctfd_imports(id,digest,created_at,report) VALUES(?,?,?,?)").run(n.id,n.digest,n.created_at,n.report);
-    for(const token of snapshot.integrationTokens)sqlite.prepare("INSERT INTO integration_tokens(id,name,token_hash,created_at) VALUES(?,?,?,?)").run(token.id,token.name,token.tokenHash,token.createdAt);
     const attempts = sqlite.prepare("INSERT INTO answer_attempts(id,user,challenge,answer,question,object,correct,submitted_team,submitted_at) VALUES(?,?,?,?,?,?,?,?,?)");
     for (const a of snapshot.answerAttempts) attempts.run(a.id,a.user,a.challenge,a.answer,a.question,a.object,a.correct,a.submitted_team,a.submitted_at);
     const hints = sqlite.prepare(

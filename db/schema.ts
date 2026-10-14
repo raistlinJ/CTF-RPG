@@ -112,13 +112,6 @@ export const registrationSettings = sqliteTable("registration_settings", {
   revision: integer("revision").notNull(),
 });
 
-export const integrationTokens = sqliteTable("integration_tokens", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  tokenHash: text("token_hash").notNull().unique(),
-  createdAt: integer("created_at").notNull(),
-});
-
 export const themeCatalog = sqliteTable("theme_catalog", {
   id: text("id").primaryKey(),
   payload: text("payload").notNull(),

@@ -51,6 +51,11 @@ const purchase = z
   })
   .strict();
 export function validateSnapshot(input) {
+  // Retired API credentials are discarded when reading older full exports.
+  if (input && typeof input === 'object' && Object.hasOwn(input, 'integrationTokens')) {
+    input = { ...input };
+    delete input.integrationTokens;
+  }
   const snapshot = z
     .object({
       format: z.literal("north-pole-quest"),
@@ -132,7 +137,6 @@ export function validateSnapshot(input) {
         .default([]),
       challengeSettings: z.object({visibility:z.enum(["admins","all"]),revision:z.number().int().min(0)}).strict().optional(),
       registrationSettings: z.object({allowRegistration:z.boolean(),revision:z.number().int().min(0)}).strict().optional(),
-      integrationTokens: z.array(z.object({id:z.string().uuid(),name:z.string().min(1).max(80),tokenHash:z.string().regex(/^[a-f0-9]{64}$/),createdAt:z.number().int().min(0)}).strict()).max(1000).default([]),
       scoreboardSettings: z
         .object({
           visibility: z.enum(["admins", "all"]),
@@ -470,7 +474,6 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     ).results,
     challengeSettings: await challengeSettings(db),
     registrationSettings: registration,
-    integrationTokens: (await db.prepare("SELECT id,name,token_hash AS tokenHash,created_at AS createdAt FROM integration_tokens ORDER BY created_at,id").bind().all()).results,
     scoreboardSettings: await scoreboardSettings(db),
     playerVisibility: (await presenceSettings(db, config)).visibility,
     teamMaxMembers:

@@ -54,7 +54,7 @@ Open `/admin` to view the full town and interiors, select locations, and create 
 
 ## Add or edit challenges
 
-The starting set comes from `content/challenges.yaml`; after the first admin save, the database-backed set is authoritative. The YAML supports challenge text, points, accepted flags, case sensitivity, multiple hints with costs, and downloadable files. See [CHALLENGES.md](CHALLENGES.md) for a complete YAML example, field definitions, scoring, and compatibility with the original format. Flags and locked hint text stay on the server. For server-side user provisioning and score reads, see [INTEGRATIONS.md](INTEGRATIONS.md).
+The starting set comes from `content/challenges.yaml`; after the first admin save, the database-backed set is authoritative. The YAML supports challenge text, points, accepted flags, case sensitivity, multiple hints with costs, and downloadable files. See [CHALLENGES.md](CHALLENGES.md) for a complete YAML example, field definitions, scoring, and compatibility with the original format. Flags and locked hint text stay on the server. For REST administration with account login and session cookies, see [REST_API.md](REST_API.md).
 
 Restart your standalone Node server after YAML changes. For Sites, rebuild and republish. Hint purchases persist once per student; costs reduce that challenge's reward. Existing completed challenges keep their saved scores.
 

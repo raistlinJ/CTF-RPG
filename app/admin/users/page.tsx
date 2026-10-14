@@ -48,18 +48,12 @@ type Draft = Pick<
 > & { password: string };
 type BulkAction = "disable" | "delete" | "mute" | "unmute" | "remove-team";
 type Registration = { allowRegistration: boolean; revision: number };
-type IntegrationToken = { id: string; name: string; createdAt: number };
 const actionNames: Record<BulkAction, string> = { disable: "Disable", delete: "Delete", mute: "Mute chat", unmute: "Unmute chat", "remove-team": "Remove from team" };
 export default function UsersPage() {
   const [users, setUsers] = useState<Account[]>([]),
     [characters, setCharacters] = useState<Character[]>([]),
     [viewer, setViewer] = useState<string | null>(null),
     [registration, setRegistration] = useState<Registration | null>(null),
-    [integrationTokens, setIntegrationTokens] = useState<IntegrationToken[]>([]),
-    [tokenName, setTokenName] = useState("SCE-web"),
-    [issuedToken, setIssuedToken] = useState(""),
-    [tokenBusy, setTokenBusy] = useState(false),
-    [tokenError, setTokenError] = useState(""),
     [draft, setDraft] = useState<Draft | null>(null),
     [editing, setEditing] = useState(false),
     [loading, setLoading] = useState(true),
@@ -105,50 +99,9 @@ export default function UsersPage() {
       setLoading(false);
     }
   }
-  async function loadTokens() {
-    try {
-      const r = await fetch("/api/admin/integration-tokens");
-      const d = await r.json() as { tokens?: IntegrationToken[]; error?: string };
-      if (!r.ok) throw Error(d.error || "Could not load integration tokens.");
-      setIntegrationTokens(d.tokens || []);
-      setTokenError("");
-    } catch (e) { setTokenError((e as Error).message); }
-  }
   useEffect(() => {
     void Promise.resolve().then(() => load());
-    void Promise.resolve().then(() => loadTokens());
   }, []);
-  async function createToken(e: React.FormEvent) {
-    e.preventDefault();
-    if (tokenBusy) return;
-    setTokenBusy(true);
-    setTokenError("");
-    setIssuedToken("");
-    try {
-      const r = await fetch("/api/admin/integration-tokens", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: tokenName }),
-      });
-      const d = await r.json() as IntegrationToken & { token?: string; error?: string };
-      if (!r.ok || !d.token) throw Error(d.error || "Could not create the integration token.");
-      setIssuedToken(d.token);
-      setIntegrationTokens(current => [d, ...current]);
-    } catch (e) { setTokenError((e as Error).message); }
-    finally { setTokenBusy(false); }
-  }
-  async function revokeToken(id: string) {
-    if (tokenBusy) return;
-    setTokenBusy(true);
-    setTokenError("");
-    try {
-      const r = await fetch(`/api/admin/integration-tokens/${id}`, { method: "DELETE" });
-      const d = await r.json() as { error?: string };
-      if (!r.ok) throw Error(d.error || "Could not revoke the integration token.");
-      setIntegrationTokens(current => current.filter(token => token.id !== id));
-      setIssuedToken("");
-    } catch (e) { setTokenError((e as Error).message); }
-    finally { setTokenBusy(false); }
-  }
   function fresh() {
     setDraft({
       username: "",
@@ -329,33 +282,9 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </label>
-            <p>When restricted, users created here and accounts listed in the server configuration can sign in. Existing self-registered accounts without admin approval lose access.</p>
+            <p>When restricted, admin-created accounts can sign in. Existing self-registered accounts without admin approval lose access.</p>
             <button className="primary" disabled={busy}>Save account creation</button>
           </form>
-        )}
-        {allowed && (
-          <section className="team-limit admin-editor" aria-label="Integration API tokens">
-            <h2>Integration API tokens</h2>
-            <p>Use a token in a server-side client such as SCE-web to create student accounts and read scores. Tokens cannot manage administrator accounts or other studio settings.</p>
-            <form onSubmit={createToken}>
-              <label>
-                Token name
-                <input value={tokenName} onChange={e => setTokenName(e.target.value)} required maxLength={80} />
-              </label>
-              <button className="primary" disabled={tokenBusy}>Create token</button>
-            </form>
-            {tokenError && <p className="error" role="alert">{tokenError}</p>}
-            {issuedToken && <label>
-              New token — copy it now; it will not be shown again
-              <input readOnly value={issuedToken} onFocus={e => e.target.select()} aria-label="New integration token" />
-            </label>}
-            {integrationTokens.length > 0 && <ul>
-              {integrationTokens.map(token => <li key={token.id}>
-                {token.name} · {new Date(token.createdAt).toLocaleString()}{" "}
-                <button type="button" className="text-button" disabled={tokenBusy} onClick={() => void revokeToken(token.id)}>Revoke</button>
-              </li>)}
-            </ul>}
-          </section>
         )}
         {allowed && (
           <section className="user-bulk-actions" aria-label="Bulk user actions">

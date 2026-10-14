@@ -71,7 +71,7 @@ for (const name of [
   "MAP_GUIDE.md",
   "CHALLENGES.md",
   "BACKUPS.md",
-  "INTEGRATIONS.md",
+  "REST_API.md",
   "THEMES.md",
 ])
   if (existsSync(resolve(root, name))) add(resolve(root, name));

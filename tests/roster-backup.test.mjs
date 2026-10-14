@@ -362,8 +362,6 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       200,
     );
     assert.equal((await admin("/api/admin/registration", { allowRegistration: false, revision: 0 })).status, 200);
-    const integration = await admin("/api/admin/integration-tokens", { name: "SCE-web" });
-    assert.equal(integration.status, 201);
     const alice = makeClient();
     await alice("/api/auth", {
       username: "alice",
@@ -383,8 +381,7 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
     });
     assert.equal(snapshot.registrationSettings.allowRegistration, false);
     assert.equal(snapshot.accounts.find(a => a.username === "firstlogin").heroSelected, 0);
-    assert.equal(snapshot.integrationTokens.length, 1);
-    assert.ok(!JSON.stringify(snapshot).includes(integration.data.token));
+    assert.equal(Object.hasOwn(snapshot, 'integrationTokens'), false);
     assert.ok(snapshot.accounts.some((a) => a.username === "pending01"));
     assert.ok(
       !JSON.stringify(snapshot).includes("private-pending-pass-unique"),
@@ -400,6 +397,7 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
     for (const path of [
       "package.json",
       ".env.sample",
+      "REST_API.md",
       "package-lock.json",
       "server/selfhost.mjs",
       "server/restore.mjs",
@@ -413,6 +411,9 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
     ])
       assert.ok(entries[path], path);
     assert.equal(entries[".env"], undefined);
+    assert.equal(entries["server/integration-api.mjs"], undefined);
+    assert.equal(entries["app/api/admin/integration-tokens/route.ts"], undefined);
+    assert.equal(entries["INTEGRATIONS.md"], undefined);
     assert.equal(entries["content/game.local.yaml"], undefined);
     assert.ok(
       !JSON.parse(strFromU8(entries[".openai/hosting.json"])).project_id,
@@ -438,15 +439,13 @@ test("full ZIP recreates accounts/passwords/progress, configuration, assets and 
       assert.match(readFileSync(resolve(dir, '.env'), 'utf8'), /^ADMIN_USERNAME=teacher01$/m);
       assert.match(readFileSync(resolve(dir, '.env'), 'utf8'), /^ADMIN_PASSWORD=$/m);
       assert.equal(restored.prepare("SELECT allow_registration FROM registration_settings WHERE id='active'").get().allow_registration, 0);
-      assert.equal(restored.prepare("SELECT COUNT(*) AS n FROM integration_tokens").get().n, 1);
+      assert.equal(restored.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='integration_tokens'").get().n, 0);
       const api = createApi({
         db: createSQLiteAdapter(restored),
         config: restoredConfig,
         challenges: baseline,
       });
       const restoredAlice = client(api);
-      const integrationCheck = await api(new Request("https://quest.test/api/integrations/v1/me", { headers: { Authorization: `Bearer ${integration.data.token}` } }));
-      assert.equal(integrationCheck.status, 200);
       assert.equal((await restoredAlice("/api/config")).data.allowRegistration, false);
       assert.equal(
         (

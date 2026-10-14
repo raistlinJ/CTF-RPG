@@ -32,7 +32,6 @@ Use **Full backup** in either admin screen. `/api/admin/backup` is admin-only an
 - Effective game settings (stored in `backup.json`) and the current challenge set, including flags, hints, costs, file links, and challenge dependencies.
 - Deleted-user markers and account revisions.
 - Every account, including accounts that have not signed in, roles, heroes and first-login selection status, starting positions, disabled state, salted password hashes, and account IDs.
-- Integration token hashes and names, so configured integrations continue to work after restore. Raw token values are never exported.
 - Awarded scores/completions, purchased hints with their recorded point and item costs, earned inventory, unlocked transports, cutscene playback history, entity activations, and team point gifts with comments.
 - `backup.json`, the restore program, and a short `RESTORE.md` guide.
 

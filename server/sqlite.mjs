@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS team_members(user TEXT PRIMARY KEY REFERENCES student
 CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team);
 CREATE TABLE IF NOT EXISTS team_settings(id TEXT PRIMARY KEY,max_members INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS registration_settings(id TEXT PRIMARY KEY,allow_registration INTEGER NOT NULL CHECK(allow_registration IN (0,1)),revision INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS integration_tokens(id TEXT PRIMARY KEY,name TEXT NOT NULL,token_hash TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL);
+DROP TABLE IF EXISTS integration_tokens;
 CREATE TABLE IF NOT EXISTS presence_settings(id TEXT PRIMARY KEY,visibility TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS player_presence(user TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,map TEXT NOT NULL,x INTEGER NOT NULL,y INTEGER NOT NULL,theme_revision INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_player_presence_map_revision_updated ON player_presence(map,theme_revision,updated_at);

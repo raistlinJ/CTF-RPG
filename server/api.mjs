@@ -4,7 +4,6 @@ import { entityOutputReference, entityReference, entityUnlocked, validateProgres
 import { handleChallengeDependencies } from "./challenge-dependencies.mjs";
 import { bulkUserAction } from "./user-actions.mjs";
 import { registrationSettings, handleRegistrationSettings } from "./registration-settings.mjs";
-import { handleIntegrationTokens, handleIntegrationApi } from "./integration-api.mjs";
 import {handleCtfdImport} from "./ctfd-import.mjs";
 import {handleNotifications} from "./notifications.mjs";
 import { handleSubmissions } from "./submissions.mjs";
@@ -258,14 +257,9 @@ function createRequestApi({
       method = req.method;
     if (
       !["GET", "HEAD"].includes(method) &&
-      !path.startsWith("/api/integrations/v1/") &&
       req.headers.get("origin") !== new URL(req.url).origin
     )
       return json({ error: "Invalid request origin." }, 403);
-    if (path.startsWith("/api/integrations/v1/"))
-      return handleIntegrationApi(req, { db, config, accountList });
-    if (path === "/api/admin/integration-tokens" || path.startsWith("/api/admin/integration-tokens/"))
-      return handleIntegrationTokens(req, { db, user, platformAdmin });
     if (path === "/api/admin/challenge-dependencies") return handleChallengeDependencies(req, {db, user, platformAdmin, catalog, theme, themeRevision});
     if (path === "/api/admin/challenge-visibility") return handleChallengeSettings(req, {db, user, platformAdmin});
     if (path === "/api/admin/challenge-videos") return handleChallengeVideoUpload(req, {user, platformAdmin, assetStore});
