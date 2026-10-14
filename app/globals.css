@@ -2691,11 +2691,43 @@ input::placeholder {
 .challenge-bulk-actions label { display:flex; align-items:center; gap:8px; }
 .challenge-bulk-actions input,.challenge-select-row > input { width:16px!important; height:16px; flex-shrink:0; accent-color:#a3e7ca; }
 .challenge-select-row { display:flex; align-items:center; gap:10px; padding-left:12px; border-bottom:1px solid #304652; }
-.challenge-select-row > button { display:flex; gap:12px; align-items:center; flex:1; min-width:0; padding:14px 12px 14px 0; background:transparent; color:inherit; border:0; text-align:left; }
-.challenge-select-row > button > div { flex:1; min-width:0; }
+.challenge-select-row > button { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1.1fr) repeat(2,minmax(0,1.2fr)) 90px; gap:24px; align-items:center; flex:1; min-width:0; padding:18px 14px 18px 8px; background:transparent; color:inherit; border:0; text-align:left; border-radius:6px; }
+.challenge-select-row > button > span { min-width:0; overflow-wrap:anywhere; }
 .challenge-select-row > button.active { background:#254354; }
+.challenge-select-row > button:hover { background:#203d4c; }
+.challenge-select-row > button:focus-visible { outline:2px solid #a3e7ca; outline-offset:2px; }
 .challenge-select-row small,.challenge-select-row b { display:block; overflow-wrap:anywhere; }
-.challenge-select-row .challenge-dependency-row b { display:inline; color:#b9d7dd; }
+.challenge-row-identity { display:flex; align-items:center; gap:12px; }
+.challenge-row-identity > span:last-child { min-width:0; }
+.challenge-row-icon { color:#e6c47c; font-size:24px; flex-shrink:0; }
+.challenge-row-cell { font-size:13px; line-height:1.5; }
+.challenge-select-row .challenge-row-label { margin:0 0 6px; color:#b9d7dd; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+.challenge-row-stats { text-align:right; }
+.challenge-select-row .challenge-row-availability { display:inline-block; margin-top:8px; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:600; }
+.challenge-row-availability.enabled { color:#b3ead0; background:#23493e; }
+.challenge-row-availability.disabled { color:#d1bcc7; background:#413340; }
+.challenge-row-preview { width:min(420px,calc(100vw - 32px)); max-width:calc(100vw - 32px); padding:14px 16px; border:1px solid #476c7d; background:#102532; color:#edf7fb; font-size:14px; line-height:1.5; text-align:left; overflow-wrap:anywhere; box-shadow:0 8px 24px #0005; }
+.challenge-row-preview strong { display:block; color:#a3d8c9; font-size:12px; font-weight:600; }
+.challenge-row-preview p { margin:4px 0 12px; }
+.challenge-row-preview p:last-of-type { margin-bottom:0; }
+.challenge-preview-flag { display:block; color:#f1deab; }
+.challenge-row-preview small { color:#a5b9c4; }
+.challenge-row-preview > svg { fill:#102532; background:#102532; }
+@media (max-width:1100px) {
+  .challenge-select-row > button { grid-template-columns:repeat(2,minmax(0,1fr)) 90px; gap:16px 22px; }
+  .challenge-row-identity { grid-column:1; grid-row:1; }
+  .challenge-row-location { grid-column:2; grid-row:1; }
+  .challenge-row-stats { grid-column:3; grid-row:1; }
+  .challenge-row-from { grid-column:1; grid-row:2; }
+  .challenge-row-to { grid-column:2 / -1; grid-row:2; }
+}
+@media (max-width:650px) {
+  .challenge-select-row > button { grid-template-columns:minmax(0,1fr) 80px; gap:14px; }
+  .challenge-row-stats { grid-column:2; }
+  .challenge-row-location { grid-column:1 / -1; grid-row:2; }
+  .challenge-row-from { grid-column:1 / -1; grid-row:3; }
+  .challenge-row-to { grid-column:1 / -1; grid-row:4; }
+}
 
 .theme-media-assignment > .portrait { width:48px; height:48px; background:#132631; border-radius:6px; }
 .theme-media-admin-avatar { margin:14px 0 20px; }

@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { KEY_COLORS, KEY_PALETTE, normalizeIncantation } from "@/lib/inventory-data.mjs";
 type Hint = { id: string; label: string; text: string; cost: number; rewardCost: { keys: string[]; incantations: string[] } };
 type FileLink = { name: string; url: string; filename?: string };
@@ -106,6 +107,12 @@ const toDraft = (c: Definition): Draft => ({
   downloads: c.downloads.map((f) => ({ ...f })),
   flagsText: (c.flags || []).join("\n"),
 });
+function previewWords(value: string, count = 12, maxLength = 160) {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  const words = normalized.split(" ").slice(0, count).join(" ");
+  const preview = words.slice(0, maxLength);
+  return preview + (preview.length < normalized.length ? "…" : "");
+}
 export default function Admin() {
   const [bossSpritePaths, setBossSpritePaths] = useState<Record<string, string>>({});
   const bossSprites = useBossSprites(bossSpritePaths);
@@ -524,34 +531,36 @@ export default function Admin() {
                     <button type="button" className="secondary-button" disabled={busy || !selectedChallenges.length} onClick={()=>void setSelectedVisibility("hidden")}>Disable selected</button>
                     <button type="button" className="text-button" disabled={busy} onClick={()=>void load(true).catch(e=>setError(e.message))}>Reload collection</button>
                   </div>
-                  <small>Enabled = visible; disabled = hidden. Global availability and prerequisites still apply.</small>
+                  <small>Enabled = visible; disabled = hidden. Global availability and prerequisites still apply. Hover or focus a row to preview its text and accepted flags.</small>
                   {error && <p className="error" role="alert">{error}</p>}{message && <p className="success" role="status">{message}</p>}
-                  <div className="admin-challenge-list">
+                  <TooltipProvider delayDuration={250}><div className="admin-challenge-list">
                     {matchingChallenges.map((c) => (
                         <div key={c.id} className="challenge-select-row">
                         <input type="checkbox" aria-label={`Select challenge ${c.object}`} checked={checkedChallenges.includes(c.id)} disabled={busy} onChange={e=>setCheckedChallenges(ids=>e.target.checked?[...ids,c.id]:ids.filter(id=>id!==c.id))} />
+                        <Tooltip><TooltipTrigger asChild>
                         <button
                           className={c.id === editingId ? "active" : ""}
+                          aria-label={`Edit challenge ${c.object}`}
                           disabled={busy}
                           onClick={() => selectExisting(c)}
                         >
-                          <span>✦</span>
-                          <div>
-                            <b>{c.object}</b>
-                            <small>
-                              {c.region} · {c.location.x}, {c.location.y} · {c.visibility === "hidden" ? "Disabled" : "Enabled"}
-                            </small>
-                            <small className="challenge-dependency-row"><b>From (requires):</b> {(c.dependsOn || []).map(dependencyName).join(" · ") || "None"}</small>
-                            <small className="challenge-dependency-row"><b>To (unlocks):</b> {dependencyTargets(c.id).join(" · ") || "None"}</small>
-                          </div>
-                          <strong>{c.points} pts</strong>
+                          <span className="challenge-row-identity"><span className="challenge-row-icon" aria-hidden="true">{c.icon === "boss" ? "◆" : "✦"}</span><span><b>{c.object}</b><small>{c.grading === "manual" ? "Instructor graded" : "Automatic"}{c.icon === "boss" ? ` · Boss ${challengeSize(c)} × ${challengeSize(c)}` : ""}</small></span></span>
+                          <span className="challenge-row-cell challenge-row-location"><small className="challenge-row-label">Location</small><span>{mapName(c.map)}</span><small>{c.region} · {c.location.x}, {c.location.y}</small></span>
+                          <span className="challenge-row-cell challenge-row-from"><small className="challenge-row-label">From (requires)</small><span>{(c.dependsOn || []).map(dependencyName).join(" · ") || "None"}</span></span>
+                          <span className="challenge-row-cell challenge-row-to"><small className="challenge-row-label">To (unlocks)</small><span>{dependencyTargets(c.id).join(" · ") || "None"}</span></span>
+                          <span className="challenge-row-stats"><strong>{c.points} pts</strong><small className={`challenge-row-availability ${c.visibility === "hidden" ? "disabled" : "enabled"}`}>{c.visibility === "hidden" ? "Disabled" : "Enabled"}</small></span>
                         </button>
+                        </TooltipTrigger><TooltipContent className="challenge-row-preview" side="top" align="start" sideOffset={8}>
+                          <strong>Challenge text</strong><p>{previewWords(c.text) || "No challenge text."}</p>
+                          <strong>Accepted flags</strong>
+                          {c.grading === "manual" ? <p>Instructor graded</p> : <p>{(c.flagRules?.length ? c.flagRules.map(rule => rule.value) : c.flags).slice(0, 3).map((flag, index) => <span className="challenge-preview-flag" key={index}>{previewWords(flag, 6, 100)}</span>)}{(c.flagRules?.length || c.flags.length) > 3 && <small>+{(c.flagRules?.length || c.flags.length) - 3} more flags</small>}</p>}
+                        </TooltipContent></Tooltip>
                         </div>
                       ))}
                     {!filterError && !matchingChallenges.length && (
                       <p>{scopedChallenges.length ? "No challenges match this filter." : "No challenges here yet. Choose New challenge to add one."}</p>
                     )}
-                  </div>
+                  </div></TooltipProvider>
             </section> : <div className="admin-columns">
               <div className="admin-map-panel">
                 <div className="admin-map-toolbar">
