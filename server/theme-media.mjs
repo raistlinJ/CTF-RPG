@@ -15,10 +15,11 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
     const supplied = [
       ...value.media.filter(item => item.source === 'theme').map(item => ({ src: item.src, name: item.name })),
       ...value.characters.filter(c => c.sprite).map(c => ({ src: c.sprite, name: `${c.name} appearance` })),
+      ...(value.adminSprite ? [{ src: value.adminSprite, name: 'Admin wizard appearance' }] : []),
       ...value.world.maps.flatMap(m => [m.background && { src: m.background, name: `${m.name} background` }, m.originalBackground && { src: m.originalBackground, name: `${m.name} original background` }]).filter(Boolean),
       ...BOSS_STYLES.map(style => ({ src: value.bossSprites[style.id] || style.sprite, name: style.label })),
     ].filter(item => !uploaded.has(item.src));
-    return { media: value.media, suppliedMedia: [...new Map(supplied.map(item => [item.src, item])).values()], characters: value.characters, bossSprites: value.bossSprites, maps: value.world.maps.map(({ id, name, background, originalBackground }) => ({ id, name, background, ...(originalBackground !== undefined ? {originalBackground} : {}) })), revision };
+    return { media: value.media, suppliedMedia: [...new Map(supplied.map(item => [item.src, item])).values()], characters: value.characters, adminSprite: value.adminSprite, bossSprites: value.bossSprites, maps: value.world.maps.map(({ id, name, background, originalBackground }) => ({ id, name, background, ...(originalBackground !== undefined ? {originalBackground} : {}) })), revision };
   };
   if (req.method === 'GET') return reply(state(theme, themeRevision));
   if (req.method !== 'POST') return reply({ error: 'Method not allowed.' }, 405);
@@ -55,7 +56,7 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
       if (body.action === 'delete') {
         const item = theme.media.find(entry => entry.id === body.id && entry.source === 'upload');
         if (!item) throw Error('Only images uploaded here can be deleted.');
-        const used = new Set([...theme.characters.map(c => c.sprite), ...Object.values(theme.bossSprites), ...theme.world.maps.flatMap(m => [m.background, m.originalBackground])]);
+        const used = new Set([theme.adminSprite, ...theme.characters.map(c => c.sprite), ...Object.values(theme.bossSprites), ...theme.world.maps.flatMap(m => [m.background, m.originalBackground])]);
         if (used.has(item.src)) throw Error('This image is in use. Assign another image to its roles and save before deleting it.');
         next = parseTheme({ ...theme, media: theme.media.filter(entry => entry.id !== item.id) });
       } else if (body.action === 'assign') {
@@ -65,6 +66,8 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
       if (!Array.isArray(additions) || additions.length > 10 || !Array.isArray(removed) || removed.some(id => typeof id !== 'string')) throw Error('Invalid appearance or media list.');
       const allowed = new Set([...themeAssetPaths(theme).filter(p => imageExtension.test(p)), ...BOSS_STYLES.map(style => style.sprite)]);
       const valid = src => src === null || (typeof src === 'string' && allowed.has(src));
+      const adminSprite = Object.hasOwn(body, 'adminSprite') ? body.adminSprite : theme.adminSprite;
+      if (!valid(adminSprite)) throw Error('Choose an admin wizard image already in this theme.');
       if (Object.keys(changes).some(id => !theme.characters.some(c => c.id === id) || !valid(changes[id])) ||
           Object.keys(bosses).some(id => !BOSS_STYLES.some(s => s.id === id) || !valid(bosses[id])) ||
           Object.keys(maps).some(id => !theme.world.maps.some(m => m.id === id) || !valid(maps[id]))) throw Error('Choose images already in this theme.');
@@ -84,8 +87,8 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
       const removedSet = new Set(removed);
       if (removedSet.size !== removed.length || removed.some(id => !theme.media.some(item => item.id === id && item.source === 'upload'))) throw Error('Only images uploaded here can be deleted.');
       const media = theme.media.filter(item => !removedSet.has(item.id));
-      next = parseTheme({ ...theme, characters, bossSprites, world, media });
-      const used = new Set([...next.characters.map(c => c.sprite), ...Object.values(next.bossSprites), ...next.world.maps.flatMap(m => [m.background, m.originalBackground])]);
+      next = parseTheme({ ...theme, characters, adminSprite, bossSprites, world, media });
+      const used = new Set([next.adminSprite, ...next.characters.map(c => c.sprite), ...Object.values(next.bossSprites), ...next.world.maps.flatMap(m => [m.background, m.originalBackground])]);
       if (theme.media.some(item => removedSet.has(item.id) && used.has(item.src))) throw Error('Remove this image from its assigned roles before deleting it.');
       } else throw Error('Unknown media action.');
     }

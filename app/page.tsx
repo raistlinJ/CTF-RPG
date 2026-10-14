@@ -63,6 +63,7 @@ type Character = {
   subtitle: string;
   sprite: string | null;
   fallback: "web" | "thunder" | "shield";
+  administrator?: boolean;
 };
 type GameConfig = {
   characters: Character[];
@@ -74,6 +75,7 @@ type GameConfig = {
     description: string;
     characters: Character[];
     bossSprites: Record<string, string>;
+    adminSprite: string | null;
     world: typeof activeWorld & { entities?: EntitySummary[] };
   };
   themeRevision: number;
@@ -164,7 +166,11 @@ const adminAvatar: Character = {
   subtitle: "Game master",
   sprite: null,
   fallback: "shield",
+  administrator: true,
 };
+function administratorAppearance(sprite: string | null = null): Character {
+  return sprite ? { ...adminAvatar, sprite } : adminAvatar;
+}
 function drawCharacter(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -173,7 +179,7 @@ function drawCharacter(
   image: HTMLImageElement | null,
   size: number,
 ) {
-  if (character === adminAvatar) {
+  if (character.administrator && !image) {
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(size / 32, size / 32);
@@ -269,6 +275,7 @@ export function World({
   players = [],
   characters = [],
   bossSpritePaths = {},
+  adminSprite = null,
   onPlayerSelect,
   selfPlayer,
   messageCount = 0,
@@ -291,6 +298,7 @@ export function World({
   players?: NearbyPlayer[];
   characters?: Character[];
   bossSpritePaths?: Record<string, string>;
+  adminSprite?: string | null;
   onPlayerSelect?: (x: number, y: number) => void;
   selfPlayer?: NearbyPlayer;
   messageCount?: number;
@@ -605,7 +613,7 @@ export function World({
               const own = p.username === selfPlayer.username;
               const character =
                 p.role === "admin"
-                  ? adminAvatar
+                  ? administratorAppearance(adminSprite)
                   : characters.find((c) => c.id === p.hero);
               return (
                 <button
@@ -690,7 +698,7 @@ export function Portrait({ hero }: { hero: Character }) {
     />
   );
 }
-export function AdminAvatarPreview() { return <Portrait hero={adminAvatar} />; }
+export function AdminAvatarPreview({ sprite = null }: { sprite?: string | null } = {}) { return <Portrait hero={administratorAppearance(sprite)} />; }
 export default function Game() {
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
@@ -1204,7 +1212,7 @@ export default function Game() {
   }, [user, map, pos, score, solved]);
   const chosen =
     user && canAdmin
-      ? adminAvatar
+      ? administratorAppearance(config?.theme.adminSprite)
       : heroes.find((h) => h.id === (user?.hero || hero)) || heroes[0];
   const selfPlayer: NearbyPlayer | undefined = user
     ? {
@@ -1324,6 +1332,7 @@ export default function Game() {
             : []
         }
         characters={heroes}
+        adminSprite={config?.theme.adminSprite}
         canAdmin={canAdmin}
         featureRevision={presence.features.revision}
         onMessage={(id) => {
@@ -1486,6 +1495,7 @@ export default function Game() {
               onPlayerSelect={(x, y) => setPlayerTile({ map, x, y })}
               characters={config?.theme.characters || heroes}
               bossSpritePaths={config?.theme.bossSprites}
+              adminSprite={config?.theme.adminSprite}
               entities={entities}
               map={map}
               pos={pos}
@@ -1816,6 +1826,7 @@ function PlayerPopup({
   onClose,
   players,
   characters,
+  adminSprite = null,
   onMessage,
   featureRevision,
   canAdmin,
@@ -1824,6 +1835,7 @@ function PlayerPopup({
   onClose: () => void;
   players: NearbyPlayer[];
   characters: Character[];
+  adminSprite?: string | null;
   onMessage: (id: string) => void;
   featureRevision: number;
   canAdmin: boolean;
@@ -1933,7 +1945,7 @@ function PlayerPopup({
             );
             const character =
               p.role === "admin"
-                ? adminAvatar
+                ? administratorAppearance(adminSprite)
                 : characters.find((c) => c.id === p.hero);
             return (
               <article className="player-card" key={p.username}>

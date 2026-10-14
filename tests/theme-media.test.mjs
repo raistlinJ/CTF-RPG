@@ -8,6 +8,19 @@ import { parseGame } from '../lib/config-schema.mjs';
 import { initializeSchema, createSQLiteAdapter } from '../server/sqlite.mjs';
 import { createApi } from '../server/api.mjs';
 import { exportFullBackup } from '../server/backup.mjs';
+import { defaultTheme, parseTheme, themeAssetPaths, mapThemeAssets } from '../lib/theme-schema.mjs';
+
+test('administrator artwork validates image paths and travels with theme assets', () => {
+  const theme = defaultTheme(parseGame('characters:\n - id: web\n   name: Web'));
+  assert.equal(theme.adminSprite, null);
+  const image = '/sprites/thunder.png';
+  const custom = parseTheme({ ...theme, adminSprite: image });
+  assert.ok(themeAssetPaths(custom).includes(image));
+  assert.equal(mapThemeAssets(custom, path => '/copied' + path).adminSprite, '/copied' + image);
+  assert.equal(mapThemeAssets(theme, path => '/copied' + path).adminSprite, null);
+  for (const adminSprite of ['https://example.com/wizard.png', '/sprites/wizard.svg', '/sprites/../wizard.png'])
+    assert.throws(() => parseTheme({ ...theme, adminSprite }));
+});
 
 test('admins upload and assign theme media, and exports include the uploaded image', async () => {
   const sqlite = new DatabaseSync(':memory:'); initializeSchema(sqlite);
@@ -39,6 +52,7 @@ test('admins upload and assign theme media, and exports include the uploaded ima
     const edit = {
       action: 'assign', revision: uploaded.revision,
       characterSprites: { web: src }, bossSprites: { frost: src },
+      adminSprite: unusedSrc,
       mapBackgrounds: { town: src },
       newAppearances: [{ name: 'Guide', appearanceFor: 'entity', sprite: src }],
       removeMediaIds: [],
@@ -49,11 +63,15 @@ test('admins upload and assign theme media, and exports include the uploaded ima
     assert.equal(saved.characters.find(c => c.id === 'web').sprite, src);
     assert.equal(saved.characters.find(c => c.name === 'Guide').appearanceFor, 'entity');
     assert.equal(saved.bossSprites.frost, src);
+    assert.equal(saved.adminSprite, unusedSrc);
+    assert.ok(!saved.characters.some(c => c.sprite === unusedSrc), 'admin artwork is kept outside player appearances');
     assert.equal(saved.maps.find(m => m.id === 'town').background, src);
     assert.equal((await post(edit)).status, 409);
     assert.equal((await post({ ...edit, revision: saved.revision, characterSprites: { web: '/api/assets/unknown.png' } })).status, 400);
+    assert.equal((await post({ ...edit, revision: saved.revision, adminSprite: '/api/assets/unknown.png' })).status, 400);
     const game = await (await adminApi(new Request('https://quest.test/api/config'))).json();
     assert.equal(game.theme.bossSprites.frost, src);
+    assert.equal(game.theme.adminSprite, unusedSrc);
     const archiveResponse = await adminApi(new Request('https://quest.test/api/admin/packs?kind=theme'));
     assert.equal(archiveResponse.status, 200);
     const archive = new Uint8Array(await archiveResponse.arrayBuffer());
@@ -67,6 +85,7 @@ test('admins upload and assign theme media, and exports include the uploaded ima
     assert.deepEqual(backup['data/pack-assets/' + src.slice(12)], new Uint8Array(bytes));
     assert.deepEqual(backup['data/pack-assets/' + unusedSrc.slice(12)], new Uint8Array(unusedBytes));
     assert.ok(JSON.parse(strFromU8(backup['backup.json'])).theme.media.every(item => item.source === 'upload'));
+    assert.equal(JSON.parse(strFromU8(backup['backup.json'])).theme.adminSprite, unusedSrc);
     const second = new DatabaseSync(':memory:'); initializeSchema(second);
     try {
       const importedFiles = new Map();
@@ -80,6 +99,7 @@ test('admins upload and assign theme media, and exports include the uploaded ima
       assert.equal(imported.media[0].src, src);
       assert.ok(imported.media.every(item => item.source === 'theme'));
       assert.equal(imported.bossSprites.frost, src);
+      assert.equal(imported.adminSprite, unusedSrc);
       assert.equal(imported.characters.find(c => c.name === 'Guide').sprite, src);
       const importedDelete = await importApi(new Request(url, { method: 'POST', headers: { Origin: 'https://quest.test', 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', revision: imported.revision, id: imported.media[1].id }) }));
       assert.equal(importedDelete.status, 400);
@@ -89,7 +109,11 @@ test('admins upload and assign theme media, and exports include the uploaded ima
     const invalid = new FormData(); invalid.set('revision', String(saved.revision)); invalid.append('files', new File(['not an image'], 'fake.png'));
     assert.equal((await adminApi(new Request(url, { method: 'POST', headers: { Origin: 'https://quest.test' }, body: invalid }))).status, 400);
     assert.equal((await post({ action: 'delete', revision: saved.revision, id: saved.media[0].id })).status, 400);
-    const deletedResponse = await post({ action: 'delete', revision: saved.revision, id: saved.media[1].id });
+    assert.equal((await post({ action: 'delete', revision: saved.revision, id: saved.media[1].id })).status, 400, 'admin wizard image is in use');
+    assert.equal((await post({ action: 'assign', revision: saved.revision, characterSprites: {}, bossSprites: {}, mapBackgrounds: {}, removeMediaIds: [saved.media[1].id] })).status, 400);
+    const resetResponse = await post({ action: 'assign', revision: saved.revision, characterSprites: {}, bossSprites: {}, mapBackgrounds: {}, adminSprite: null });
+    const reset = await resetResponse.json(); assert.equal(resetResponse.status, 200); assert.equal(reset.adminSprite, null);
+    const deletedResponse = await post({ action: 'delete', revision: reset.revision, id: saved.media[1].id });
     const deleted = await deletedResponse.json();
     assert.equal(deletedResponse.status, 200, JSON.stringify(deleted));
     assert.equal(deleted.media.length, 1);

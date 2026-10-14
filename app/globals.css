@@ -2391,6 +2391,8 @@ input::placeholder {
 .theme-media-picker select { width:100%; min-width:0; }
 .theme-media-new { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:24px; }
 .theme-media-new h3,.theme-media-new p { grid-column:1/-1; margin:0; }
+.theme-media-new > label { display:grid; grid-template-rows:20px 44px; gap:8px; min-width:0; align-content:start; }
+.admin-editor.theme-media-section select,.theme-media-new input { width:100%; min-width:0; height:44px; margin:0; font-size:16px; }
 @media (max-width:700px) { .theme-media-assignment { grid-template-columns:48px 1fr; } .theme-media-assignment .theme-media-picker { grid-column:1/-1; } .theme-media-new { grid-template-columns:1fr; } }
 
 .submission-filter { display:flex; flex-direction:column; gap:6px; color:#aac3cc; font-size:14px; }
@@ -2437,7 +2439,7 @@ input::placeholder {
 .ctfd-warnings { border:1px solid #64553a; border-radius:6px; padding:14px; color:#e3ca86; background:#252b2b; }
 .import-check { margin:14px 0; }
 .import-source-details pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:300px; overflow:auto; font-size:12px; }
-.admin-editor select { width:100%; margin-top:9px; padding:10px 12px; border:1px solid #41616e; border-radius:5px; background:#102532; color:#edf7fb; }
+.admin-editor select { width:100%; min-width:0; height:44px; margin-top:9px; padding:10px 12px; border:1px solid #41616e; border-radius:5px; background:#102532; color:#edf7fb; }
 .admin-editor select option { background:#102532; color:#edf7fb; }
 
 @media (max-width: 760px) {
@@ -2697,7 +2699,6 @@ input::placeholder {
 
 .theme-media-assignment > .portrait { width:48px; height:48px; background:#132631; border-radius:6px; }
 .theme-media-admin-avatar { margin:14px 0 20px; }
-.theme-media-admin-avatar > span { color:#aac2ca; font-size:13px; }
 
 /* Navigation hierarchy: main header, section navigation, then local controls. */
 .theme-subnav { background:#112a3b; border:1px solid #345369; border-left:3px solid #74cafa; border-radius:8px; padding:10px 14px; gap:8px 16px; font-size:13px; font-weight:500; }

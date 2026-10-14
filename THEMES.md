@@ -23,7 +23,7 @@ Content can also be imported independently when its map locations work with the 
 
 The theme page previews the current title, map/character counts, and challenge count. Changing a pack replaces its active collection; it does not append to it. Old progress is preserved. Use new challenge IDs and hint IDs for a distinct activity so previous completions and purchases do not apply to new questions. Exports are portable ZIPs, rather than links to the originating server.
 
-Use **Theme → Image library** (`/admin/theme/images`) to upload and browse PNG, JPEG, WebP, or GIF images. **Theme → Media & appearances → Appearances** (`/admin/theme/media`) assigns images to player and non-player appearances, boss styles, or map backgrounds. **Theme → Media → Audio** manages the MIDI playlist on the same page. Existing appearances can use any image in the theme; new appearances can be offered to players, non-player entities, or both. An unused upload can be deleted from the library and future exports. Imported theme artwork is read only. Uploaded images remain in the media library even while unassigned, so theme exports and backups retain them. A theme import treats its included images as theme artwork; a full backup restore retains which images were local uploads. Each image file can be at most 4 MB, and all theme assets together must fit within 32 MB, including audio, retained original artwork, and unused uploads.
+Use **Theme → Image library** (`/admin/theme/images`) to upload and browse PNG, JPEG, WebP, or GIF images. **Theme → Media & appearances → Appearances** (`/admin/theme/media`) assigns images to player and non-player appearances, boss styles, or map backgrounds. **Theme → Media → Audio** manages the MIDI playlist on the same page. The admin wizard has its own image picker on Appearances. Set `adminSprite` in theme YAML to an image path, or `null` for the built-in wizard. This image is reserved for admin avatars and included in theme packs and backups. Existing appearances can use any image in the theme; new appearances can be offered to players, non-player entities, or both. An unused upload can be deleted from the library and future exports. Imported theme artwork is read only. Uploaded images remain in the media library even while unassigned, so theme exports and backups retain them. A theme import treats its included images as theme artwork; a full backup restore retains which images were local uploads. Each image file can be at most 4 MB, and all theme assets together must fit within 32 MB, including audio, retained original artwork, and unused uploads.
 
 ## Edit a theme ZIP
 
@@ -69,6 +69,7 @@ characters:
     sprite: /sprites/explorer.png
     fallback: web
     appearanceFor: both # player, entity, or both; omitted means both
+adminSprite: null # Built-in admin wizard; or a local PNG/JPEG/WebP/GIF path
 audio:
   midi: /audio/island.mid
   loop: true

@@ -46,6 +46,7 @@ function AppearancesPanel({onDirtyChange,onSaved,knownRevision}:{onDirtyChange:(
         body: JSON.stringify({
           action: "assign", revision: settings.revision,
           characterSprites: Object.fromEntries(settings.characters.map(c => [c.id, c.sprite])),
+          adminSprite: settings.adminSprite,
           bossSprites: Object.fromEntries(BOSS_STYLES.map(style => [style.id, settings.bossSprites[style.id] || null])),
           mapBackgrounds: Object.fromEntries(settings.maps.map(m => [m.id, m.background])),
           newAppearances: newAppearance.name.trim() && newAppearance.sprite ? [newAppearance] : [],
@@ -77,7 +78,7 @@ function AppearancesPanel({onDirtyChange,onSaved,knownRevision}:{onDirtyChange:(
           {imagePicker(`Image for ${character.name}`, character.sprite, src => update({ ...settings, characters: settings.characters.map(c => c.id === character.id ? { ...c, sprite: src } : c) }), "Use fallback sprite")}
         </div>)}</div>
         <h3>Administrator</h3>
-        <div className="theme-media-assignment theme-media-admin-avatar"><AdminAvatarPreview /><div><strong>Admin wizard</strong><small>Reserved for administrator accounts</small></div><span>The game’s built-in wizard appearance; not selectable by students.</span></div>
+        <div className="theme-media-assignment theme-media-admin-avatar"><AdminAvatarPreview sprite={settings.adminSprite} /><div><strong>Admin wizard</strong><small>Reserved for administrator accounts</small></div>{imagePicker("Image for admin wizard", settings.adminSprite, src => update({ ...settings, adminSprite: src }), "Use built-in wizard")}</div>
         <h3>Non-player appearances</h3>
         <div className="theme-media-assignments">{settings.characters.filter(character => character.appearanceFor === "entity").map(character => <div className="theme-media-assignment" key={character.id}>
           <Portrait hero={character} /><div><strong>{character.name}</strong><small>Non-player entity</small></div>
