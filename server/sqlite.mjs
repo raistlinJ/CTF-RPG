@@ -116,6 +116,9 @@ CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NO
     .prepare("PRAGMA table_info(students)")
     .all()
     .map((c) => c.name);
+  const teamColumns = sqlite.prepare("PRAGMA table_info(teams)").all().map(c => c.name);
+  for (const name of ["muted", "disabled", "revision"])
+    if (!teamColumns.includes(name)) sqlite.exec(`ALTER TABLE teams ADD COLUMN ${name} INTEGER NOT NULL DEFAULT 0`);
   if (!columns.includes("spawn"))
     sqlite.exec("ALTER TABLE students ADD COLUMN spawn TEXT");
   for (const [name, type, defaultValue] of [

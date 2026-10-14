@@ -1,6 +1,7 @@
 import { giftTeamPoints, teamPointAwards } from "./team-points.mjs";
 import { teamFeatures, teamLabel, teamPolicy, teamScores } from "./team-social.mjs";
 import { passwordHash, equal } from "./passwords.mjs";
+import { bulkTeamAction } from "./team-actions.mjs";
 const reply = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -17,7 +18,7 @@ export async function teamState(db, config, u, admin = false) {
   const teams = (
     await db
       .prepare(
-        "SELECT teams.id,teams.name,COUNT(team_members.user) AS members FROM teams LEFT JOIN team_members ON teams.id=team_members.team GROUP BY teams.id ORDER BY teams.name",
+        `SELECT teams.id,teams.name,teams.muted,teams.disabled,teams.revision,COUNT(team_members.user) AS members FROM teams LEFT JOIN team_members ON teams.id=team_members.team ${admin ? '' : 'WHERE teams.disabled=0'} GROUP BY teams.id ORDER BY teams.name`,
       )
       .bind()
       .all()
@@ -36,7 +37,7 @@ export async function teamState(db, config, u, admin = false) {
   }
   const ownTeam = teams.find((t) => t.id === membership?.team) || null;
   if (admin) {
-    const scores = await teamScores(db, config);
+    const scores = await teamScores(db, config, true);
     const awards = (await db.prepare("SELECT id,team,points,comment,awarded_by,created_at FROM team_point_awards ORDER BY created_at DESC,id").bind().all()).results;
     const byTeam = new Map();
     for (const a of awards) {
@@ -69,7 +70,7 @@ export async function handleTeams(req, { db, config, user, platformAdmin }) {
       state.members = (
         await db
           .prepare(
-            "SELECT team_members.team,students.username,students.disabled FROM team_members JOIN students ON students.id=team_members.user ORDER BY students.username",
+            "SELECT team_members.team,students.username,students.disabled,students.muted FROM team_members JOIN students ON students.id=team_members.user ORDER BY students.username",
           )
           .bind()
           .all()
@@ -79,6 +80,11 @@ export async function handleTeams(req, { db, config, user, platformAdmin }) {
   const body = await req.json();
   if (path === "/api/admin/teams") {
     if (req.method === "POST") {
+      if (['mute','unmute','disable','enable','delete'].includes(body.action)) {
+        const result = await bulkTeamAction(db, body);
+        if (result.error) return reply({error:result.error},result.status);
+        return reply({...await teamState(db, config, u, true),updated:result.updated});
+      }
       if (body.action === "gift") {
         const result = await giftTeamPoints(db, body, u?.username || "Platform admin");
         return reply(result.body, result.status);
@@ -98,10 +104,11 @@ export async function handleTeams(req, { db, config, user, platformAdmin }) {
     } else if (req.method === "DELETE") {
       if (typeof body.id !== "string")
         return reply({ error: "Choose a team." }, 400);
-      await db.batch([
-        db.prepare("DELETE FROM team_members WHERE team=?").bind(body.id),
-        db.prepare("DELETE FROM teams WHERE id=?").bind(body.id),
-      ]);
+      const t = await db.prepare('SELECT id,revision FROM teams WHERE id=?').bind(body.id).first();
+      if (t) {
+        const result = await bulkTeamAction(db, {action:'delete',teams:[t]});
+        if (result.error) return reply({error:result.error},result.status);
+      }
     } else return reply({ error: "Method not allowed." }, 405);
     return reply(await teamState(db, config, u, admin));
   }
@@ -168,9 +175,10 @@ export async function handleTeams(req, { db, config, user, platformAdmin }) {
       .first();
     if (!t || !equal(await passwordHash(body.password, t.salt), t.hash))
       return reply({ error: "Team or password is incorrect." }, 401);
+    if (t.disabled) return reply({error:"This team is disabled. Choose another team."},403);
     const r = await db
       .prepare(
-        "INSERT INTO team_members(user,team) SELECT ?,id FROM teams WHERE id=? AND NOT EXISTS(SELECT 1 FROM team_members WHERE user=?) AND (SELECT COUNT(*) FROM team_members WHERE team=teams.id)<COALESCE((SELECT max_members FROM team_settings WHERE id='active'),?) ON CONFLICT(user) DO NOTHING",
+        "INSERT INTO team_members(user,team) SELECT ?,id FROM teams WHERE id=? AND disabled=0 AND NOT EXISTS(SELECT 1 FROM team_members WHERE user=?) AND (SELECT COUNT(*) FROM team_members WHERE team=teams.id)<COALESCE((SELECT max_members FROM team_settings WHERE id='active'),?) ON CONFLICT(user) DO NOTHING",
       )
       .bind(u.id, t.id, u.id, config.teams?.maxMembers ?? 4)
       .run();

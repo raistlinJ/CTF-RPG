@@ -67,6 +67,9 @@ export function validateSnapshot(input) {
               id: z.string().min(1),
               name: z.string().min(1).max(48),
               name_key: z.string().min(1),
+              muted: z.number().int().min(0).max(1).default(0),
+              disabled: z.number().int().min(0).max(1).default(0),
+              revision: z.number().int().min(0).default(0),
               hash: z.string().regex(/^[a-f0-9]{64}$/),
               salt: z.string().min(1),
             })
@@ -339,7 +342,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
       )
       .bind(),
     db
-      .prepare("SELECT id,name,name_key,hash,salt FROM teams ORDER BY name")
+      .prepare("SELECT id,name,name_key,hash,salt,muted,disabled,revision FROM teams ORDER BY name")
       .bind(),
     db.prepare("SELECT user,team FROM team_members ORDER BY user").bind(),
     db

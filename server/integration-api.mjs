@@ -97,11 +97,12 @@ export async function handleIntegrationApi(req, { db, config, accountList }) {
   if (path === "/api/integrations/v1/scoreboard") {
     if (req.method !== "GET") return reply({ error: "Method not allowed." }, 405);
     const open = (await registrationSettings(db, config)).allowRegistration;
+    const disabledTeams = new Set((await db.prepare('SELECT id FROM teams WHERE disabled=1').bind().all()).results.map(t=>t.id));
     const users = ranked((await accountList())
-      .filter(a => a.role === "student" && !a.disabled && (open || a.provisioned || config.accounts.users.some(c => c.username === a.username)))
+      .filter(a => a.role === "student" && !a.disabled && !disabledTeams.has(a.team?.id) && (open || a.provisioned || config.accounts.users.some(c => c.username === a.username)))
       .map(a => ({ id: a.id, username: a.username, hero: a.hero, team: a.team, score: a.score, completed: a.completed })));
     const totals = await teamScores(db, config);
-    const teams = ranked((await db.prepare("SELECT id,name FROM teams ORDER BY name").bind().all()).results
+    const teams = ranked((await db.prepare("SELECT id,name FROM teams WHERE disabled=0 ORDER BY name").bind().all()).results
       .map(t => ({ id: t.id, username: t.name, score: totals.get(t.id) || 0 })));
     return reply({ users, teams });
   }

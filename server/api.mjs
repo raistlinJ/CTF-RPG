@@ -45,6 +45,7 @@ import { createWorld } from "../lib/world-data.mjs";
 import { challengeLocationAvailable, findChallengeLocation } from "../lib/challenge-placement.mjs";
 import { publicEntity, resolveEntityDialogue, entityInInteractionRange } from "../lib/non-player-entities.mjs";
 import { handleTeams } from "./teams.mjs";
+import { teamRestriction } from "./team-actions.mjs";
 import {
   passwordHash,
   equal,
@@ -99,6 +100,7 @@ function createRequestApi({
     if (!(await registrationSettings(db, config)).allowRegistration && !cfg && !row.provisioned)
       return null;
     const account = effectiveAccount(row, cfg, config);
+    if (account.role !== "admin" && (await teamRestriction(db, account.id))?.disabled) return null;
     if (!config.characters.some((c) => c.id === account.hero)) return null;
     return {
       id: account.id,
@@ -524,6 +526,8 @@ function createRequestApi({
       }
       const effective = effectiveAccount(account, configured, config);
       const accountRole = effective.role;
+      if (accountRole !== "admin" && (await teamRestriction(db, account.id))?.disabled)
+        return json({error:"Your team is disabled. Contact your teacher."},403);
       const token = crypto.randomUUID() + crypto.randomUUID();
       await db
         .prepare("DELETE FROM sessions WHERE expires<?")
@@ -578,7 +582,7 @@ function createRequestApi({
           : null;
         const teams = (
           await db
-            .prepare("SELECT id,name FROM teams ORDER BY name")
+            .prepare("SELECT id,name FROM teams WHERE disabled=0 ORDER BY name")
             .bind()
             .all()
         ).results
@@ -611,8 +615,9 @@ function createRequestApi({
           }),
         });
       }
+      const disabledTeams = new Set((await db.prepare('SELECT id FROM teams WHERE disabled=1').bind().all()).results.map(t => t.id));
       const players = (await accountList())
-        .filter((a) => a.role === "student" && !a.disabled)
+        .filter((a) => a.role === "student" && !a.disabled && !disabledTeams.has(a.team?.id))
         .sort(
           (a, b) => b.score - a.score || a.username.localeCompare(b.username),
         );

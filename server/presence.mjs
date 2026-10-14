@@ -126,7 +126,7 @@ export async function handlePresence(
   // Keep one recent position per account; stationary explorers refresh less often.
   await db
     .prepare(
-      "INSERT INTO player_presence(user,map,x,y,theme_revision,updated_at) SELECT ?,?,?,?,?,? WHERE COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)<>'off' ON CONFLICT(user) DO UPDATE SET map=excluded.map,x=excluded.x,y=excluded.y,theme_revision=excluded.theme_revision,updated_at=excluded.updated_at WHERE player_presence.map<>excluded.map OR player_presence.x<>excluded.x OR player_presence.y<>excluded.y OR player_presence.theme_revision<>excluded.theme_revision OR player_presence.updated_at<?",
+      "INSERT INTO player_presence(user,map,x,y,theme_revision,updated_at) SELECT ?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=? AND t.disabled=1) AND COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)<>'off' ON CONFLICT(user) DO UPDATE SET map=excluded.map,x=excluded.x,y=excluded.y,theme_revision=excluded.theme_revision,updated_at=excluded.updated_at WHERE player_presence.map<>excluded.map OR player_presence.x<>excluded.x OR player_presence.y<>excluded.y OR player_presence.theme_revision<>excluded.theme_revision OR player_presence.updated_at<?",
     )
     .bind(
       u.id,
@@ -135,6 +135,7 @@ export async function handlePresence(
       body.y,
       themeRevision,
       now,
+      u.id,
       fallback,
       now - 9000,
     )
@@ -146,7 +147,7 @@ export async function handlePresence(
     await db
       .prepare(
         `SELECT p.user,p.x,p.y,s.username,s.hero,s.managed,s.role,s.provisioned,m.team FROM player_presence p JOIN students s ON s.id=p.user LEFT JOIN team_members m ON m.user=s.id
- WHERE p.map=? AND p.theme_revision=? AND p.updated_at>? AND p.user<>? AND s.disabled=0
+ WHERE p.map=? AND p.theme_revision=? AND p.updated_at>? AND p.user<>? AND s.disabled=0 AND NOT EXISTS(SELECT 1 FROM teams t WHERE t.id=m.team AND t.disabled=1)
  AND EXISTS(SELECT 1 FROM sessions WHERE sessions.user=s.id AND expires>?)
  AND (COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)='all' OR (COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)='team' AND (m.team=? OR ?=1 OR (s.managed=1 AND s.role='admin') OR (s.managed=0 AND s.username IN (${yamlAdmins.map(() => "?").join(",") || "NULL"})))))
  ORDER BY p.updated_at DESC,s.username LIMIT 101`,

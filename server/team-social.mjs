@@ -1,4 +1,5 @@
 import { registrationSettings } from "./registration-settings.mjs";
+import { teamRestriction } from "./team-actions.mjs";
 const reply = (data, status = 200) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
 export async function teamFeatures(db, config) {
@@ -76,13 +77,13 @@ export async function messageStats(db, features, team, userId, admin) {
     latestMessageAt: Math.max(received?.latest || 0, instructors?.latest || 0),
   };
 }
-export async function teamScores(db, config) {
+export async function teamScores(db, config, includeDisabled = false) {
   const scores = new Map();
   const registrationOpen = (await registrationSettings(db, config)).allowRegistration;
   const rows = (
     await db
       .prepare(
-        `SELECT m.team,s.username,s.role,s.managed,s.provisioned,COALESCE(SUM(solved.points),0) AS score FROM team_members m JOIN students s ON s.id=m.user LEFT JOIN solved ON solved.user=s.id WHERE s.disabled=0 GROUP BY s.id,m.team`,
+        `SELECT m.team,s.username,s.role,s.managed,s.provisioned,COALESCE(SUM(solved.points),0) AS score FROM team_members m JOIN students s ON s.id=m.user LEFT JOIN solved ON solved.user=s.id WHERE s.disabled=0 ${includeDisabled ? '' : 'AND EXISTS(SELECT 1 FROM teams t WHERE t.id=m.team AND t.disabled=0)'} GROUP BY s.id,m.team`,
       )
       .bind()
       .all()
@@ -95,7 +96,7 @@ export async function teamScores(db, config) {
     )
       scores.set(r.team, (scores.get(r.team) || 0) + r.score);
   }
-  const gifts = (await db.prepare("SELECT team,SUM(points) AS points FROM team_point_awards GROUP BY team").bind().all()).results;
+  const gifts = (await db.prepare(`SELECT team,SUM(points) AS points FROM team_point_awards ${includeDisabled ? '' : 'WHERE EXISTS(SELECT 1 FROM teams t WHERE t.id=team_point_awards.team AND t.disabled=0)'} GROUP BY team`).bind().all()).results;
   for (const gift of gifts) scores.set(gift.team, (scores.get(gift.team) || 0) + gift.points);
   return scores;
 }
@@ -173,7 +174,8 @@ export async function handleTeamSocial(
       { error: "Join a team to view team details and messages." },
       403,
     );
-  const muted = !!(
+  const teamMuted = !admin && u ? !!(await teamRestriction(db,u.id))?.muted : false;
+  const muted = teamMuted || !!(
     u &&
     (
       await db
@@ -195,7 +197,7 @@ export async function handleTeamSocial(
       return reply(
         {
           error:
-            "Your account is muted by an administrator. You can still read messages.",
+            teamMuted ? "Your team is muted by an administrator. You can still read messages." : "Your account is muted by an administrator. You can still read messages.",
         },
         403,
       );
@@ -240,7 +242,7 @@ export async function handleTeamSocial(
       const now = Date.now();
       const result = await db
         .prepare(
-          `INSERT OR IGNORE INTO instructor_messages(id,sender_user,team,sender,text,created_at) SELECT ?,s.id,?,?,?,? FROM students s WHERE s.id=? AND s.muted=0 AND s.disabled=0 AND EXISTS(SELECT 1 FROM team_members WHERE user=s.id AND team=?) AND COALESCE((SELECT messaging FROM team_social_settings WHERE id='active'),?)=1 AND (SELECT COUNT(*) FROM team_messages WHERE sender_user=s.id AND created_at>?)+(SELECT COUNT(*) FROM instructor_messages WHERE sender_user=s.id AND created_at>?)<5`,
+          `INSERT OR IGNORE INTO instructor_messages(id,sender_user,team,sender,text,created_at) SELECT ?,s.id,?,?,?,? FROM students s WHERE s.id=? AND s.muted=0 AND s.disabled=0 AND EXISTS(SELECT 1 FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=s.id AND m.team=? AND t.muted=0 AND t.disabled=0) AND COALESCE((SELECT messaging FROM team_social_settings WHERE id='active'),?)=1 AND (SELECT COUNT(*) FROM team_messages WHERE sender_user=s.id AND created_at>?)+(SELECT COUNT(*) FROM instructor_messages WHERE sender_user=s.id AND created_at>?)<5`,
         )
         .bind(
           body.id,
@@ -273,7 +275,7 @@ export async function handleTeamSocial(
               .prepare("SELECT muted FROM students WHERE id=?")
               .bind(u.id)
               .first()
-          )?.muted
+          )?.muted || (await teamRestriction(db,u.id))?.muted
         )
           return reply(
             { error: "Your account is muted by an administrator." },
@@ -291,6 +293,8 @@ export async function handleTeamSocial(
     }
     if (priorInstructor)
       return reply({ error: "Message reference is already in use." }, 409);
+    if ((await db.prepare('SELECT disabled FROM teams WHERE id=?').bind(body.team).first())?.disabled)
+      return reply({error:'This team is disabled.'},403);
     const internal = admin || body.team === own;
     if (!teamPolicy(features, internal).messaging)
       return reply(
@@ -323,11 +327,11 @@ export async function handleTeamSocial(
     const r = await db
       .prepare(
         `INSERT OR IGNORE INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at)
- SELECT ?,?,?,t.id,?,?,? FROM teams t WHERE t.id=?
+ SELECT ?,?,?,t.id,?,?,? FROM teams t WHERE t.id=? AND t.disabled=0
  AND (CASE WHEN ?=1 THEN COALESCE((SELECT messaging FROM team_social_settings WHERE id='active'),?) ELSE COALESCE((SELECT everyone_messaging FROM team_social_settings WHERE id='active'),(SELECT messaging FROM team_social_settings WHERE id='active'),?) END)=1
- AND (?=1 OR EXISTS(SELECT 1 FROM team_members WHERE user=? AND team=?))
+ AND (?=1 OR EXISTS(SELECT 1 FROM team_members m JOIN teams source ON source.id=m.team WHERE m.user=? AND m.team=? AND source.muted=0 AND source.disabled=0))
  AND (SELECT COUNT(*) FROM team_messages WHERE sender_user IS ? AND created_at>?)+(SELECT COUNT(*) FROM instructor_messages WHERE sender_user IS ? AND created_at>?)<5
- AND (? IS NULL OR EXISTS(SELECT 1 FROM students WHERE id=? AND muted=0))`,
+ AND (? IS NULL OR EXISTS(SELECT 1 FROM students WHERE id=? AND muted=0 AND disabled=0))`,
       )
       .bind(
         body.id,
@@ -383,7 +387,7 @@ export async function handleTeamSocial(
             .prepare("SELECT muted FROM students WHERE id=?")
             .bind(u.id)
             .first()
-        )?.muted
+        )?.muted || (!admin && u && (await teamRestriction(db,u.id))?.muted)
       )
         return reply(
           { error: "Your account is muted by an administrator." },
@@ -417,7 +421,7 @@ export async function handleTeamSocial(
   const teams = (
     await db
       .prepare(
-        "SELECT teams.id,teams.name,COUNT(team_members.user) AS members FROM teams LEFT JOIN team_members ON teams.id=team_members.team GROUP BY teams.id ORDER BY teams.name,teams.id",
+        `SELECT teams.id,teams.name,teams.disabled,COUNT(team_members.user) AS members FROM teams LEFT JOIN team_members ON teams.id=team_members.team ${admin ? '' : 'WHERE teams.disabled=0'} GROUP BY teams.id ORDER BY teams.name,teams.id`,
       )
       .bind()
       .all()
@@ -442,7 +446,7 @@ export async function handleTeamSocial(
       label: teamLabel(t, policy),
       members: t.members,
       isYourTeam: t.id === own,
-      canMessage: policy.messaging && !muted,
+      canMessage: policy.messaging && !muted && !t.disabled,
       canReadMessages:
         admin || t.id === own
           ? features.messaging || features.everyone.messaging

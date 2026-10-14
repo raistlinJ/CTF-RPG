@@ -84,6 +84,9 @@ export const teams = sqliteTable("teams", {
   nameKey: text("name_key").notNull().unique(),
   hash: text("hash").notNull(),
   salt: text("salt").notNull(),
+  muted: integer("muted").notNull().default(0),
+  disabled: integer("disabled").notNull().default(0),
+  revision: integer("revision").notNull().default(0),
 });
 export const teamMembers = sqliteTable(
   "team_members",

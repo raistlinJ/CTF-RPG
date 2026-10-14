@@ -1763,6 +1763,22 @@ input::placeholder {
 .user-row > button > span:last-child { flex-shrink:0; text-align:right; font-size:14px; color:#e4c985; }
 .user-row.selected { border-color:#a3e7ca; background:#26423e; }
 .user-row.disabled-account > button { opacity:.65; }
+.team-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; padding-right:16px; }
+.team-row > .team-row-summary { display:grid; grid-template-columns:42px minmax(130px,1fr) minmax(160px,1.3fr) auto; }
+.team-row-actions { display:flex; gap:8px; }
+.team-row .team-gift-history { grid-column:2 / -1; margin:0 0 14px; }
+.team-row .team-gift-history summary { cursor:pointer; color:#b9cdd4; font-size:13px; }
+.team-row .team-gift-history ul { max-height:200px; overflow:auto; }
+@media(max-width:850px) {
+  .team-row > .team-row-summary { grid-template-columns:42px minmax(0,1fr) auto; }
+  .team-row .team-row-members { grid-column:2 / -1; grid-row:2; }
+}
+@media(max-width:600px) {
+  .team-row { grid-template-columns:auto minmax(0,1fr); }
+  .team-row-actions { grid-column:2; padding-bottom:14px; }
+  .team-row > .team-row-summary { gap:10px; padding-right:0; }
+  .team-row > .team-row-summary > span:last-child { margin-left:0; text-align:right; }
+}
 .user-team-info { padding:14px; background:#102532; border:1px solid #3f5967; border-radius:6px; overflow-wrap:anywhere; }
 .user-team-info h3 { margin:0 0 8px; font-size:14px; color:#b9cdd4; }
 .user-team-info p { margin:0; }

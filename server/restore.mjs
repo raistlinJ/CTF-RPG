@@ -105,9 +105,9 @@ try {
     for (const t of snapshot.teams)
       sqlite
         .prepare(
-          "INSERT INTO teams(id,name,name_key,hash,salt) VALUES(?,?,?,?,?)",
+          "INSERT INTO teams(id,name,name_key,hash,salt,muted,disabled,revision) VALUES(?,?,?,?,?,?,?,?)",
         )
-        .run(t.id, t.name, t.name_key, t.hash, t.salt);
+        .run(t.id, t.name, t.name_key, t.hash, t.salt, t.muted, t.disabled, t.revision);
     const insertGift = sqlite.prepare("INSERT INTO team_point_awards(id,team,points,comment,awarded_by,created_at) VALUES(?,?,?,?,?,?)");
     for (const a of snapshot.teamPointAwards) insertGift.run(a.id,a.team,a.points,a.comment,a.awarded_by,a.created_at);
     for (const m of snapshot.teamMembers)

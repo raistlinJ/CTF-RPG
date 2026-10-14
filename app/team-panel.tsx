@@ -345,7 +345,7 @@ export default function TeamPanel({
                       ) : (
                         <p className="team-muted">
                           {data.muted
-                            ? "Your account is muted. You can still read messages."
+                            ? "Chat is muted for your account or team. You can still read messages."
                             : selected === "instructors" && data.isAdmin
                               ? "Select Reply on a message to open that team’s conversation."
                               : "Messaging is turned off by your instructor."}

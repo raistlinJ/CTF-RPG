@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 export type PointAward = { id: string; team: string; points: number; comment: string; awarded_by: string; created_at: number };
-export type Team = { id: string; name: string; members: number; score?: number; pointAwards?: PointAward[] };
+export type Team = { id: string; name: string; members: number; muted?: number; disabled?: number; revision?: number; score?: number; pointAwards?: PointAward[] };
 export default function TeamSetup({
   username,
   onChange,
