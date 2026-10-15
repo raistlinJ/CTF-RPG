@@ -118,6 +118,9 @@ const types = {
   ".zip": "application/zip",
   ".mid": "audio/midi",
   ".midi": "audio/midi",
+  ".wav": "audio/wav",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
   ".mp4": "video/mp4",
   ".webm": "video/webm",
   ".ico": "image/x-icon",
@@ -160,7 +163,7 @@ const server = createServer(async (req, res) => {
       const chunks = [];
       let length = 0;
       const bodyLimit =
-        url.pathname === "/api/admin/ctfd-import" ? CTFD_IMPORT_REQUEST_LIMIT : url.pathname === "/api/admin/packs" ? PACK_IMPORT_REQUEST_LIMIT : ["/api/admin/theme-audio", "/api/admin/theme-media"].includes(url.pathname) ? THEME_UPLOAD_LIMIT : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : 524288;
+        url.pathname === "/api/admin/ctfd-import" ? CTFD_IMPORT_REQUEST_LIMIT : url.pathname === "/api/admin/packs" ? PACK_IMPORT_REQUEST_LIMIT : ["/api/admin/theme-audio", "/api/admin/theme-media", "/api/admin/theme-sounds"].includes(url.pathname) ? THEME_UPLOAD_LIMIT : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : 524288;
       const rejectUpload = () => {
         req.resume(); // Drain without retaining the rejected upload or closing before the response flushes.
         res.writeHead(413, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -238,6 +241,8 @@ const server = createServer(async (req, res) => {
         "/admin/theme/appearances/",
         "/admin/theme/media",
         "/admin/theme/media/",
+        "/admin/theme/sounds",
+        "/admin/theme/sounds/",
         "/admin/theme/maps/dialogue",
         "/admin/theme/maps/dialogue/",
         "/admin/theme/maps",

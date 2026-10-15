@@ -8,6 +8,7 @@ import {handleCtfdImport} from "./ctfd-import.mjs";
 import {handleNotifications} from "./notifications.mjs";
 import { handleSubmissions } from "./submissions.mjs";
 import { handleThemeAudio } from "./theme-audio.mjs";
+import { handleThemeSounds } from "./theme-sounds.mjs";
 import { handleThemeMedia } from "./theme-media.mjs";
 import { handleChallengeVideoUpload } from "./challenge-videos.mjs";
 import { byteRange } from "./byte-range.mjs";
@@ -334,6 +335,7 @@ function createRequestApi({
     if (["/api/notifications","/api/admin/notifications"].includes(path)) return handleNotifications(req,{db,config,user,platformAdmin});
     if (path === "/api/admin/submissions") return handleSubmissions(req,{db,user,platformAdmin});
     if (path === "/api/admin/theme-audio") return handleThemeAudio(req,{db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset});
+    if (path === "/api/admin/theme-sounds") return handleThemeSounds(req,{db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset});
     if (path === "/api/admin/theme-media") return handleThemeMedia(req,{db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset});
     if (path === "/api/admin/packs") {
       const u = await user(req);

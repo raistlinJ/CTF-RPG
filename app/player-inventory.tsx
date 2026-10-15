@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { KeyRound, WandSparkles } from "lucide-react";
+import { Backpack, KeyRound, WandSparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { KEY_PALETTE, normalizeIncantation } from "@/lib/inventory-data.mjs";
 
@@ -8,8 +8,8 @@ export type Inventory = { keys: string[]; incantations: string[] };
 export type LockedTransport = { id: string; name: string; lock: { type: string; color?: string }; map: string; x: number; y: number; dx: number; dy: number };
 export function PlayerInventory({ open, onOpenChange, items }: { open: boolean; onOpenChange: (open: boolean) => void; items: Inventory }) {
   return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="inventory-modal" aria-describedby="inventory-help">
-      <DialogTitle>Inventory</DialogTitle>
+    <DialogContent className="inventory-modal inventory-bag" aria-describedby="inventory-help">
+      <DialogTitle className="inventory-bag-title"><Backpack aria-hidden="true" /> Inventory</DialogTitle>
       <p id="inventory-help">Solve challenges to earn keys and learn incantations. Keys are reusable; unlocked routes stay open for you.</p>
       <section aria-label="Keys"><h3><KeyRound size={18} /> Keys</h3>
         {items.keys.length ? <ul className="inventory-keys">{items.keys.map(color => <li key={color}>

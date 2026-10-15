@@ -10,6 +10,7 @@ import Review from "../app/admin/challenges/review/page";
 import PacksAdmin from "../app/admin/data/page";
 import AppearancesAdmin from "../app/admin/theme/appearances/page";
 import MediaLibraryAdmin from "../app/admin/theme/media/page";
+import SoundsAdmin from "../app/admin/theme/sounds/page";
 import MapsAdmin from "../app/admin/theme/maps/page";
 import EntityDialoguePage from "../app/admin/theme/maps/dialogue/page";
 import ThemeLibrary from "../app/admin/theme/library/page";
@@ -38,6 +39,8 @@ createRoot(document.getElementById("root")!).render(
       <AppearancesAdmin />
     ) : window.location.pathname.startsWith("/admin/theme/media") ? (
       <MediaLibraryAdmin />
+    ) : window.location.pathname.startsWith("/admin/theme/sounds") ? (
+      <SoundsAdmin />
     ) : window.location.pathname.startsWith("/admin/theme/library") ? (
       <ThemeLibrary />
     ) : window.location.pathname.startsWith("/admin/theme/maps/dialogue") ? (

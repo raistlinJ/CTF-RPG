@@ -919,5 +919,115 @@
         "midi": "/audio/workshop.mid"
       }
     ]
+  },
+  "sounds": {
+    "clips": [
+      {
+        "name": "Player spawn",
+        "src": "/audio/sounds/north-pole/spawn.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Transport",
+        "src": "/audio/sounds/north-pole/transport.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Challenge discovery",
+        "src": "/audio/sounds/north-pole/discovery.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Regular challenge solved",
+        "src": "/audio/sounds/north-pole/correct.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Boss challenge solved",
+        "src": "/audio/sounds/north-pole/bossSolved.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Key obtained",
+        "src": "/audio/sounds/north-pole/keyObtained.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Incantation obtained",
+        "src": "/audio/sounds/north-pole/incantationObtained.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Expedition complete",
+        "src": "/audio/sounds/north-pole/expeditionComplete.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Answer submitted",
+        "src": "/audio/sounds/north-pole/submitted.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Incorrect answer",
+        "src": "/audio/sounds/north-pole/incorrect.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Non-player entity interaction",
+        "src": "/audio/sounds/north-pole/interaction.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Hint unlocked",
+        "src": "/audio/sounds/north-pole/hintUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Locked route",
+        "src": "/audio/sounds/north-pole/lockedRoute.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Route unlocked",
+        "src": "/audio/sounds/north-pole/routeUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Empty search",
+        "src": "/audio/sounds/north-pole/searchEmpty.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Map entry",
+        "src": "/audio/sounds/north-pole/mapEntry.wav",
+        "source": "theme"
+      }
+    ],
+    "maps": {
+      "town": "/audio/sounds/north-pole/mapEntry.wav",
+      "castle": "/audio/sounds/north-pole/mapEntry.wav",
+      "toy-workshop": "/audio/sounds/north-pole/mapEntry.wav",
+      "cocoa-cottage": "/audio/sounds/north-pole/mapEntry.wav",
+      "post-office": "/audio/sounds/north-pole/mapEntry.wav",
+      "elf-house": "/audio/sounds/north-pole/mapEntry.wav",
+      "bakery": "/audio/sounds/north-pole/mapEntry.wav"
+    },
+    "events": {
+      "spawn": "/audio/sounds/north-pole/spawn.wav",
+      "transport": "/audio/sounds/north-pole/transport.wav",
+      "discovery": "/audio/sounds/north-pole/discovery.wav",
+      "correct": "/audio/sounds/north-pole/correct.wav",
+      "bossSolved": "/audio/sounds/north-pole/bossSolved.wav",
+      "keyObtained": "/audio/sounds/north-pole/keyObtained.wav",
+      "incantationObtained": "/audio/sounds/north-pole/incantationObtained.wav",
+      "expeditionComplete": "/audio/sounds/north-pole/expeditionComplete.wav",
+      "submitted": "/audio/sounds/north-pole/submitted.wav",
+      "incorrect": "/audio/sounds/north-pole/incorrect.wav",
+      "interaction": "/audio/sounds/north-pole/interaction.wav",
+      "hintUnlocked": "/audio/sounds/north-pole/hintUnlocked.wav",
+      "lockedRoute": "/audio/sounds/north-pole/lockedRoute.wav",
+      "routeUnlocked": "/audio/sounds/north-pole/routeUnlocked.wav",
+      "searchEmpty": "/audio/sounds/north-pole/searchEmpty.wav"
+    }
   }
 }

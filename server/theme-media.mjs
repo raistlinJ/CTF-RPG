@@ -59,6 +59,18 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
         const used = new Set([theme.adminSprite, ...theme.characters.map(c => c.sprite), ...Object.values(theme.bossSprites), ...theme.world.maps.flatMap(m => [m.background, m.originalBackground])]);
         if (used.has(item.src)) throw Error('This image is in use. Assign another image to its roles and save before deleting it.');
         next = parseTheme({ ...theme, media: theme.media.filter(entry => entry.id !== item.id) });
+      } else if (body.action === 'backgrounds') {
+        const maps = body.mapBackgrounds;
+        if (!maps || typeof maps !== 'object' || Array.isArray(maps)) throw Error('Choose valid map backgrounds.');
+        const allowed = new Set([...themeAssetPaths(theme).filter(p => imageExtension.test(p)), ...BOSS_STYLES.map(style => style.sprite)]);
+        if (Object.entries(maps).some(([id, src]) => !theme.world.maps.some(map => map.id === id) || (src !== null && (typeof src !== 'string' || !allowed.has(src)))))
+          throw Error('Choose images already in this theme.');
+        next = parseTheme({ ...theme, world: { ...theme.world, maps: theme.world.maps.map(map => {
+          if (!Object.hasOwn(maps, map.id) || maps[map.id] === map.background) return map;
+          const updated = { ...map, background: maps[map.id], originalBackground: Object.hasOwn(map, 'originalBackground') ? map.originalBackground : map.background };
+          if (updated.background === updated.originalBackground) delete updated.originalBackground;
+          return updated;
+        }) } });
       } else if (body.action === 'assign') {
       const changes = body.characterSprites, bosses = body.bossSprites, maps = body.mapBackgrounds;
       if (!changes || typeof changes !== 'object' || Array.isArray(changes) || !bosses || typeof bosses !== 'object' || Array.isArray(bosses) || !maps || typeof maps !== 'object' || Array.isArray(maps)) throw Error('Invalid image assignments.');

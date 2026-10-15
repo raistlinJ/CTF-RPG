@@ -96,6 +96,23 @@ test("building walls, furniture, water and outer boundaries block movement", () 
   assert.equal(step(p, -1, 0), p);
 });
 
+test("boss challenges block every tile in their allocated footprint", async () => {
+  const { defaultWorld, createWorld } = await import("../lib/world-data.mjs");
+  const world = structuredClone(defaultWorld), map = world.maps.find(m => m.id === world.startMap);
+  map.ground = Array.from({length:100}, (_, i) => [10 + i % 10, 18 + Math.floor(i / 10)]);
+  const engine = createWorld(world);
+  for (const size of [1, 2, 3]) {
+    const boss = {icon:"boss",iconSize:size,map:map.id,location:{x:12,y:20}};
+    for (let y=20;y<20+size;y++) for (let x=12;x<12+size;x++) {
+      const from = {map:map.id,pos:{x:x-1,y}};
+      assert.equal(engine.step(from,1,0,[],[boss]),from,`${size}×${size} boss at ${x},${y}`);
+    }
+    const adjacent = {map:map.id,pos:{x:11,y:20}};
+    assert.deepEqual(engine.step(adjacent,0,-1,[],[boss]).pos,{x:11,y:19});
+    assert.deepEqual(engine.step(adjacent,1,0,[],[{...boss,icon:"star"}]).pos,{x:12,y:20},"regular challenges remain walkable");
+  }
+});
+
 test("explicit walkable ground controls movement and challenge reachability", async () => {
   const { defaultWorld, createWorld } = await import("../lib/world-data.mjs");
   const world = structuredClone(defaultWorld);

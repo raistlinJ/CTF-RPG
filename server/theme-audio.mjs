@@ -10,7 +10,8 @@ export async function handleThemeAudio(req, {db, user, platformAdmin, theme, the
   const u=await user(req);
   if (!platformAdmin && u?.role!=='admin') return reply({error:'Administrator access required.'},u?403:401);
   const current=musicTracks(theme.audio);
-  if (req.method==='GET') return reply({audio:{...theme.audio,playlist:current},revision:themeRevision});
+  const maps=value=>value.world.maps.map(({id,name,music})=>({id,name,music}));
+  if (req.method==='GET') return reply({audio:{...theme.audio,playlist:current},maps:maps(theme),revision:themeRevision});
   if (req.method!=='POST') return reply({error:'Method not allowed.'},405);
   try {
     if (Number(req.headers.get('content-length'))>THEME_UPLOAD_LIMIT) throw Error('Audio uploads must fit within the 32 MB theme pack limit.');
@@ -49,7 +50,14 @@ export async function handleThemeAudio(req, {db, user, platformAdmin, theme, the
       playlist.push({name:file.name.slice(0,120),midi:path});staged.push({key,path,bytes});
     }
     if(form.get('loop')!=='true' && form.get('loop')!=='false') throw Error('Choose a valid repeat setting.');
-    const next=parseTheme({...theme,audio:{midi:null,playlist,loop:form.get('loop')==='true',volume:Number(form.get('volume'))}});
+    const retained=new Set(playlist.map(track=>track.midi));
+    const selections=form.has('maps') ? JSON.parse(String(form.get('maps'))) : null;
+    if(selections!==null && (!selections || typeof selections!=='object' || Array.isArray(selections) ||
+      Object.entries(selections).some(([id,src])=>!theme.world.maps.some(map=>map.id===id) || (src!==null && !retained.has(src)))))
+      throw Error('Choose a playlist track or None for each map.');
+    const next=parseTheme({...theme,
+      world:{...theme.world,maps:theme.world.maps.map(map=>({...map,music:selections && Object.hasOwn(selections,map.id) ? selections[map.id] : map.music && retained.has(map.music) ? map.music : null}))},
+      audio:{midi:null,playlist,loop:form.get('loop')==='true',volume:Number(form.get('volume'))}});
     let size=0;
     for(const path of themeAssetPaths(next)) {
       const bytes=staged.find(s=>s.path===path)?.bytes || await readAsset(path,assetStore,readBaseAsset);
@@ -60,6 +68,6 @@ export async function handleThemeAudio(req, {db, user, platformAdmin, theme, the
     for(const s of staged) await assetStore.put(s.key,s.bytes,'audio/midi');
     const r=await db.prepare("INSERT INTO theme_catalog(id,payload,revision) SELECT 'active',?,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=? ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,revision=theme_catalog.revision+1 WHERE theme_catalog.revision=?").bind(JSON.stringify(next),revision,revision).run();
     if(!(r.meta?.changes??r.changes)) return reply({error:'Another administrator changed the theme. Reload before saving.'},409);
-    return reply({audio:next.audio,revision:revision+1,uploaded:staged.length,skipped});
+    return reply({audio:next.audio,maps:maps(next),revision:revision+1,uploaded:staged.length,skipped});
   } catch(e) {return reply({error:e.issues?.map(i=>i.message).join('; ') || e.message || 'Audio could not be saved.'},400);}
 }

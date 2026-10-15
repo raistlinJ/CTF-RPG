@@ -73,13 +73,14 @@ export async function updateMap(req, state) {
                   "spawn",
                   "ground",
                   "background",
+                  "music",
                   "originalBackground",
                   "exit",
                   "floor",
                   "wall",
                   "obstacles",
                 ]
-              : ["id", "name", "bounds", "spawn", "ground"]
+              : ["id", "name", "bounds", "spawn", "ground", "music"]
           ).includes(k),
       )
     )

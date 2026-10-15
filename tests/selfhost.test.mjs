@@ -40,7 +40,7 @@ test('standalone reads root .env without game.yaml; UI users select once, roles 
  const admin=client(),student=client(),guest=client();
  try{
   assert.equal((await guest('/')).status,200);
-  for(const route of ['/admin','/admin/data','/admin/theme/media','/admin/theme/appearances','/admin/theme/maps','/admin/challenges/submissions','/admin/teams/players','/admin/users'])assert.equal((await guest(route)).status,200,route);
+  for(const route of ['/admin','/admin/data','/admin/theme/media','/admin/theme/sounds','/admin/theme/appearances','/admin/theme/maps','/admin/challenges/submissions','/admin/teams/players','/admin/users'])assert.equal((await guest(route)).status,200,route);
   for(const path of ['/.env','/content/game.yaml','/content/challenges.yaml','/data/quest.sqlite','/server/selfhost.mjs','/package.json','/%2e%2e/.env'])assert.equal((await guest(path)).status,404,path);
   const config=(await guest('/api/config')).data;assert.ok(config.characters.length>=3);assert.ok(config.characters.every(c=>c.appearanceFor!=='entity'));assert.ok(!JSON.stringify(config).includes('initial-pass'));
   assert.equal((await guest('/api/auth')).data.admin,false);assert.equal((await guest('/api/admin/users')).status,401);

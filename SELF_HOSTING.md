@@ -35,7 +35,7 @@ Theme imports/exports contain characters, maps and audio. Settings and account p
 
 ## MIDI audio
 
-Upload `.mid` or `.midi` files under **Theme → Media Library → Audio**. Set volume and playlist repetition there; tracks shuffle as they play. A short original demonstration file is included at `/audio/north-pole.mid`. Remove tracks to disable music.
+Upload `.mid` or `.midi` files under **Theme → Media Library → Music**. Assign tracks to maps under **Theme → Sounds → Map music**; set volume and playlist repetition in the media library; tracks shuffle as they play. A short original demonstration file is included at `/audio/north-pole.mid`. Remove tracks to disable music.
 
 Sound starts enabled. Background music starts immediately when the browser permits autoplay; otherwise it begins on the first click, tap, or keypress, including character selection or sign-in. The header's speaker button mutes or enables music and sound effects, even when no MIDI is configured. Muting pauses the music; unmuting resumes it. Background music pauses during cutscenes and resumes when sound is enabled. Invalid/missing files display an error without stopping play. MIDI parsing uses [Tonejs/Midi](https://github.com/Tonejs/Midi). Playback uses MIDI timing and notes with a simple retro oscillator synthesizer, rather than a General MIDI soundfont, so the instruments will sound different from a desktop MIDI player. Files must be at most 5 MB, 100,000 notes, and 24 hours in duration. Long individual notes are capped at 60 seconds. Standard MIDI note/tempo tracks are supported; soundfonts and SysEx instrument definitions are not.
 

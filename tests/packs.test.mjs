@@ -619,6 +619,7 @@ test("map editing protects access, stores custom artwork/ground, moves questions
   const patch = {
     id: original.id,
     name: "Custom lab",
+    music: state.theme.audio.midi,
     bounds: original.bounds,
     spawn: original.spawn,
     ground,
@@ -643,6 +644,7 @@ test("map editing protects access, stores custom artwork/ground, moves questions
     400,
   );
   assert.equal(files.size, before);
+  assert.equal((await admin("/api/admin/maps", make({ ...patch, music: "/audio/missing.mid" }))).status, 400);
   const saved = await admin("/api/admin/maps", make());
   assert.equal(saved.status, 200, JSON.stringify(saved.data));
   assert.equal((await admin("/api/admin/maps", make())).status, 400);
@@ -650,6 +652,7 @@ test("map editing protects access, stores custom artwork/ground, moves questions
   const map = state.theme.world.maps.find((m) => m.id === original.id);
   assert.deepEqual(map.ground, ground);
   assert.equal(map.name, "Custom lab");
+  assert.equal(map.music, state.theme.audio.midi);
   assert.deepEqual(
     (await admin(map.background)).bytes,
     new Uint8Array(readFileSync("public/maps/town.png")),

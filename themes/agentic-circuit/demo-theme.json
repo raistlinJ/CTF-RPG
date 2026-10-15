@@ -490,5 +490,115 @@
       }
     ]
   },
-  "badge": "cpu"
+  "badge": "cpu",
+  "sounds": {
+    "clips": [
+      {
+        "name": "Player spawn",
+        "src": "/themes/agentic-circuit/audio/sounds/spawn.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Transport",
+        "src": "/themes/agentic-circuit/audio/sounds/transport.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Challenge discovery",
+        "src": "/themes/agentic-circuit/audio/sounds/discovery.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Regular challenge solved",
+        "src": "/themes/agentic-circuit/audio/sounds/correct.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Boss challenge solved",
+        "src": "/themes/agentic-circuit/audio/sounds/bossSolved.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Key obtained",
+        "src": "/themes/agentic-circuit/audio/sounds/keyObtained.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Incantation obtained",
+        "src": "/themes/agentic-circuit/audio/sounds/incantationObtained.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Expedition complete",
+        "src": "/themes/agentic-circuit/audio/sounds/expeditionComplete.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Answer submitted",
+        "src": "/themes/agentic-circuit/audio/sounds/submitted.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Incorrect answer",
+        "src": "/themes/agentic-circuit/audio/sounds/incorrect.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Non-player entity interaction",
+        "src": "/themes/agentic-circuit/audio/sounds/interaction.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Hint unlocked",
+        "src": "/themes/agentic-circuit/audio/sounds/hintUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Locked route",
+        "src": "/themes/agentic-circuit/audio/sounds/lockedRoute.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Route unlocked",
+        "src": "/themes/agentic-circuit/audio/sounds/routeUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Empty search",
+        "src": "/themes/agentic-circuit/audio/sounds/searchEmpty.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Map entry",
+        "src": "/themes/agentic-circuit/audio/sounds/mapEntry.wav",
+        "source": "theme"
+      }
+    ],
+    "maps": {
+      "town": "/themes/agentic-circuit/audio/sounds/mapEntry.wav",
+      "castle": "/themes/agentic-circuit/audio/sounds/mapEntry.wav",
+      "toy-workshop": "/themes/agentic-circuit/audio/sounds/mapEntry.wav",
+      "cocoa-cottage": "/themes/agentic-circuit/audio/sounds/mapEntry.wav",
+      "post-office": "/themes/agentic-circuit/audio/sounds/mapEntry.wav",
+      "elf-house": "/themes/agentic-circuit/audio/sounds/mapEntry.wav",
+      "bakery": "/themes/agentic-circuit/audio/sounds/mapEntry.wav"
+    },
+    "events": {
+      "spawn": "/themes/agentic-circuit/audio/sounds/spawn.wav",
+      "transport": "/themes/agentic-circuit/audio/sounds/transport.wav",
+      "discovery": "/themes/agentic-circuit/audio/sounds/discovery.wav",
+      "correct": "/themes/agentic-circuit/audio/sounds/correct.wav",
+      "bossSolved": "/themes/agentic-circuit/audio/sounds/bossSolved.wav",
+      "keyObtained": "/themes/agentic-circuit/audio/sounds/keyObtained.wav",
+      "incantationObtained": "/themes/agentic-circuit/audio/sounds/incantationObtained.wav",
+      "expeditionComplete": "/themes/agentic-circuit/audio/sounds/expeditionComplete.wav",
+      "submitted": "/themes/agentic-circuit/audio/sounds/submitted.wav",
+      "incorrect": "/themes/agentic-circuit/audio/sounds/incorrect.wav",
+      "interaction": "/themes/agentic-circuit/audio/sounds/interaction.wav",
+      "hintUnlocked": "/themes/agentic-circuit/audio/sounds/hintUnlocked.wav",
+      "lockedRoute": "/themes/agentic-circuit/audio/sounds/lockedRoute.wav",
+      "routeUnlocked": "/themes/agentic-circuit/audio/sounds/routeUnlocked.wav",
+      "searchEmpty": "/themes/agentic-circuit/audio/sounds/searchEmpty.wav"
+    }
+  }
 }

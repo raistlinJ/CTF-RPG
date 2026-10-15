@@ -13,6 +13,7 @@ import {
 } from "../lib/theme-schema.mjs";
 import { createWorld } from "../lib/world-data.mjs";
 import { parseChallenges } from "../lib/config-schema.mjs";
+import { defaultSoundConfig } from "../lib/sound-events.mjs";
 import { kitBase64 } from "./recreation-kit.mjs";
 export const PACK_LIMIT = CONTENT_PACK_LIMIT;
 export const assetTypes = {
@@ -23,6 +24,9 @@ export const assetTypes = {
   gif: "image/gif",
   mid: "audio/midi",
   midi: "audio/midi",
+  wav: "audio/wav",
+  mp3: "audio/mpeg",
+  ogg: "audio/ogg",
   pdf: "application/pdf",
   txt: "text/plain; charset=utf-8",
   csv: "text/csv; charset=utf-8",
@@ -32,11 +36,22 @@ export const assetTypes = {
   webm: "video/webm",
 };
 export const assetKeyPattern =
-  /^[a-f0-9]{64}\.(png|jpg|jpeg|webp|gif|mid|midi|pdf|txt|csv|zip|bin|mp4|webm)$/;
+  /^[a-f0-9]{64}\.(png|jpg|jpeg|webp|gif|mid|midi|wav|mp3|ogg|pdf|txt|csv|zip|bin|mp4|webm)$/;
 let seed;
 export function seedAsset(path) {
   seed ??= unzipSync(Uint8Array.from(atob(kitBase64), (c) => c.charCodeAt(0)));
   return seed["public" + path] || null;
+}
+function withBundledSounds(theme) {
+  const sounds = theme.sounds;
+  if (sounds && (sounds.clips?.length || Object.keys(sounds.maps || {}).length || Object.keys(sounds.events || {}).length)) return theme;
+  const base = theme.title === "Agentic Circuit" && theme.badge === "cpu"
+    ? "/themes/agentic-circuit/audio/sounds"
+    : theme.title === "North Pole Quest" && theme.badge === "snowflake"
+      ? "/audio/sounds/north-pole"
+      : null;
+  if (!base || !Array.isArray(theme.world?.maps)) return theme;
+  return { ...theme, sounds: defaultSoundConfig(base, theme.world.maps.map(map => map.id)) };
 }
 export async function activeTheme(db, config) {
   const row = await db
@@ -44,7 +59,7 @@ export async function activeTheme(db, config) {
     .bind()
     .first();
   return {
-    theme: row ? parseTheme(JSON.parse(row.payload)) : defaultTheme(config),
+    theme: row ? parseTheme(withBundledSounds(JSON.parse(row.payload))) : defaultTheme(config),
     revision: row?.revision || 0,
   };
 }
@@ -183,6 +198,9 @@ export function assertAsset(bytes, ext) {
     (ext === "webp" && !(text(0, 4) === "RIFF" && text(8, 12) === "WEBP")) ||
     (["mid", "midi"].includes(ext) &&
       !(text(0, 4) === "MThd" && bytes.length >= 14)) ||
+    (ext === "wav" && !(text(0, 4) === "RIFF" && text(8, 12) === "WAVE")) ||
+    (ext === "mp3" && !(text(0, 3) === "ID3" || (bytes[0] === 255 && (bytes[1] & 224) === 224))) ||
+    (ext === "ogg" && text(0, 4) !== "OggS") ||
     (ext === "pdf" && text(0, 5) !== "%PDF-") ||
     (ext === "zip" && text(0, 2) !== "PK")
     || (ext === "mp4" && !(bytes.length >= 12 && text(4, 8) === "ftyp"))
@@ -204,7 +222,7 @@ async function stage(pack, kind, store) {
     if (
       !assetTypes[ext] ||
       (kind === "theme" &&
-        !["png", "jpg", "jpeg", "webp", "gif", "mid", "midi"].includes(ext))
+        !["png", "jpg", "jpeg", "webp", "gif", "mid", "midi", "wav", "mp3", "ogg"].includes(ext))
     )
       throw Error(`Unsupported asset type: ${ext}`);
     assertAsset(bytes, ext);
@@ -217,20 +235,26 @@ async function stage(pack, kind, store) {
     await store.put(key, bytes, assetTypes[ext]);
     rewrite.set(path, "/api/assets/" + key);
   }
-  return kind === "theme"
-    ? { ...mapThemeAssets(pack.value, (p) => rewrite.get(p)), media: pack.value.media.map(item => ({ ...item, src: rewrite.get(item.src), source: "theme" })) }
-    : pack.value.map((c) => ({
-        ...c,
-        discoveryVideo: rewrite.get(c.discoveryVideo) || c.discoveryVideo,
-        solveVideo: rewrite.get(c.solveVideo) || c.solveVideo,
-        downloads: c.downloads.map((d) => ({
-          ...d,
-          url: rewrite.get(d.url) || d.url,
-          ...(rewrite.has(d.url) && !d.filename
-            ? { filename: d.url.split("/").pop() }
-            : {}),
-        })),
-      }));
+  if (kind === "theme") {
+    const mapped = mapThemeAssets(pack.value, (p) => rewrite.get(p));
+    return {
+      ...mapped,
+      media: pack.value.media.map(item => ({ ...item, src: rewrite.get(item.src), source: "theme" })),
+      sounds: { ...mapped.sounds, clips: mapped.sounds.clips.map(item => ({ ...item, source: "theme" })) },
+    };
+  }
+  return pack.value.map((c) => ({
+    ...c,
+    discoveryVideo: rewrite.get(c.discoveryVideo) || c.discoveryVideo,
+    solveVideo: rewrite.get(c.solveVideo) || c.solveVideo,
+    downloads: c.downloads.map((d) => ({
+      ...d,
+      url: rewrite.get(d.url) || d.url,
+      ...(rewrite.has(d.url) && !d.filename
+        ? { filename: d.url.split("/").pop() }
+        : {}),
+    })),
+  }));
 }
 export async function importPacks(
   req,

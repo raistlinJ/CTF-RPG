@@ -28,6 +28,7 @@ for(const preset of themePresets) {
   const contentEntries=unzipSync(readFileSync(`theme-packs/${id}-demo-content.zip`));
   assert.ok(!themeEntries['content.yaml']);assert.ok(!contentEntries['theme.yaml']);assert.ok(!themeEntries['backup.json']);
   const packedTheme=parseTheme(parse(strFromU8(themeEntries['theme.yaml'])));
+  for(const clip of packedTheme.sounds.clips)assert.ok(themeEntries['assets'+clip.src]?.length,clip.src);
   assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='player').length,5);
   assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='entity').length,7);
   assert.ok(packedTheme.world.entities.every(e=>packedTheme.characters.find(c=>c.id===e.characterId)?.appearanceFor==='entity'));

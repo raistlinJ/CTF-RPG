@@ -22,6 +22,7 @@ import NotificationsInbox from "./notifications-inbox";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
 import {
   Crown,
+  Backpack,
   Compass,
   Cpu,
   Snowflake,
@@ -77,7 +78,8 @@ type GameConfig = {
     characters: Character[];
     bossSprites: Record<string, string>;
     adminSprite: string | null;
-    world: typeof activeWorld & { entities?: EntitySummary[] };
+    world: Omit<typeof activeWorld, "maps"> & { maps: ((typeof activeWorld.maps)[number] & { music?: string | null })[]; entities?: EntitySummary[] };
+    sounds?: { maps: Record<string, string | null>; events: Record<string, string | null> };
   };
   themeRevision: number;
   scoreboard: { visibility: "admins" | "all"; mode: string };
@@ -722,10 +724,15 @@ export default function Game() {
     [muted, setMuted] = useState(false);
   const { map, pos } = place;
   const audio = useRef<AudioContext | null>(null);
+  const soundBuffers = useRef(new Map<string, Promise<AudioBuffer>>());
+  const soundGeneration = useRef(0);
+  const mapSoundGeneration = useRef(0);
+  const previousSoundMap = useRef<string | null>(null);
   const music = useRef<MidiPlayer | null>(null);
   const [config, setConfig] = useState<GameConfig | null>(null);
   const [audioError, setAudioError] = useState("");
   const [audioBusy, setAudioBusy] = useState(false);
+  const mapMusic = config?.theme.world.maps.find(m => m.id === map)?.music;
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
   const [inventory, setInventory] = useState<Inventory>({keys:[],incantations:[]});
@@ -765,6 +772,7 @@ export default function Game() {
   }
   function openChallenge(q: Challenge) {
     setNearbyOptions(null);
+    playEventSound("discovery");
     const session = playbackSession.current;
     setActive(q);
     setAnswer(q.submission?.answer || "");
@@ -823,6 +831,7 @@ export default function Game() {
     }
   }
   function musicError(e: Error) {
+    soundGeneration.current++;
     music.current?.dispose();
     music.current = null;
     setAudioError(e.message);
@@ -837,8 +846,12 @@ export default function Game() {
       return () => { live = false; };
     }
     try {
-      if (config.audio.midi || config.audio.playlist?.length)
-        music.current ??= new MidiPlayer(config.audio, musicError);
+      if (config.audio.midi || config.audio.playlist?.length) {
+        music.current ??= new MidiPlayer(mapMusic
+          ? { ...config.audio, midi: mapMusic, playlist: [{ name: mapMusic, midi: mapMusic }] }
+          : config.audio, musicError);
+        if (mapMusic) void music.current.selectTrack(mapMusic).catch(failed);
+      }
       // Some browsers allow immediate audio; others require a real interaction.
       void music.current?.playIfAllowed().catch(failed);
       const stopListening = () => {
@@ -859,7 +872,7 @@ export default function Game() {
       return () => { live = false; stopListening(); };
     } catch (e) { failed(e as Error); }
     return () => { live = false; };
-  }, [config?.audio, cutsceneOpen, muted]);
+  }, [config?.audio, cutsceneOpen, muted, mapMusic]);
   useEffect(() => {
     if (user && presence.gameRevision !== undefined) void loadGame().catch((e) => setNotice(e.message));
   }, [presence.gameRevision]);
@@ -939,12 +952,17 @@ export default function Game() {
     setAudioBusy(true);
     try {
       if (!muted) {
+        soundGeneration.current++;
         await music.current?.mute();
         if (audio.current) await audio.current.suspend();
         setMuted(true);
       } else {
-        if (config && (config.audio.midi || config.audio.playlist?.length))
-          music.current ??= new MidiPlayer(config.audio, musicError);
+        if (config && (config.audio.midi || config.audio.playlist?.length)) {
+          music.current ??= new MidiPlayer(mapMusic
+            ? { ...config.audio, midi: mapMusic, playlist: [{ name: mapMusic, midi: mapMusic }] }
+            : config.audio, musicError);
+          if (mapMusic) await music.current.selectTrack(mapMusic);
+        }
         audio.current ??= new AudioContext();
         await Promise.all([cutsceneOpen ? undefined : music.current?.play(), audio.current.resume()]);
         setMuted(false);
@@ -958,24 +976,45 @@ export default function Game() {
       setAudioBusy(false);
     }
   }
-  function sound() {
-    if (muted) return;
-    audio.current ??= new AudioContext();
-    const o = audio.current.createOscillator(),
-      g = audio.current.createGain();
-    o.type = "triangle";
-    o.frequency.setValueAtTime(660, audio.current.currentTime);
-    o.frequency.exponentialRampToValueAtTime(
-      990,
-      audio.current.currentTime + 0.15,
-    );
-    g.gain.setValueAtTime(0.05, audio.current.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audio.current.currentTime + 0.3);
-    o.connect(g);
-    g.connect(audio.current.destination);
-    o.start();
-    o.stop(audio.current.currentTime + 0.3);
+  function playSound(src: string | null | undefined, delaySeconds = 0, mapSpecific = false) {
+    if (!src || muted) return;
+    try {
+      audio.current ??= new AudioContext();
+      const context = audio.current;
+      if (context.state === "suspended") void context.resume();
+      const generation = soundGeneration.current;
+      const mapGeneration = mapSoundGeneration.current;
+      let buffer = soundBuffers.current.get(src);
+      if (!buffer) {
+        buffer = fetch(src).then(async response => {
+          if (!response.ok) throw Error("Sound could not be loaded.");
+          return context.decodeAudioData(await response.arrayBuffer());
+        });
+        soundBuffers.current.set(src, buffer);
+      }
+      void buffer.then(decoded => {
+        if (audio.current !== context || context.state === "closed" || generation !== soundGeneration.current || (mapSpecific && mapGeneration !== mapSoundGeneration.current)) return;
+        const source = context.createBufferSource(), gain = context.createGain();
+        source.buffer = decoded;
+        gain.gain.value = 0.25;
+        source.connect(gain);
+        gain.connect(context.destination);
+        source.onended = () => { source.disconnect(); gain.disconnect(); };
+        source.start(context.currentTime + delaySeconds);
+      }).catch(() => { soundBuffers.current.delete(src); });
+    } catch { /* A sound effect must not interrupt the game. */ }
   }
+  function playEventSound(event: string, delaySeconds = 0) {
+    playSound(config?.theme.sounds?.events[event], delaySeconds);
+  }
+  useEffect(() => {
+    if (!user || !config) { previousSoundMap.current = null; soundGeneration.current++; mapSoundGeneration.current++; return; }
+    if (previousSoundMap.current !== map) mapSoundGeneration.current++;
+    if (previousSoundMap.current && previousSoundMap.current !== map) playEventSound("transport");
+    if (!previousSoundMap.current) playEventSound("spawn");
+    if (previousSoundMap.current !== map) playSound(config.theme.sounds?.maps[map], 0.35, true);
+    previousSoundMap.current = map;
+  }, [map, user?.username, config?.theme.sounds]);
   useEffect(() => {
     setNotice(
       place.travel?.at(-1)?.to === map
@@ -990,9 +1029,10 @@ export default function Game() {
     const link = transitionAt(map,pos.x+dx,pos.y+dy);
     if (link?.lock && !unlockedTransports.includes(link.id)) {
       setLockedTransport({id:link.id,name:link.name || `${mapName(map)} → ${mapName(link.to)}`,lock:link.lock,map,x:pos.x,y:pos.y,dx,dy});
+      playEventSound("lockedRoute");
       return;
     }
-    setPlace((p) => step(p, dx, dy, unlockedTransports));
+    setPlace((p) => step(p, dx, dy, unlockedTransports, challenges));
   }
   async function unlockRoute(phrase: string) {
     if (!lockedTransport) return;
@@ -1003,7 +1043,8 @@ export default function Game() {
     if (!r.ok) throw Error(d.error || "This route could not be unlocked.");
     if (session !== playbackSession.current) return;
     applyGame(d);
-    setPlace(p => p.map === target.map && p.pos.x === target.x && p.pos.y === target.y ? step(p,target.dx,target.dy,d.unlockedTransports) : p);
+    playEventSound("routeUnlocked");
+    setPlace(p => p.map === target.map && p.pos.x === target.x && p.pos.y === target.y ? step(p,target.dx,target.dy,d.unlockedTransports,d.challenges) : p);
     setLockedTransport(null);
   }
   function search() {
@@ -1017,13 +1058,12 @@ export default function Game() {
     const nearbyEntities = entities.filter(e => entityInInteractionRange(e, map, pos.x, pos.y));
     if (nearbyEntities.length) {
       if (nearbyEntities.length + nearbyChallenges.length > 1) setNearbyOptions({ entities: nearbyEntities, challenges: nearbyChallenges });
-      else setTalkingTo(nearbyEntities[0]);
-      sound(); return;
+      else { setTalkingTo(nearbyEntities[0]); playEventSound("interaction"); }
+      return;
     }
     const q = nearbyChallenges[0];
     if (q) {
       openChallenge(q);
-      sound();
     } else if (
       config?.theme.title === "North Pole Quest" &&
       map === "castle" &&
@@ -1032,13 +1072,15 @@ export default function Game() {
       setNotice(
         "Santa Claus: Ho ho ho! Welcome to my Christmas castle. Explore the rooms, and keep an eye out for hidden treasures.",
       );
-      sound();
-    } else
+      playEventSound("interaction");
+    } else {
+      playEventSound("searchEmpty");
       setNotice(
         expeditionComplete
           ? "All treasures found! Your expedition is complete."
           : "Nothing here yet. Search near a sparkle or a character’s speech bubble.",
       );
+    }
   }
   useEffect(() => {
     if (!user || (!canAdmin && !team)) return;
@@ -1145,6 +1187,7 @@ export default function Game() {
       setFeedbackSuccess(!!(d.correct || d.submitted));
       if (d.submitted) {
         applyGame(d);
+        playEventSound("submitted");
         setFeedback(
           "Response saved for admin review. You can update it until graded.",
         );
@@ -1153,10 +1196,13 @@ export default function Game() {
         const gainedPhrases = (d.inventory?.incantations || []).filter(phrase => !inventory.incantations.includes(phrase));
         const gained = [...gainedKeys.map(color => `${color} key`), ...(gainedPhrases.length ? [`${gainedPhrases.length} incantation${gainedPhrases.length === 1 ? "" : "s"}`] : [])];
         applyGame(d);
-        sound();
+        playEventSound(active.icon === "boss" ? "bossSolved" : "correct");
+        if (gainedKeys.length) playEventSound("keyObtained", 0.5);
+        if (gainedPhrases.length) playEventSound("incantationObtained", gainedKeys.length ? 1 : 0.5);
+        if (d.expeditionComplete && !expeditionComplete) playEventSound("expeditionComplete", 1.5);
         setFeedback(`Treasure collected! +${d.awardedPoints} points${gained.length ? `. Added to Inventory: ${gained.join(", ")}.` : ""}`);
         setNotice(`${active.object} collected. Keep exploring!`);
-      } else setFeedback("Not quite. Take another look and try again.");
+      } else { playEventSound("incorrect"); setFeedback("Not quite. Take another look and try again."); }
     } catch (e) {
       setFeedbackSuccess(false);
       setFeedback((e as Error).message);
@@ -1184,6 +1230,7 @@ export default function Game() {
       const h = d.challenges
         .find((c) => c.id === active.id)
         ?.hints.find((h) => h.id === hintId);
+      if (h?.unlocked && !active.hints.some(previous => previous.id === hintId && previous.unlocked)) playEventSound("hintUnlocked");
       setHintMessage(
         h && hintCostLabel(h.cost, h.rewardCost) !== "Free"
           ? `Hint unlocked. Cost: ${hintCostLabel(h.cost, h.rewardCost)}, deducted once from this challenge’s completion rewards.`
@@ -1505,7 +1552,6 @@ export default function Game() {
           <div className="play-column">
             <div className="play-heading">
               <div>
-                <span className="eyebrow">EXPEDITION 01</span>
                 <h1>{mapName(map)}</h1>
               </div>
               <span className="region-pill">
@@ -1548,8 +1594,8 @@ export default function Game() {
               </span>
             </div>
             <div className="map-actions">
-              <button type="button" className="map-inventory-link" aria-haspopup="dialog" onClick={() => setInventoryOpen(true)}>
-                Inventory{inventory.keys.length + inventory.incantations.length > 0 ? ` (${inventory.keys.length + inventory.incantations.length})` : ""}
+              <button type="button" aria-haspopup="dialog" onClick={() => setInventoryOpen(true)}>
+                <Backpack size={16} aria-hidden="true" /> Inventory{inventory.keys.length + inventory.incantations.length > 0 ? ` (${inventory.keys.length + inventory.incantations.length})` : ""}
               </button>
               <button type="button" onClick={search}>
                 <Sparkles size={16} /> Search nearby <kbd>E</kbd>
@@ -1676,7 +1722,7 @@ export default function Game() {
       <Dialog open={!!nearbyOptions} onOpenChange={open => { if (!open) setNearbyOptions(null); }}>
         <DialogContent className="entity-dialogue" aria-describedby="nearby-interaction-help">
           <DialogTitle>Search nearby</DialogTitle><p id="nearby-interaction-help">Choose a character to speak with or a challenge to open.</p>
-          <div className="entity-dialogue-choices">{nearbyOptions?.entities.map(e => <button type="button" className="secondary-button" key={e.id} onClick={() => { setNearbyOptions(null); setTalkingTo(e); }}>Talk to {e.name}</button>)}
+          <div className="entity-dialogue-choices">{nearbyOptions?.entities.map(e => <button type="button" className="secondary-button" key={e.id} onClick={() => { setNearbyOptions(null); setTalkingTo(e); playEventSound("interaction"); }}>Talk to {e.name}</button>)}
             {nearbyOptions?.challenges.map(q => <button type="button" className="secondary-button" key={q.id} onClick={() => openChallenge(q)}>Open {q.object}</button>)}
           </div>
         </DialogContent>
@@ -1693,9 +1739,9 @@ export default function Game() {
           if (!v) setActive(null);
         }}
       >
-        <DialogContent className="challenge-modal">
-          <span className="eyebrow">CHALLENGE</span>
-          <DialogTitle>{active?.object}</DialogTitle>
+        <DialogContent className={`challenge-modal${active?.icon === "boss" ? " boss-challenge-modal" : ""}`}>
+          <span className="eyebrow">{active?.icon === "boss" ? "BOSS CHALLENGE" : "CHALLENGE"}</span>
+          <DialogTitle>{active?.icon === "boss" && <span className="sr-only">Boss Challenge: </span>}{active?.object}</DialogTitle>
           <div className="challenge-meta">
             <span>{active?.region}</span>
             <span>{presence.challengeSolves.find((c) => c.id === active?.id)?.count ?? active?.solveCount ?? 0} solves</span>

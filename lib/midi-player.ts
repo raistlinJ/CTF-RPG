@@ -10,6 +10,7 @@ export type MusicConfig = {
 export class MidiPlayer {
   private context: AudioContext;
   private master: GainNode;
+  private trackGain: GainNode;
   private timer: ReturnType<typeof setInterval> | null = null;
   private notes: {
     time: number;
@@ -28,11 +29,31 @@ export class MidiPlayer {
   private queue: {name:string; midi:string}[] = [];
   private previous: string | undefined;
   private transitioning = false;
+  private generation = 0;
   constructor(private config: MusicConfig, private onError?: (error: Error) => void) {
     this.context = new AudioContext();
     this.master = this.context.createGain();
     this.master.gain.value = config.volume;
     this.master.connect(this.context.destination);
+    this.trackGain = this.context.createGain();
+    this.trackGain.connect(this.master);
+  }
+  async selectTrack(midi: string) {
+    if (this.closed) return;
+    this.config = { ...this.config, midi, playlist: [{ name: midi, midi }] };
+    this.queue = [];
+    if (this.previous === midi && (this.ready || this.transitioning)) return;
+    this.generation++;
+    this.abort.abort();
+    this.abort = new AbortController();
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.trackGain.disconnect();
+    this.trackGain = this.context.createGain();
+    this.trackGain.connect(this.master);
+    this.ready = false;
+    this.transitioning = false;
+    if (this.activated && this.context.state === "running") await this.loadNext();
   }
   // Avoid a pending resume promise when autoplay needs a user gesture.
   async playIfAllowed() {
@@ -54,14 +75,17 @@ export class MidiPlayer {
   private async loadNext() {
     if (this.closed || this.transitioning) return;
     this.transitioning = true;
+    const generation = this.generation;
     try {
       if (!this.queue.length) this.queue = shuffledTracks(musicTracks(this.config), this.previous);
       const track = this.queue.shift();
       if (!track) throw Error("No background MIDI is configured.");
       this.previous = track.midi;
       const r = await fetch(track.midi, { signal: this.abort.signal });
+      if (this.closed || generation !== this.generation) return;
       if (!r.ok) throw Error("Background music could not be loaded.");
       const data = await r.arrayBuffer();
+      if (this.closed || generation !== this.generation) return;
       if (data.byteLength > 5 * 1024 * 1024)
         throw Error("MIDI files must be smaller than 5 MB.");
       const midi = new Midi(data);
@@ -86,7 +110,7 @@ export class MidiPlayer {
         .sort((a, b) => a.time - b.time);
       if (this.notes.length > 100000)
         throw Error("The MIDI file contains too many notes.");
-      if (this.closed) return;
+      if (this.closed || generation !== this.generation) return;
       this.cursor = 0;
       this.duration = midi.duration + 0.3;
       this.startTime = this.context.currentTime + 0.08;
@@ -94,7 +118,9 @@ export class MidiPlayer {
       if (this.timer) clearInterval(this.timer);
       this.timer = setInterval(() => this.schedule(), 40);
       this.schedule();
-    } finally { this.transitioning = false; }
+    } catch (e) {
+      if (!this.closed && generation === this.generation) throw e;
+    } finally { if (generation === this.generation) this.transitioning = false; }
   }
   private schedule() {
     if (this.closed || this.transitioning || this.context.state !== "running") return;
@@ -118,7 +144,7 @@ export class MidiPlayer {
         when + Math.max(0.03, n.duration),
       );
       o.connect(g);
-      g.connect(this.master);
+      g.connect(this.trackGain);
       o.start(when);
       o.stop(when + Math.max(0.04, n.duration) + 0.01);
       o.onended = () => {

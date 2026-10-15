@@ -26,6 +26,7 @@ type TransportLock = { type: "key"; color: string } | { type: "incantation"; phr
 type MapData = (typeof activeWorld.maps)[number] & {
   ground?: [number, number][] | null;
   originalBackground?: string | null;
+  music?: string | null;
 };
 type Transport = {
   id: string;
@@ -692,6 +693,7 @@ export default function MapSettings({
             : {
                 id: map.id,
                 name: map.name,
+                music: map.music ?? null,
                 bounds: map.bounds,
                 spawn: map.spawn,
                 ground,

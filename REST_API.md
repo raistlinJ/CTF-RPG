@@ -37,15 +37,16 @@ Use a valid player `hero` ID from `GET /api/config` if supplying a character on 
 | GET, POST | `/api/admin/packs` | Read, export and import themes/content. |
 | POST | `/api/admin/ctfd-import` | Preview/apply a multipart CTFd import, with explicit skipped-file decisions. |
 | POST | `/api/admin/maps` | Edit ground, spawns, entities and transports. |
-| GET, POST | `/api/admin/theme-media` | Manage appearance/image catalogs. |
-| GET, POST | `/api/admin/theme-audio` | Manage MIDI tracks and playback settings. |
+| GET, POST | `/api/admin/theme-media` | Manage image catalogs, appearances, and map backgrounds. |
+| GET, POST | `/api/admin/theme-audio` | Manage MIDI tracks, map music assignments, and playback settings. |
+| GET, POST | `/api/admin/theme-sounds` | Manage sound clips and assign them to maps and events. |
 | GET, POST | `/api/admin/submissions` | Read submissions and apply selected deletion. |
 | GET, POST | `/api/admin/review` | Read and grade instructor-graded answers. |
 | GET, POST | `/api/admin/notifications` | Read or send notifications. |
 | GET | `/api/admin/backup` | Download the complete recreation ZIP. |
 | GET | `/api/scoreboard` | Read rankings with the account's configured permissions. |
 
-These are the same endpoints used by the admin UI. JSON writes use `Content-Type: application/json`; map, media/audio, and pack uploads use the endpoint's multipart form format. Editing uses the current `revision` and, where required, `themeRevision` / `contentRevision` returned by the corresponding reads. A stale save returns 409; refresh before applying changes again.
+These are the same endpoints used by the admin UI. JSON writes use `Content-Type: application/json`; map, media/audio/sound, and pack uploads use the endpoint's multipart form format. Editing uses the current `revision` and, where required, `themeRevision` / `contentRevision` returned by the corresponding reads. A stale save returns 409; refresh before applying changes again.
 
 ## Create a student account
 

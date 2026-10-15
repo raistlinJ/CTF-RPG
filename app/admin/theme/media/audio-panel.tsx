@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
 
 type Track = { name: string; midi: string };
-type Settings = { audio: MusicConfig & { playlist: Track[] }; revision: number };
+type Settings = { audio: MusicConfig & { playlist: Track[] }; maps: { id: string; name: string; music: string | null }[]; revision: number };
 type SaveResult = Settings & { uploaded: number; skipped: string[]; error?: string };
 
 export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,active=true}:{onDirtyChange?:(dirty:boolean)=>void;onSaved?:(revision:number)=>void;knownRevision?:number|null;active?:boolean} = {}) {
@@ -31,7 +31,6 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
 
   useEffect(()=>{onDirtyChange?.(files.length>0 || (!!settings && !!savedAudio && JSON.stringify(settings.audio)!==savedAudio));},[files.length,settings,savedAudio,onDirtyChange]);
   useEffect(()=>{if(!active)stop();},[active]);
-  useEffect(()=>{if(knownRevision!==null)setSettings(current=>current && current.revision<knownRevision?{...current,revision:knownRevision}:current);},[knownRevision,settings?.revision]);
   function stop() {
     player.current?.dispose();
     player.current = null;
@@ -80,7 +79,7 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
     setMessage("");
     stop();
     const form = new FormData();
-    form.set("revision", String(settings.revision));
+    form.set("revision", String(Math.max(settings.revision, knownRevision ?? 0)));
     form.set("playlist", JSON.stringify(settings.audio.playlist));
     form.set("volume", String(settings.audio.volume));
     form.set("loop", String(settings.audio.loop));
@@ -99,7 +98,7 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
       const uploaded = d.uploaded ?? files.length;
       const summary = files.length ? `${uploaded} MIDI ${uploaded === 1 ? "file" : "files"} uploaded. ` : "";
       const skipped = d.skipped?.length ? `Already in the playlist, skipped: ${d.skipped.join(", ")}. ` : "";
-      setMessage(`${summary}${skipped}Audio saved. Reload the game to use the updated playlist.`);
+      setMessage(`${summary}${skipped}Music library saved. Assign tracks under Sounds → Map music.`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -108,14 +107,14 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
   }
 
   return (
-    <section aria-label="Audio media">
-        <h2>Audio</h2>
-        <p className="audio-description">MIDI tracks play in shuffled order. Players can turn sound on or mute it in the game.</p>
+    <section aria-label="Music library">
+        <h2>Music</h2>
+        <p className="admin-page-description">Browse, preview, and upload MIDI tracks from the theme and your uploads. Assign tracks to maps under <a href="/admin/theme/sounds?tab=music">Sounds → Map music</a>. Players can mute music in the game.</p>
         {error && !settings && <p role="alert" className="error">{error}</p>}
         {settings ? (
-          <form className="admin-editor theme-audio-form" onSubmit={save}>
+          <form className="theme-media-page theme-audio-form" onSubmit={save}>
+            <section className="admin-editor theme-media-section"><h2>Music library</h2>
             <fieldset disabled={busy}>
-              <legend>Theme playlist</legend>
               <p>Up to 20 tracks, 5 MB per file. The complete theme, including map artwork, sprites and audio, must fit within 32 MB. Duplicate MIDI files are skipped.</p>
               <ul className="audio-track-list">
                 {settings.audio.playlist.map((track, i) => (
@@ -132,12 +131,12 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
                   </li>
                 ))}
               </ul>
-              {!settings.audio.playlist.length && !files.length && <p>No music configured. Add MIDI files below.</p>}
+              {!settings.audio.playlist.length && !files.length && <p>No map music configured. Add MIDI files below.</p>}
               <label>
                 Add MIDI files
                 <input type="file" accept=".mid,.midi,audio/midi" multiple key={settings.revision} onChange={queueFiles} aria-describedby="audio-upload-help" />
               </label>
-              <p id="audio-upload-help">Select one or more files, then click Upload &amp; Save to add them to the playlist.</p>
+              <p id="audio-upload-help">Select one or more files, then save to add them to the playlist.</p>
               {files.length > 0 && (
                 <section aria-label="MIDI files ready to upload">
                   <p>{files.length} {files.length === 1 ? "file" : "files"} ready to upload</p>
@@ -153,18 +152,19 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
               )}
               <label>
                 Volume ({Math.round(settings.audio.volume * 100)}%)
-                <input aria-label="Music volume" type="range" min="0" max="1" step=".01" value={settings.audio.volume} onChange={(e) => setSettings({ ...settings, audio: { ...settings.audio, volume: Number(e.target.value) } })} />
+                <input aria-label="Map music volume" type="range" min="0" max="1" step=".01" value={settings.audio.volume} onChange={(e) => setSettings({ ...settings, audio: { ...settings.audio, volume: Number(e.target.value) } })} />
               </label>
               <label className="check-row">
                 <input type="checkbox" checked={settings.audio.loop} onChange={(e) => setSettings({ ...settings, audio: { ...settings.audio, loop: e.target.checked } })} />
                 Repeat playlist with a new shuffle
               </label>
-              <button className="primary" type="submit" aria-busy={busy}>{busy ? "Uploading & Saving…" : "Upload & Save"}</button>
-              {error && <p role="alert" className="error">{error}</p>}
-              {message && <p role="status">{message}</p>}
             </fieldset>
+            </section>
+            <div className="appearance-save"><button className="primary" type="submit" aria-busy={busy}>{busy ? "Saving…" : files.length ? "Upload & save music" : "Save music"}</button></div>
+            {error && <p role="alert" className="error">{error}</p>}
+            {message && <p role="status">{message}</p>}
           </form>
-        ) : !error && <p>Loading audio…</p>}
+        ) : !error && <p>Loading music…</p>}
     </section>
   );
 }
