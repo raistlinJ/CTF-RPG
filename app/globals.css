@@ -146,6 +146,27 @@ header {
 .player-header svg {
   flex-shrink: 0;
 }
+@media (min-width: 761px) {
+  .player-header {
+    flex-wrap: nowrap;
+  }
+  .player-header .brand,
+  .player-header .ctf-brand-name {
+    min-width: 0;
+  }
+  .player-header .brand {
+    flex-shrink: 1;
+  }
+  .player-header .header-right {
+    flex: 1 0 max-content;
+    flex-wrap: nowrap;
+  }
+  .player-header .edition {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
 .edition,
 .eyebrow {
   font: 12px var(--app-font);
