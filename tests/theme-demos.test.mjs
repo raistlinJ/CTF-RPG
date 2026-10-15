@@ -42,6 +42,13 @@ for(const preset of themePresets) {
   assert.ok(challenges.some(c=>c.visibility==='hidden'));
   assert.ok(challenges.some(c=>c.hints.some(h=>h.rewardCost.keys.length)));
   for(const c of challenges)for(const d of c.downloads)assert.ok(contentEntries['assets'+d.url]?.length);
+  const videos=challenges.flatMap(c=>[c.discoveryVideo,c.solveVideo]).filter(Boolean);
+  assert.equal(videos.length,2);
+  for(const path of videos){
+   const bytes=contentEntries['assets'+path];
+   assert.ok(bytes?.length>1000,path);
+   assert.equal(Buffer.from(bytes).toString('ascii',4,8),'ftyp');
+  }
   // Locks only occur in the paired demo; switching artwork alone never needs a demo reward.
   assert.ok(!createWorld(preset.theme.world).portals.some(p=>p.lock));
   const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);

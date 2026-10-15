@@ -26,6 +26,7 @@ challenges:
         text: Binary place values from right to left begin 1, 2, 4, 8.
         cost: 10
     downloads: []
+    discoveryVideo: /videos/agentic-circuit/binary-welcome.mp4
     dependsOn: []
     rewards:
       keys:
@@ -83,6 +84,7 @@ challenges:
         text: The calculator performs an action for the agent.
         cost: 10
     downloads: []
+    solveVideo: /videos/agentic-circuit/tool-gremlin-solved.mp4
     dependsOn:
       - ac-demo-v2-starter
     rewards:

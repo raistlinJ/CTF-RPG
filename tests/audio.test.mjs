@@ -35,7 +35,7 @@ test('map music defaults to none, requires a playlist track, and follows asset r
   assert.throws(()=>parseTheme(theme),/Map music must be selected/);
 });
 test('built-in themes assign playable defaults for every map and event',()=>{
-  assert.equal(SOUND_EVENTS.length,15);
+  assert.equal(SOUND_EVENTS.length,16);
   const themes=[defaultTheme(defaultGameConfig()),...themePresets.flatMap(preset=>[preset.theme,preset.demoTheme])];
   for(const theme of themes){
     const contents=new Set();
@@ -72,6 +72,23 @@ test('saved built-in themes created before Sounds gain defaults without overridi
     s.sqlite.prepare("UPDATE theme_catalog SET payload=?,revision=3 WHERE id='active'").run(JSON.stringify(explicit));
     const untouched=await activeTheme(s.db,s.config);
     assert.deepEqual(untouched.theme.sounds,explicit.sounds);
+    const previous=structuredClone(themePresets.find(preset=>preset.id==='agentic-circuit').theme);
+    previous.sounds.clips=previous.sounds.clips.filter(clip=>!clip.src.endsWith('/footsteps.wav'));
+    delete previous.sounds.events.footsteps;
+    s.sqlite.prepare("UPDATE theme_catalog SET payload=?,revision=4 WHERE id='active'").run(JSON.stringify(previous));
+    const upgraded=await activeTheme(s.db,s.config);
+    assert.equal(upgraded.theme.sounds.events.footsteps,'/themes/agentic-circuit/audio/sounds/footsteps.wav');
+    assert.ok(upgraded.theme.sounds.clips.some(clip=>clip.src===upgraded.theme.sounds.events.footsteps));
+    previous.sounds.events.footsteps=null;
+    s.sqlite.prepare("UPDATE theme_catalog SET payload=?,revision=5 WHERE id='active'").run(JSON.stringify(previous));
+    assert.equal((await activeTheme(s.db,s.config)).theme.sounds.events.footsteps,null);
+    delete previous.sounds.events.footsteps;
+    const moved=new Map(previous.sounds.clips.map((clip,index)=>[clip.src,`/api/assets/${String(index+1).padStart(64,'0')}.wav`]));
+    const imported=mapThemeAssets(previous,path=>moved.get(path)||path);
+    s.sqlite.prepare("UPDATE theme_catalog SET payload=?,revision=6 WHERE id='active'").run(JSON.stringify(imported));
+    const upgradedImport=await activeTheme(s.db,s.config);
+    assert.equal(upgradedImport.theme.sounds.events.footsteps,'/themes/agentic-circuit/audio/sounds/footsteps.wav');
+    assert.ok(upgradedImport.theme.sounds.clips.some(clip=>clip.src===upgradedImport.theme.sounds.events.footsteps));
   } finally {s.sqlite.close();}
 });
 test('sound library uploads, map and event assignments, exports, and removal',async()=>{

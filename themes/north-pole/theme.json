@@ -868,6 +868,11 @@
         "source": "theme"
       },
       {
+        "name": "Footsteps",
+        "src": "/audio/sounds/north-pole/footsteps.wav",
+        "source": "theme"
+      },
+      {
         "name": "Transport",
         "src": "/audio/sounds/north-pole/transport.wav",
         "source": "theme"
@@ -954,6 +959,7 @@
     },
     "events": {
       "spawn": "/audio/sounds/north-pole/spawn.wav",
+      "footsteps": "/audio/sounds/north-pole/footsteps.wav",
       "transport": "/audio/sounds/north-pole/transport.wav",
       "discovery": "/audio/sounds/north-pole/discovery.wav",
       "correct": "/audio/sounds/north-pole/correct.wav",

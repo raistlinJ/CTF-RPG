@@ -499,6 +499,11 @@
         "source": "theme"
       },
       {
+        "name": "Footsteps",
+        "src": "/themes/agentic-circuit/audio/sounds/footsteps.wav",
+        "source": "theme"
+      },
+      {
         "name": "Transport",
         "src": "/themes/agentic-circuit/audio/sounds/transport.wav",
         "source": "theme"
@@ -585,6 +590,7 @@
     },
     "events": {
       "spawn": "/themes/agentic-circuit/audio/sounds/spawn.wav",
+      "footsteps": "/themes/agentic-circuit/audio/sounds/footsteps.wav",
       "transport": "/themes/agentic-circuit/audio/sounds/transport.wav",
       "discovery": "/themes/agentic-circuit/audio/sounds/discovery.wav",
       "correct": "/themes/agentic-circuit/audio/sounds/correct.wav",

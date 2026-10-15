@@ -13,7 +13,7 @@ import {
 } from "../lib/theme-schema.mjs";
 import { createWorld } from "../lib/world-data.mjs";
 import { parseChallenges } from "../lib/config-schema.mjs";
-import { defaultSoundConfig } from "../lib/sound-events.mjs";
+import { SOUND_EVENTS, defaultSoundConfig } from "../lib/sound-events.mjs";
 import { kitBase64 } from "./recreation-kit.mjs";
 export const PACK_LIMIT = CONTENT_PACK_LIMIT;
 export const assetTypes = {
@@ -44,13 +44,28 @@ export function seedAsset(path) {
 }
 function withBundledSounds(theme) {
   const sounds = theme.sounds;
-  if (sounds && (sounds.clips?.length || Object.keys(sounds.maps || {}).length || Object.keys(sounds.events || {}).length)) return theme;
   const base = theme.title === "Agentic Circuit" && theme.badge === "cpu"
     ? "/themes/agentic-circuit/audio/sounds"
     : theme.title === "North Pole Quest" && theme.badge === "snowflake"
       ? "/audio/sounds/north-pole"
       : null;
   if (!base || !Array.isArray(theme.world?.maps)) return theme;
+  if (sounds && (sounds.clips?.length || Object.keys(sounds.maps || {}).length || Object.keys(sounds.events || {}).length)) {
+    // Older saved built-in themes already have sound settings. Add the new cue
+    // while preserving an administrator's explicit None or custom selection.
+    const bundledPaths = sounds.clips?.some(clip => clip.src.startsWith(`${base}/`));
+    const importedBuiltIn = sounds.clips?.length >= SOUND_EVENTS.length &&
+      SOUND_EVENTS.filter(event => event.id !== "footsteps").every(event => Object.hasOwn(sounds.events || {}, event.id));
+    if (!bundledPaths && !importedBuiltIn) return theme;
+    const src = `${base}/footsteps.wav`;
+    if (sounds.clips.some(clip => clip.src === src) && Object.hasOwn(sounds.events || {}, "footsteps")) return theme;
+    if (sounds.clips.length >= 40 && !sounds.clips.some(clip => clip.src === src)) return theme;
+    return { ...theme, sounds: {
+      ...sounds,
+      clips: sounds.clips.some(clip => clip.src === src) ? sounds.clips : [...sounds.clips, {name:"Footsteps",src,source:"theme"}],
+      events: Object.hasOwn(sounds.events || {}, "footsteps") ? sounds.events : {...sounds.events,footsteps:src},
+    } };
+  }
   return { ...theme, sounds: defaultSoundConfig(base, theme.world.maps.map(map => map.id)) };
 }
 export async function activeTheme(db, config) {

@@ -30,6 +30,7 @@ challenges:
       - name: Elf’s packing list
         url: /downloads/packing-list.txt
         filename: packing-list.txt
+    discoveryVideo: /videos/north-pole/packing-list.mp4
     dependsOn: []
     rewards:
       keys:
@@ -86,6 +87,7 @@ challenges:
         text: Multiply 5 by 3.
         cost: 10
     downloads: []
+    solveVideo: /videos/north-pole/toy-gremlin-solved.mp4
     dependsOn:
       - np-demo-v2-starter
     rewards:

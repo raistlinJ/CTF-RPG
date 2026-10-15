@@ -57,16 +57,17 @@ The example URL and local scroll are illustrative: replace them with your own fi
 | `caseSensitive` | Optional boolean, default `false`. If `true`, capitalization must match. |
 | `hints` | Optional list of up to 20 hints. Use `[]` or omit it for no hints. |
 | `downloads` | Optional list of up to 20 downloadable file links. |
+| `discoveryVideo`, `solveVideo` | Optional direct MP4/WebM HTTPS URL or local video path. See [Challenge cutscenes](#challenge-cutscenes). |
 
 Matching ignores leading and trailing whitespace. Internal spaces and line breaks are significant. With `caseSensitive: false`, `FLAG{Snow}` and `flag{snow}` match. With `caseSensitive: true`, they differ. `"24"` and `"twenty-four"` must be listed separately when both are accepted. Flags remain on the server and are not included in the game response.
 
 ## Challenge cutscenes
 
-Set optional `discoveryVideo` and `solveVideo` fields to a direct HTTPS video URL or a local path such as `/videos/intro.mp4`. Omit a field or set it to `null` to disable that cutscene. The challenge editor’s **Cutscenes** tab also supports MP4/WebM uploads up to 4 MB, previews, and removal. Save the challenge after uploading.
+Set optional `discoveryVideo` and `solveVideo` fields to a direct MP4/WebM HTTPS URL or a local path such as `/videos/intro.mp4`. Omit a field or set it to `null` to disable that cutscene. GIFs are images, not challenge cutscenes. The challenge editor’s **Cutscenes** tab also supports MP4/WebM uploads up to 4 MB, previews, and removal. Save the challenge after uploading.
 
-The discovery video plays the first time each player opens the challenge. The solve video plays after a correct answer or when a manually graded completion reaches the player’s next game update. Playback history persists per account across logins and devices. Videos can be skipped; browsers that block autoplay show a **Play cutscene** button. Players can reopen any discovered or completed challenge from the journal and use **Replay discovery cutscene** or **Replay solve cutscene**. The solve video is unlocked only after completion.
+The discovery video plays in a browser modal the first time each player opens the challenge. The solve video plays after a correct answer or when a manually graded completion reaches the player’s next game update. Playback history persists per account across logins and devices. Press **Space** or click **Skip cutscene** to continue; browsers that block autoplay show a **Play cutscene** button. Players can reopen any discovered or completed challenge from the journal and use **Replay discovery cutscene** or **Replay solve cutscene**. The solve video is unlocked only after completion.
 
-Local videos travel with content packs and full backups; packs retain the existing 4 MB per-file and 8 MB total limits. HTTPS videos remain external links.
+Local videos travel with content packs and full backups; packs retain the existing 4 MB per-file and 8 MB total limits. HTTPS videos remain external links. Each bundled demo adventure has a short starter discovery video and a boss solve video; see the [North Pole](themes/north-pole/README.md) and [Agentic Circuit](themes/agentic-circuit/README.md) demo guides.
 
 ## Inventory rewards
 

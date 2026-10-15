@@ -58,7 +58,7 @@ The starting set comes from `content/challenges.yaml`; after the first admin sav
 
 Restart your standalone Node server after YAML changes. For Sites, rebuild and republish. Hint purchases persist once per student; costs reduce that challenge's reward. Existing completed challenges keep their saved scores.
 
-Manage optional discovery/solve videos, colored keys, incantations, and hint prices in the challenge editor. Players can replay unlocked cutscenes and open **Inventory** beside **Search nearby**. Configure character dialogue in **Theme → Maps & transport → Non-Player Entities**, then connect solved challenges and spoken-to characters in **Challenges → Dependencies**. See [the admin guide](ADMIN_GUIDE.md#challenge-dependencies) for entity creation, deletion, and progression.
+Manage optional discovery/solve MP4 or WebM videos, colored keys, incantations, and hint prices in the challenge editor. Cutscenes play in a browser modal; players can press **Space** to skip and can replay unlocked scenes. **Inventory** sits beside **Search nearby**. Configure character dialogue in **Theme → Maps & transport → Non-Player Entities**, then connect solved challenges and spoken-to characters in **Challenges → Dependencies**. See [the admin guide](ADMIN_GUIDE.md#challenge-dependencies) for entity creation, deletion, and progression.
 
 ## Map coordinates and locations
 

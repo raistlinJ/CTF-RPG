@@ -7,7 +7,7 @@ Open **Manage → Import & backup → Theme, content & backups** (`/admin/data`)
 | Pack | Includes | Excludes |
 | --- | --- | --- |
 | Theme ZIP | Title/description, map images and names, spawn points, walkable bounds, blocked tiles, building entrances and exits, character IDs/names/sprites, media library and boss images, MIDI music and sound effects with their assignments | Challenge flags/text/hints, accounts, passwords, teams, scores |
-| Content ZIP | Challenge text, points, flags and case sensitivity, hints and costs, map IDs/locations, local downloadable files, external HTTPS download links | Theme maps/art/music, accounts, passwords, teams, scores |
+| Content ZIP | Challenge text, points, flags and case sensitivity, hints and costs, map IDs/locations, local downloadable files and MP4/WebM cutscenes, external HTTPS links | Theme maps/art/music, accounts, passwords, teams, scores |
 | Full backup ZIP | Runnable application/source, both active packs and assets, configuration, accounts/password hashes, teams/membership/size limit, scores/hint purchases | Active login sessions and environment secrets |
 
 Content ZIPs contain accepted answers and locked hints: keep them private. Theme exports contain no account or challenge data. The public game can read active theme metadata and images so students can explore; administrative import/export routes remain protected.

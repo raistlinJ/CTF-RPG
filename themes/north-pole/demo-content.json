@@ -41,7 +41,7 @@
         "filename": "packing-list.txt"
       }
     ],
-    "discoveryVideo": null,
+    "discoveryVideo": "/videos/north-pole/packing-list.mp4",
     "solveVideo": null,
     "rewards": {
       "keys": [
@@ -132,7 +132,7 @@
     ],
     "downloads": [],
     "discoveryVideo": null,
-    "solveVideo": null,
+    "solveVideo": "/videos/north-pole/toy-gremlin-solved.mp4",
     "rewards": {
       "keys": [
         "gold"

@@ -34,7 +34,7 @@
       }
     ],
     "downloads": [],
-    "discoveryVideo": null,
+    "discoveryVideo": "/videos/agentic-circuit/binary-welcome.mp4",
     "solveVideo": null,
     "rewards": {
       "keys": [
@@ -125,7 +125,7 @@
     ],
     "downloads": [],
     "discoveryVideo": null,
-    "solveVideo": null,
+    "solveVideo": "/videos/agentic-circuit/tool-gremlin-solved.mp4",
     "rewards": {
       "keys": [
         "gold"

@@ -8,7 +8,7 @@ import { SOUND_EVENTS, defaultSoundConfig } from '../lib/sound-events.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const rate = 22050;
 const motifs = {
-  mapEntry: [60, 67, 72], spawn: [60, 64, 67, 72], transport: [72, 67, 60],
+  mapEntry: [60, 67, 72], spawn: [60, 64, 67, 72], footsteps: [], transport: [72, 67, 60],
   discovery: [67, 72, 76], correct: [60, 64, 72], bossSolved: [60, 64, 67, 72, 79],
   keyObtained: [72, 79, 84], incantationObtained: [69, 72, 76, 81],
   expeditionComplete: [60, 67, 72, 76, 84], submitted: [64, 67],
@@ -18,7 +18,8 @@ const motifs = {
 
 function wav(notes, circuit, signature) {
   const noteSeconds = circuit ? 0.105 : 0.16;
-  const length = Math.ceil((notes.length * noteSeconds + 0.13) * rate);
+  const isFootstep = notes.length === 0;
+  const length = Math.ceil((isFootstep ? 0.075 : notes.length * noteSeconds + 0.13) * rate);
   const bytes = Buffer.alloc(44 + length * 2);
   bytes.write('RIFF', 0); bytes.writeUInt32LE(bytes.length - 8, 4);
   bytes.write('WAVEfmt ', 8); bytes.writeUInt32LE(16, 16);
@@ -30,7 +31,13 @@ function wav(notes, circuit, signature) {
     const t = i / rate;
     const index = Math.floor(t / noteSeconds);
     let sample = 0;
-    if (index < notes.length) {
+    if (isFootstep) {
+      // A clean, short dot. No noise or trailing scrape between steps.
+      const attack = Math.min(1, t / 0.003);
+      const release = t < 0.025 ? 1 : Math.exp(-(t - 0.025) * 85);
+      const edge = Math.min(1, (length / rate - t) / 0.005);
+      sample = Math.sin(2 * Math.PI * 660 * t) * attack * release * edge * 0.48;
+    } else if (index < notes.length) {
       const phase = (t - index * noteSeconds) / noteSeconds;
       const hz = 440 * 2 ** ((notes[index] - 69) / 12) * (1 + signature * 0.0007);
       const envelope = Math.min(1, phase * 18) * Math.max(0, 1 - phase) ** 1.6;
@@ -50,7 +57,9 @@ for (const [name, id, location, circuit] of [
 ]) {
   const dir = resolve(root, location);
   mkdirSync(dir, { recursive: true });
-  for (const [signature, cueId] of ['mapEntry', ...SOUND_EVENTS.map(event => event.id)].entries()) {
+  for (const [index, cueId] of ['mapEntry', ...SOUND_EVENTS.map(event => event.id)].entries()) {
+    // Preserve every existing cue's signature when a new event is inserted in the UI list.
+    const signature = cueId === 'footsteps' ? SOUND_EVENTS.length : index - Number(index > 2);
     writeFileSync(resolve(dir, `${cueId}.wav`), wav(motifs[cueId], circuit, signature));
   }
   const basePath = '/' + location.slice('public/'.length);

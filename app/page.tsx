@@ -1032,7 +1032,10 @@ export default function Game() {
       playEventSound("lockedRoute");
       return;
     }
-    setPlace((p) => step(p, dx, dy, unlockedTransports, challenges));
+    const next = step(place, dx, dy, unlockedTransports, challenges);
+    if (next === place) return;
+    setPlace(next);
+    playEventSound("footsteps");
   }
   async function unlockRoute(phrase: string) {
     if (!lockedTransport) return;
@@ -1044,7 +1047,10 @@ export default function Game() {
     if (session !== playbackSession.current) return;
     applyGame(d);
     playEventSound("routeUnlocked");
-    setPlace(p => p.map === target.map && p.pos.x === target.x && p.pos.y === target.y ? step(p,target.dx,target.dy,d.unlockedTransports,d.challenges) : p);
+    if (place.map === target.map && place.pos.x === target.x && place.pos.y === target.y) {
+      const next = step(place, target.dx, target.dy, d.unlockedTransports, d.challenges);
+      if (next !== place) { setPlace(next); playEventSound("footsteps"); }
+    }
     setLockedTransport(null);
   }
   function search() {
