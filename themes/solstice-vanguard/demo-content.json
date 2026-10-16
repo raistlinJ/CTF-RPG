@@ -1,0 +1,446 @@
+[
+  {
+    "id": "sv-demo-v1-starter",
+    "map": "town",
+    "object": "Beacon battery",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 18,
+      "y": 19
+    },
+    "region": "Lumen City",
+    "text": "The Aurora Beacon needs two red and two green power cells. How many cells are needed in total? Answer with a number to earn the red key.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "4",
+      "four"
+    ],
+    "caseSensitive": false,
+    "points": 100,
+    "hints": [
+      {
+        "id": "starter-nudge",
+        "label": "Count the cells",
+        "text": "Add two and two.",
+        "cost": 10,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": "/videos/solstice-vanguard/beacon-welcome.mp4",
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "red"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "sv-demo-v1-phrase",
+    "map": "town",
+    "object": "Aurora signal",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 11,
+      "y": 19
+    },
+    "region": "Lumen City",
+    "text": "What do we call the colorful lights that can dance in the northern night sky? Answer with one word to learn the shortcut incantation.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "aurora",
+      "the aurora"
+    ],
+    "caseSensitive": false,
+    "points": 75,
+    "hints": [
+      {
+        "id": "phrase-nudge",
+        "text": "The word starts with A.",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": [
+        "northern glow"
+      ]
+    }
+  },
+  {
+    "id": "sv-demo-v1-small-boss",
+    "map": "toy-workshop",
+    "object": "Parcel Drone",
+    "icon": "boss",
+    "bossStyle": "clockwork",
+    "iconSize": 1,
+    "location": {
+      "x": 15,
+      "y": 15
+    },
+    "region": "Gift Foundry",
+    "text": "A gift tag says FRAGILE. Should the drone drop the parcel or carry it carefully? Answer with two words to earn the gold key.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "sv-demo-v1-starter"
+    ],
+    "flags": [
+      "carry carefully",
+      "carried carefully"
+    ],
+    "caseSensitive": false,
+    "points": 125,
+    "hints": [
+      {
+        "id": "small-nudge",
+        "text": "Fragile things need gentle handling.",
+        "cost": 10,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": "/videos/solstice-vanguard/parcel-drone-solved.mp4",
+    "rewards": {
+      "keys": [
+        "gold"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "sv-demo-v1-bonus",
+    "map": "bakery",
+    "object": "Cocoa counter",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Cocoa Café",
+    "text": "The café serves five cocoa mugs, then three more. How many mugs were served? This optional challenge can award a green key.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "8",
+      "eight"
+    ],
+    "caseSensitive": false,
+    "points": 50,
+    "hints": [
+      {
+        "id": "bonus-free",
+        "label": "Free nudge",
+        "text": "Add the first order and the second order.",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      },
+      {
+        "id": "bonus-answer",
+        "label": "Reveal answer (gives up bonus key)",
+        "text": "The answer is 8.",
+        "cost": 5,
+        "rewardCost": {
+          "keys": [
+            "green"
+          ],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "green"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "sv-demo-v1-memory",
+    "map": "cocoa-cottage",
+    "object": "Comet code",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Comet Archives",
+    "text": "The archive code reads A, B, C, __. Which letter comes next?",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "D"
+    ],
+    "caseSensitive": false,
+    "points": 75,
+    "hints": [
+      {
+        "id": "memory-nudge",
+        "text": "Say the first four letters of the alphabet.",
+        "cost": 5,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "sv-demo-v1-file",
+    "map": "post-office",
+    "object": "Beacon dispatch",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Signal Station",
+    "text": "Download the Signal Station dispatch and copy its completion flag exactly, including capital letters and braces.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "FLAG{BEACON}"
+    ],
+    "caseSensitive": true,
+    "points": 100,
+    "hints": [
+      {
+        "id": "file-nudge",
+        "text": "Find the line that starts with FLAG{.",
+        "cost": 10,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [
+      {
+        "name": "Beacon dispatch",
+        "url": "/downloads/solstice-demo-dispatch.txt",
+        "filename": "solstice-demo-dispatch.txt"
+      }
+    ],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "sv-demo-v1-medium-boss",
+    "map": "elf-house",
+    "object": "Crystal Sentinel",
+    "icon": "boss",
+    "bossStyle": "frost",
+    "iconSize": 2,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Evergreen Vault",
+    "text": "A tree that keeps green needles through winter is called what? Answer with one word.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "sv-demo-v1-small-boss",
+      "sv-demo-v1-phrase"
+    ],
+    "flags": [
+      "evergreen"
+    ],
+    "caseSensitive": false,
+    "points": 150,
+    "hints": [
+      {
+        "id": "medium-nudge",
+        "text": "The same word appears in this vault’s name.",
+        "cost": 15,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "purple"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "sv-demo-v1-final-boss",
+    "map": "castle",
+    "object": "Frost Eclipse",
+    "icon": "boss",
+    "bossStyle": "boss-frost-eclipse",
+    "iconSize": 3,
+    "location": {
+      "x": 19,
+      "y": 10
+    },
+    "region": "Aurora Beacon",
+    "text": "The beacon flashes red, green, gold, red, green, __. Which color comes next?",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "sv-demo-v1-medium-boss",
+      "sv-demo-v1-file"
+    ],
+    "flags": [
+      "gold"
+    ],
+    "caseSensitive": false,
+    "points": 200,
+    "hints": [
+      {
+        "id": "final-nudge",
+        "text": "The three-color pattern repeats.",
+        "cost": 20,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "silver"
+      ],
+      "incantations": [
+        "lumen shines"
+      ]
+    }
+  },
+  {
+    "id": "sv-demo-v1-reflection",
+    "map": "castle",
+    "object": "Team reflection",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 25,
+      "y": 18
+    },
+    "region": "Aurora Beacon",
+    "text": "In one sentence, describe how you checked a clue before deciding what to do next. Your instructor will review this written answer.",
+    "grading": "manual",
+    "visibility": "visible",
+    "dependsOn": [
+      "sv-demo-v1-final-boss"
+    ],
+    "flags": [],
+    "caseSensitive": false,
+    "points": 50,
+    "hints": [
+      {
+        "id": "reflection-guide",
+        "text": "Name a clue and explain how you confirmed its meaning.",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "sv-demo-v1-hidden-example",
+    "map": "town",
+    "object": "Hidden star practice",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 29,
+      "y": 8
+    },
+    "region": "Lumen City",
+    "text": "Optional instructor example: A festive star has five points. How many points does it have?",
+    "grading": "automatic",
+    "visibility": "hidden",
+    "dependsOn": [],
+    "flags": [
+      "5",
+      "five"
+    ],
+    "caseSensitive": false,
+    "points": 25,
+    "hints": [],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  }
+]

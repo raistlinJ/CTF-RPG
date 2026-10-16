@@ -11,6 +11,8 @@ const scenes = [
   { file: 'public/videos/north-pole/toy-gremlin-solved.mp4', background: '271d34', grid: '624564', accent: 'ffd18c', title: 'TOY GREMLIN', subtitle: 'WORKSHOP CLEARED' },
   { file: 'public/videos/halloween/lantern-welcome.mp4', background: '180f2b', grid: '513565', accent: 'ffa54b', title: 'LANTERN WELCOME', subtitle: 'COUNT THE CARVINGS' },
   { file: 'public/videos/halloween/potion-gremlin-solved.mp4', background: '201125', grid: '5e3157', accent: '90ebd4', title: 'POTION GREMLIN', subtitle: 'GOLD KEY FOUND' },
+  { file: 'public/videos/solstice-vanguard/beacon-welcome.mp4', background: '10243b', grid: '225b69', accent: 'f6d176', title: 'BEACON CALL', subtitle: 'COUNT THE POWER CELLS' },
+  { file: 'public/videos/solstice-vanguard/parcel-drone-solved.mp4', background: '102c36', grid: '386977', accent: '8ce9da', title: 'PARCEL DRONE', subtitle: 'GOLD KEY FOUND' },
 ];
 
 const selected = process.argv[2];

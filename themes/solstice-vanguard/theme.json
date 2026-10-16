@@ -1,0 +1,479 @@
+{
+  "format": "quest-theme",
+  "version": 1,
+  "title": "Solstice Vanguard",
+  "description": "Join an original team of holiday heroes in snowy Lumen City. Explore the Aurora Beacon, six festive locations, and a separate beginner demo with a winter villain.",
+  "world": {
+    "startMap": "town",
+    "renderer": "tiles",
+    "maps": [
+      {
+        "id": "town",
+        "name": "Lumen City",
+        "bounds": {
+          "left": 1,
+          "right": 38,
+          "top": 1,
+          "bottom": 26
+        },
+        "spawn": {
+          "x": 18,
+          "y": 20
+        },
+        "exit": null,
+        "background": "/themes/solstice-vanguard/maps/lumen-city.webp",
+        "floor": "#506378",
+        "wall": "#101e32",
+        "obstacles": [],
+        "music": "/themes/solstice-vanguard/audio/city-in-lights.mid"
+      },
+      {
+        "id": "castle",
+        "name": "Aurora Beacon",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 4,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/solstice-vanguard/maps/aurora-beacon.webp",
+        "floor": "#33465a",
+        "wall": "#101e32",
+        "obstacles": [],
+        "music": "/themes/solstice-vanguard/audio/aurora-rise.mid"
+      },
+      {
+        "id": "toy-workshop",
+        "name": "Gift Foundry",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/solstice-vanguard/maps/workshop.webp",
+        "floor": "#33465a",
+        "wall": "#101e32",
+        "obstacles": [],
+        "music": "/themes/solstice-vanguard/audio/city-in-lights.mid"
+      },
+      {
+        "id": "cocoa-cottage",
+        "name": "Comet Archives",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/solstice-vanguard/maps/workshop.webp",
+        "floor": "#33465a",
+        "wall": "#101e32",
+        "obstacles": [],
+        "music": "/themes/solstice-vanguard/audio/city-in-lights.mid"
+      },
+      {
+        "id": "post-office",
+        "name": "Signal Station",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/solstice-vanguard/maps/workshop.webp",
+        "floor": "#33465a",
+        "wall": "#101e32",
+        "obstacles": [],
+        "music": "/themes/solstice-vanguard/audio/city-in-lights.mid"
+      },
+      {
+        "id": "elf-house",
+        "name": "Evergreen Vault",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/solstice-vanguard/maps/workshop.webp",
+        "floor": "#33465a",
+        "wall": "#101e32",
+        "obstacles": [],
+        "music": "/themes/solstice-vanguard/audio/city-in-lights.mid"
+      },
+      {
+        "id": "bakery",
+        "name": "Cocoa Café",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/solstice-vanguard/maps/workshop.webp",
+        "floor": "#33465a",
+        "wall": "#101e32",
+        "obstacles": [],
+        "music": "/themes/solstice-vanguard/audio/city-in-lights.mid"
+      }
+    ],
+    "buildings": [
+      {
+        "x": 15,
+        "y": 1,
+        "w": 10,
+        "h": 6,
+        "id": "castle",
+        "name": "Aurora Beacon",
+        "door": {
+          "x": 20,
+          "y": 6
+        },
+        "color": "#49bed0"
+      },
+      {
+        "x": 8,
+        "y": 12,
+        "w": 5,
+        "h": 4,
+        "id": "toy-workshop",
+        "name": "Gift Foundry",
+        "door": {
+          "x": 10,
+          "y": 15
+        },
+        "color": "#337e7a"
+      },
+      {
+        "x": 25,
+        "y": 11,
+        "w": 5,
+        "h": 4,
+        "id": "cocoa-cottage",
+        "name": "Comet Archives",
+        "door": {
+          "x": 27,
+          "y": 14
+        },
+        "color": "#337e7a"
+      },
+      {
+        "x": 2,
+        "y": 17,
+        "w": 4,
+        "h": 4,
+        "id": "post-office",
+        "name": "Signal Station",
+        "door": {
+          "x": 4,
+          "y": 20
+        },
+        "color": "#337e7a"
+      },
+      {
+        "x": 9,
+        "y": 1,
+        "w": 4,
+        "h": 4,
+        "id": "elf-house",
+        "name": "Evergreen Vault",
+        "door": {
+          "x": 11,
+          "y": 4
+        },
+        "color": "#337e7a"
+      },
+      {
+        "x": 31,
+        "y": 10,
+        "w": 5,
+        "h": 4,
+        "id": "bakery",
+        "name": "Cocoa Café",
+        "door": {
+          "x": 33,
+          "y": 13
+        },
+        "color": "#337e7a"
+      }
+    ],
+    "trees": [],
+    "entities": [
+      {
+        "id": "sv-guide",
+        "name": "Sparkbit",
+        "characterId": "sparkbit",
+        "map": "town",
+        "location": {
+          "x": 18,
+          "y": 17
+        },
+        "startNode": "welcome",
+        "nodes": [
+          {
+            "id": "welcome",
+            "text": "Welcome to Lumen City! The Aurora Beacon lights the snowy streets. Search near challenge markers, visit each workshop, and team up to keep the city bright.",
+            "choices": [
+              {
+                "id": "places",
+                "label": "Where can I explore?",
+                "to": "places"
+              },
+              {
+                "id": "challenges",
+                "label": "How do challenges work?",
+                "to": "challenges"
+              }
+            ]
+          },
+          {
+            "id": "places",
+            "text": "The Gift Foundry, Comet Archives, Signal Station, Evergreen Vault, and Cocoa Café are all ready to explore. The Aurora Beacon rises at the north end of the city.",
+            "choices": [
+              {
+                "id": "back",
+                "label": "Back",
+                "to": "welcome"
+              }
+            ]
+          },
+          {
+            "id": "challenges",
+            "text": "Walk near a marker and Search nearby. Correct answers can award points, keys, or an incantation. Your instructor reviews written reflections.",
+            "choices": [
+              {
+                "id": "back",
+                "label": "Back",
+                "to": "welcome"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "characters": [
+    {
+      "id": "web",
+      "name": "Comet Courier",
+      "subtitle": "Fast feet, bright ideas.",
+      "sprite": "/themes/solstice-vanguard/sprites/comet-courier.webp",
+      "fallback": "web",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "thunder",
+      "name": "Starforge Inventor",
+      "subtitle": "Build hope from every spark.",
+      "sprite": "/themes/solstice-vanguard/sprites/starforge-inventor.webp",
+      "fallback": "thunder",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "shield",
+      "name": "Evergreen Guardian",
+      "subtitle": "Keep the city growing.",
+      "sprite": "/themes/solstice-vanguard/sprites/evergreen-guardian.webp",
+      "fallback": "shield",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "sparkbit",
+      "name": "Sparkbit",
+      "subtitle": "A tiny guide with a big glow.",
+      "sprite": "/themes/solstice-vanguard/sprites/jingle-circuit.webp",
+      "fallback": "web",
+      "appearanceFor": "entity"
+    }
+  ],
+  "audio": {
+    "midi": "/themes/solstice-vanguard/audio/city-in-lights.mid",
+    "loop": true,
+    "volume": 0.11,
+    "playlist": [
+      {
+        "name": "City in Lights",
+        "midi": "/themes/solstice-vanguard/audio/city-in-lights.mid"
+      },
+      {
+        "name": "Aurora Rise",
+        "midi": "/themes/solstice-vanguard/audio/aurora-rise.mid"
+      }
+    ]
+  },
+  "badge": "snowflake",
+  "sounds": {
+    "clips": [
+      {
+        "name": "Player spawn",
+        "src": "/themes/solstice-vanguard/audio/sounds/spawn.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Footsteps",
+        "src": "/themes/solstice-vanguard/audio/sounds/footsteps.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Transport",
+        "src": "/themes/solstice-vanguard/audio/sounds/transport.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Challenge discovery",
+        "src": "/themes/solstice-vanguard/audio/sounds/discovery.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Regular challenge solved",
+        "src": "/themes/solstice-vanguard/audio/sounds/correct.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Boss challenge solved",
+        "src": "/themes/solstice-vanguard/audio/sounds/bossSolved.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Key obtained",
+        "src": "/themes/solstice-vanguard/audio/sounds/keyObtained.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Incantation obtained",
+        "src": "/themes/solstice-vanguard/audio/sounds/incantationObtained.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Expedition complete",
+        "src": "/themes/solstice-vanguard/audio/sounds/expeditionComplete.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Answer submitted",
+        "src": "/themes/solstice-vanguard/audio/sounds/submitted.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Incorrect answer",
+        "src": "/themes/solstice-vanguard/audio/sounds/incorrect.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Non-player entity interaction",
+        "src": "/themes/solstice-vanguard/audio/sounds/interaction.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Hint unlocked",
+        "src": "/themes/solstice-vanguard/audio/sounds/hintUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Locked route",
+        "src": "/themes/solstice-vanguard/audio/sounds/lockedRoute.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Route unlocked",
+        "src": "/themes/solstice-vanguard/audio/sounds/routeUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Empty search",
+        "src": "/themes/solstice-vanguard/audio/sounds/searchEmpty.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Map entry",
+        "src": "/themes/solstice-vanguard/audio/sounds/mapEntry.wav",
+        "source": "theme"
+      }
+    ],
+    "maps": {
+      "town": "/themes/solstice-vanguard/audio/sounds/mapEntry.wav",
+      "castle": "/themes/solstice-vanguard/audio/sounds/mapEntry.wav",
+      "toy-workshop": "/themes/solstice-vanguard/audio/sounds/mapEntry.wav",
+      "cocoa-cottage": "/themes/solstice-vanguard/audio/sounds/mapEntry.wav",
+      "post-office": "/themes/solstice-vanguard/audio/sounds/mapEntry.wav",
+      "elf-house": "/themes/solstice-vanguard/audio/sounds/mapEntry.wav",
+      "bakery": "/themes/solstice-vanguard/audio/sounds/mapEntry.wav"
+    },
+    "events": {
+      "spawn": "/themes/solstice-vanguard/audio/sounds/spawn.wav",
+      "footsteps": "/themes/solstice-vanguard/audio/sounds/footsteps.wav",
+      "transport": "/themes/solstice-vanguard/audio/sounds/transport.wav",
+      "discovery": "/themes/solstice-vanguard/audio/sounds/discovery.wav",
+      "correct": "/themes/solstice-vanguard/audio/sounds/correct.wav",
+      "bossSolved": "/themes/solstice-vanguard/audio/sounds/bossSolved.wav",
+      "keyObtained": "/themes/solstice-vanguard/audio/sounds/keyObtained.wav",
+      "incantationObtained": "/themes/solstice-vanguard/audio/sounds/incantationObtained.wav",
+      "expeditionComplete": "/themes/solstice-vanguard/audio/sounds/expeditionComplete.wav",
+      "submitted": "/themes/solstice-vanguard/audio/sounds/submitted.wav",
+      "incorrect": "/themes/solstice-vanguard/audio/sounds/incorrect.wav",
+      "interaction": "/themes/solstice-vanguard/audio/sounds/interaction.wav",
+      "hintUnlocked": "/themes/solstice-vanguard/audio/sounds/hintUnlocked.wav",
+      "lockedRoute": "/themes/solstice-vanguard/audio/sounds/lockedRoute.wav",
+      "routeUnlocked": "/themes/solstice-vanguard/audio/sounds/routeUnlocked.wav",
+      "searchEmpty": "/themes/solstice-vanguard/audio/sounds/searchEmpty.wav"
+    }
+  },
+  "bosses": [
+    {
+      "id": "boss-frost-eclipse",
+      "label": "Frost Eclipse"
+    }
+  ],
+  "bossSprites": {
+    "boss-frost-eclipse": "/themes/solstice-vanguard/sprites/frost-eclipse-construct.webp"
+  }
+}

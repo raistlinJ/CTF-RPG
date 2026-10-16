@@ -1,0 +1,6 @@
+Lumen City practice dispatch
+
+To the Solstice Vanguard:
+Check the beacon clues before entering the Aurora Beacon.
+
+Completion flag: FLAG{BEACON}

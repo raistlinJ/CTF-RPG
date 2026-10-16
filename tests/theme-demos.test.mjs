@@ -29,8 +29,8 @@ for(const preset of themePresets.filter(preset=>preset.demoTheme)) {
   assert.ok(!themeEntries['content.yaml']);assert.ok(!contentEntries['theme.yaml']);assert.ok(!themeEntries['backup.json']);
   const packedTheme=parseTheme(parse(strFromU8(themeEntries['theme.yaml'])));
   for(const clip of packedTheme.sounds.clips)assert.ok(themeEntries['assets'+clip.src]?.length,clip.src);
-  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='player').length,id==='halloween'?3:5);
-  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='entity').length,id==='halloween'?2:7);
+  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='player').length,['halloween','solstice-vanguard'].includes(id)?3:5);
+  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='entity').length,['halloween','solstice-vanguard'].includes(id)?2:7);
   assert.ok(packedTheme.world.entities.every(e=>packedTheme.characters.find(c=>c.id===e.characterId)?.appearanceFor==='entity'));
   for(const c of packedTheme.characters.filter(c=>c.appearanceFor!=='both')) assert.ok(themeEntries['assets'+c.sprite]?.length,c.id);
   const packedChallenges=parseChallenges(stringify({challenges:parse(strFromU8(contentEntries['content.yaml'])).challenges}));
