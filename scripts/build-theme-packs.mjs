@@ -18,7 +18,7 @@ function pack(name, filename, manifest, paths) {
   writeFileSync(resolve(root,"theme-packs",name + ".zip"),zipSync(entries,{level:6}));
   console.log(`Built theme-packs/${name}.zip`);
 }
-for (const name of ["north-pole", "agentic-circuit"]) {
+for (const name of ["north-pole", "agentic-circuit", "halloween"]) {
   const theme = parseTheme(JSON.parse(read(`themes/${name}/theme.json`))),
     demoTheme = parseTheme(JSON.parse(read(`themes/${name}/demo-theme.json`))),
     challenges = parseChallenges(read(`themes/${name}/demo-challenges.yaml`),demoTheme.world.maps.map(m=>m.id),false);

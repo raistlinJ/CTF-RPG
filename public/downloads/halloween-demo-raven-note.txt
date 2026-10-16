@@ -1,0 +1,6 @@
+Hollowbrook practice delivery note
+
+To the explorer entering Moonfall Manor:
+Read each clue carefully. The raven's completion flag is below.
+
+Completion flag: FLAG{RAVEN}

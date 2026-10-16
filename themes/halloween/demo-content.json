@@ -1,0 +1,447 @@
+[
+  {
+    "id": "hh-demo-v1-starter",
+    "map": "town",
+    "object": "Lantern welcome",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 18,
+      "y": 19
+    },
+    "region": "Hollowbrook Village",
+    "text": "A jack-o'-lantern has two carved eyes and one carved mouth. How many carved openings does it have? Answer with a number to earn the red manor key.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "3",
+      "three"
+    ],
+    "caseSensitive": false,
+    "points": 100,
+    "hints": [
+      {
+        "id": "starter-nudge",
+        "label": "Count the openings",
+        "text": "Add the eyes and the mouth.",
+        "cost": 10,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": "/videos/halloween/lantern-welcome.mp4",
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "red"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "hh-demo-v1-phrase",
+    "map": "town",
+    "object": "Moonstone riddle",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 11,
+      "y": 19
+    },
+    "region": "Hollowbrook Village",
+    "text": "What bright object circles Earth and is often seen in the night sky? Answer with one word to learn the shortcut incantation.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "moon",
+      "the moon"
+    ],
+    "caseSensitive": false,
+    "points": 75,
+    "hints": [
+      {
+        "id": "phrase-nudge",
+        "text": "It is not a star, and it changes its visible shape through the month.",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": [
+        "silver moon"
+      ]
+    }
+  },
+  {
+    "id": "hh-demo-v1-small-boss",
+    "map": "toy-workshop",
+    "object": "Potion Gremlin",
+    "icon": "boss",
+    "bossStyle": "ember",
+    "iconSize": 1,
+    "location": {
+      "x": 15,
+      "y": 15
+    },
+    "region": "Potion Atelier",
+    "text": "The recipe lists bat wing, silver leaf, then moonwater. Which ingredient is listed second? Earn the gold conservatory key.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "hh-demo-v1-starter"
+    ],
+    "flags": [
+      "silver leaf"
+    ],
+    "caseSensitive": false,
+    "points": 125,
+    "hints": [
+      {
+        "id": "small-nudge",
+        "text": "Read the three ingredients in order.",
+        "cost": 10,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": "/videos/halloween/potion-gremlin-solved.mp4",
+    "rewards": {
+      "keys": [
+        "gold"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "hh-demo-v1-bonus",
+    "map": "bakery",
+    "object": "Pumpkin tart tray",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Pumpkin Bakery",
+    "text": "The baker made five pumpkin tarts and then added three more. How many tarts are on the tray? This optional reward is a green key.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "8",
+      "eight"
+    ],
+    "caseSensitive": false,
+    "points": 50,
+    "hints": [
+      {
+        "id": "bonus-free",
+        "label": "Free nudge",
+        "text": "Add the first batch to the second batch.",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      },
+      {
+        "id": "bonus-answer",
+        "label": "Reveal answer (gives up bonus key)",
+        "text": "The answer is 8.",
+        "cost": 5,
+        "rewardCost": {
+          "keys": [
+            "green"
+          ],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "green"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "hh-demo-v1-memory",
+    "map": "cocoa-cottage",
+    "object": "Witch's bookshelf",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Witch's Library",
+    "text": "The spellbooks are labeled A, B, and C in order. What letter labels the next book?",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "D"
+    ],
+    "caseSensitive": false,
+    "points": 75,
+    "hints": [
+      {
+        "id": "memory-nudge",
+        "text": "Say the first four letters of the alphabet.",
+        "cost": 5,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "hh-demo-v1-file",
+    "map": "post-office",
+    "object": "Raven Post letter",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Raven Post",
+    "text": "Download the raven's delivery note and copy its completion flag exactly, including capital letters and braces.",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "FLAG{RAVEN}"
+    ],
+    "caseSensitive": true,
+    "points": 100,
+    "hints": [
+      {
+        "id": "file-nudge",
+        "text": "Look for the line starting with FLAG{ in the note.",
+        "cost": 10,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [
+      {
+        "name": "Raven delivery note",
+        "url": "/downloads/halloween-demo-raven-note.txt",
+        "filename": "halloween-demo-raven-note.txt"
+      }
+    ],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "hh-demo-v1-medium-boss",
+    "map": "elf-house",
+    "object": "Ghost Warden",
+    "icon": "boss",
+    "bossStyle": "frost",
+    "iconSize": 2,
+    "location": {
+      "x": 20,
+      "y": 12
+    },
+    "region": "Ghost Conservatory",
+    "text": "A sign says, \"The door opens with the color of a ripe pumpkin.\" Which color should you answer?",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "hh-demo-v1-small-boss",
+      "hh-demo-v1-phrase"
+    ],
+    "flags": [
+      "orange"
+    ],
+    "caseSensitive": false,
+    "points": 150,
+    "hints": [
+      {
+        "id": "medium-nudge",
+        "text": "Think of the usual color of a Halloween pumpkin.",
+        "cost": 15,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "purple"
+      ],
+      "incantations": []
+    }
+  },
+  {
+    "id": "hh-demo-v1-final-boss",
+    "map": "castle",
+    "object": "Pumpkin Wraith",
+    "icon": "boss",
+    "bossStyle": "boss-pumpkin-wraith",
+    "iconSize": 3,
+    "location": {
+      "x": 19,
+      "y": 10
+    },
+    "region": "Moonfall Manor",
+    "text": "The wraith asks: I have a carved face, a candle inside, and I glow on Halloween. What am I?",
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "hh-demo-v1-medium-boss",
+      "hh-demo-v1-file"
+    ],
+    "flags": [
+      "jack-o-lantern",
+      "jack o lantern",
+      "jack-o'-lantern"
+    ],
+    "caseSensitive": false,
+    "points": 200,
+    "hints": [
+      {
+        "id": "final-nudge",
+        "text": "It starts as a pumpkin before someone carves it.",
+        "cost": 20,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [
+        "silver"
+      ],
+      "incantations": [
+        "hollowbrook dawn"
+      ]
+    }
+  },
+  {
+    "id": "hh-demo-v1-reflection",
+    "map": "castle",
+    "object": "Explorer reflection",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 25,
+      "y": 18
+    },
+    "region": "Moonfall Manor",
+    "text": "In one sentence, explain which clue or hint helped you most in Hollowbrook and why. Your instructor will review this written answer.",
+    "grading": "manual",
+    "visibility": "visible",
+    "dependsOn": [
+      "hh-demo-v1-final-boss"
+    ],
+    "flags": [],
+    "caseSensitive": false,
+    "points": 50,
+    "hints": [
+      {
+        "id": "reflection-guide",
+        "text": "Name the clue and describe how it helped you solve a challenge.",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        },
+        "label": "Hint 1"
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "hh-demo-v1-hidden-example",
+    "map": "town",
+    "object": "Hidden lantern practice",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 29,
+      "y": 8
+    },
+    "region": "Hollowbrook Village",
+    "text": "Optional instructor example: A witch has three candles and lights one. How many candles does she have in total?",
+    "grading": "automatic",
+    "visibility": "hidden",
+    "dependsOn": [],
+    "flags": [
+      "3",
+      "three"
+    ],
+    "caseSensitive": false,
+    "points": 25,
+    "hints": [],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  }
+]

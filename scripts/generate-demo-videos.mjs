@@ -9,9 +9,12 @@ const scenes = [
   { file: 'public/videos/agentic-circuit/tool-gremlin-solved.mp4', background: '101729', grid: '453e78', accent: 'c5a3ff', title: 'TOOL GREMLIN', subtitle: 'WORKSHOP CLEARED' },
   { file: 'public/videos/north-pole/packing-list.mp4', background: '102a39', grid: '376274', accent: 'bdefff', title: 'ELF PACKING LIST', subtitle: 'COUNT THE GIFTS' },
   { file: 'public/videos/north-pole/toy-gremlin-solved.mp4', background: '271d34', grid: '624564', accent: 'ffd18c', title: 'TOY GREMLIN', subtitle: 'WORKSHOP CLEARED' },
+  { file: 'public/videos/halloween/lantern-welcome.mp4', background: '180f2b', grid: '513565', accent: 'ffa54b', title: 'LANTERN WELCOME', subtitle: 'COUNT THE CARVINGS' },
+  { file: 'public/videos/halloween/potion-gremlin-solved.mp4', background: '201125', grid: '5e3157', accent: '90ebd4', title: 'POTION GREMLIN', subtitle: 'GOLD KEY FOUND' },
 ];
 
-for (const scene of scenes) {
+const selected = process.argv[2];
+for (const scene of scenes.filter(scene => !selected || scene.file.includes(`/${selected}/`))) {
   const output = resolve(scene.file);
   mkdirSync(dirname(output), { recursive: true });
   const filter = [

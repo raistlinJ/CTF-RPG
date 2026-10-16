@@ -360,6 +360,8 @@ function createRequestApi({
             : null;
         if (presetId && (!preset || method !== "GET"))
           return json({ error: "Unknown theme preset." }, 400);
+        if (preset && (kind === "content" || new URL(req.url).searchParams.get("demo") === "true") && !preset.demoTheme)
+          return json({ error: "This theme has no demo adventure." }, 400);
         if (method === "GET")
           return await exportPack(
             kind,

@@ -36,7 +36,7 @@ test('map music defaults to none, requires a playlist track, and follows asset r
 });
 test('built-in themes assign playable defaults for every map and event',()=>{
   assert.equal(SOUND_EVENTS.length,16);
-  const themes=[defaultTheme(defaultGameConfig()),...themePresets.flatMap(preset=>[preset.theme,preset.demoTheme])];
+  const themes=[defaultTheme(defaultGameConfig()),...themePresets.flatMap(preset=>[preset.theme,preset.demoTheme].filter(Boolean))];
   for(const theme of themes){
     const contents=new Set();
     assert.equal(theme.sounds.clips.length,SOUND_EVENTS.length+1);

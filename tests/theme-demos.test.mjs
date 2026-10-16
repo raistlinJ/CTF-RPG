@@ -19,7 +19,7 @@ test('default character catalog keeps player and entity appearances separate',()
  assert.equal(defaultTheme(config).characters.filter(c=>c.appearanceFor==='entity').length,7);
  assert.ok(publicConfig(config).characters.every(c=>c.appearanceFor!=='entity'));
 });
-for(const preset of themePresets) {
+for(const preset of themePresets.filter(preset=>preset.demoTheme)) {
  test(`${preset.id} demo ZIPs preserve footprints, separate content, and a solvable reward route`,async()=>{
   const {id,demoTheme,challenges}=preset;
   assert.deepEqual(challenges,parseChallenges(readFileSync(`themes/${id}/demo-challenges.yaml`,'utf8')));
@@ -29,8 +29,8 @@ for(const preset of themePresets) {
   assert.ok(!themeEntries['content.yaml']);assert.ok(!contentEntries['theme.yaml']);assert.ok(!themeEntries['backup.json']);
   const packedTheme=parseTheme(parse(strFromU8(themeEntries['theme.yaml'])));
   for(const clip of packedTheme.sounds.clips)assert.ok(themeEntries['assets'+clip.src]?.length,clip.src);
-  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='player').length,5);
-  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='entity').length,7);
+  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='player').length,id==='halloween'?3:5);
+  assert.equal(packedTheme.characters.filter(c=>c.appearanceFor==='entity').length,id==='halloween'?2:7);
   assert.ok(packedTheme.world.entities.every(e=>packedTheme.characters.find(c=>c.id===e.characterId)?.appearanceFor==='entity'));
   for(const c of packedTheme.characters.filter(c=>c.appearanceFor!=='both')) assert.ok(themeEntries['assets'+c.sprite]?.length,c.id);
   const packedChallenges=parseChallenges(stringify({challenges:parse(strFromU8(contentEntries['content.yaml'])).challenges}));

@@ -1,0 +1,479 @@
+{
+  "format": "quest-theme",
+  "version": 1,
+  "title": "Halloween Hollow",
+  "description": "Explore moonlit Hollowbrook, its haunted manor, and six eerie shops. Includes original heroes, guide, pumpkin wraith, music and sounds, plus a separate ten-question beginner demo.",
+  "world": {
+    "startMap": "town",
+    "renderer": "tiles",
+    "maps": [
+      {
+        "id": "town",
+        "name": "Hollowbrook Village",
+        "bounds": {
+          "left": 1,
+          "right": 38,
+          "top": 1,
+          "bottom": 26
+        },
+        "spawn": {
+          "x": 18,
+          "y": 20
+        },
+        "exit": null,
+        "background": "/themes/halloween/maps/hollowbrook.webp",
+        "floor": "#42364b",
+        "wall": "#170f25",
+        "obstacles": [],
+        "music": "/themes/halloween/audio/moonlit-village.mid"
+      },
+      {
+        "id": "castle",
+        "name": "Moonfall Manor",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 4,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/halloween/maps/manor.webp",
+        "floor": "#49313f",
+        "wall": "#170f25",
+        "obstacles": [],
+        "music": "/themes/halloween/audio/manor-waltz.mid"
+      },
+      {
+        "id": "toy-workshop",
+        "name": "Potion Atelier",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/halloween/maps/shop.webp",
+        "floor": "#493139",
+        "wall": "#170f25",
+        "obstacles": [],
+        "music": "/themes/halloween/audio/moonlit-village.mid"
+      },
+      {
+        "id": "cocoa-cottage",
+        "name": "Witch's Library",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/halloween/maps/shop.webp",
+        "floor": "#493139",
+        "wall": "#170f25",
+        "obstacles": [],
+        "music": "/themes/halloween/audio/moonlit-village.mid"
+      },
+      {
+        "id": "post-office",
+        "name": "Raven Post",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/halloween/maps/shop.webp",
+        "floor": "#493139",
+        "wall": "#170f25",
+        "obstacles": [],
+        "music": "/themes/halloween/audio/moonlit-village.mid"
+      },
+      {
+        "id": "elf-house",
+        "name": "Ghost Conservatory",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/halloween/maps/shop.webp",
+        "floor": "#493139",
+        "wall": "#170f25",
+        "obstacles": [],
+        "music": "/themes/halloween/audio/moonlit-village.mid"
+      },
+      {
+        "id": "bakery",
+        "name": "Pumpkin Bakery",
+        "bounds": {
+          "left": 6,
+          "right": 33,
+          "top": 5,
+          "bottom": 25
+        },
+        "spawn": {
+          "x": 20,
+          "y": 23
+        },
+        "exit": {
+          "x": 20,
+          "y": 25
+        },
+        "background": "/themes/halloween/maps/shop.webp",
+        "floor": "#493139",
+        "wall": "#170f25",
+        "obstacles": [],
+        "music": "/themes/halloween/audio/moonlit-village.mid"
+      }
+    ],
+    "buildings": [
+      {
+        "x": 15,
+        "y": 1,
+        "w": 10,
+        "h": 6,
+        "id": "castle",
+        "name": "Moonfall Manor",
+        "door": {
+          "x": 20,
+          "y": 6
+        },
+        "color": "#a56174"
+      },
+      {
+        "x": 8,
+        "y": 12,
+        "w": 5,
+        "h": 4,
+        "id": "toy-workshop",
+        "name": "Potion Atelier",
+        "door": {
+          "x": 10,
+          "y": 15
+        },
+        "color": "#76517b"
+      },
+      {
+        "x": 25,
+        "y": 11,
+        "w": 5,
+        "h": 4,
+        "id": "cocoa-cottage",
+        "name": "Witch's Library",
+        "door": {
+          "x": 27,
+          "y": 14
+        },
+        "color": "#76517b"
+      },
+      {
+        "x": 2,
+        "y": 17,
+        "w": 4,
+        "h": 4,
+        "id": "post-office",
+        "name": "Raven Post",
+        "door": {
+          "x": 4,
+          "y": 20
+        },
+        "color": "#76517b"
+      },
+      {
+        "x": 9,
+        "y": 1,
+        "w": 4,
+        "h": 4,
+        "id": "elf-house",
+        "name": "Ghost Conservatory",
+        "door": {
+          "x": 11,
+          "y": 4
+        },
+        "color": "#76517b"
+      },
+      {
+        "x": 31,
+        "y": 10,
+        "w": 5,
+        "h": 4,
+        "id": "bakery",
+        "name": "Pumpkin Bakery",
+        "door": {
+          "x": 33,
+          "y": 13
+        },
+        "color": "#76517b"
+      }
+    ],
+    "trees": [],
+    "entities": [
+      {
+        "id": "halloween-raven-guide",
+        "name": "Morrow the Raven",
+        "characterId": "raven-guide",
+        "map": "town",
+        "location": {
+          "x": 18,
+          "y": 17
+        },
+        "startNode": "welcome",
+        "nodes": [
+          {
+            "id": "welcome",
+            "text": "Welcome to Hollowbrook! The lanterns mark a safe path through the village. Search near challenge markers, explore each building, and visit Moonfall Manor when you are ready.",
+            "choices": [
+              {
+                "id": "explore",
+                "label": "Where should I explore?",
+                "to": "explore"
+              },
+              {
+                "id": "answers",
+                "label": "How do challenges work?",
+                "to": "answers"
+              }
+            ]
+          },
+          {
+            "id": "explore",
+            "text": "The Potion Atelier, Witch’s Library, Raven Post, Ghost Conservatory, and Pumpkin Bakery are all open to curious explorers. The manor waits at the north end of town.",
+            "choices": [
+              {
+                "id": "back",
+                "label": "Back",
+                "to": "welcome"
+              }
+            ]
+          },
+          {
+            "id": "answers",
+            "text": "Walk near a challenge marker and Search nearby. Some answers are checked immediately; written answers wait for your instructor. Hints can cost points, so read them carefully.",
+            "choices": [
+              {
+                "id": "back",
+                "label": "Back",
+                "to": "welcome"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "characters": [
+    {
+      "id": "web",
+      "name": "Pumpkin Scout",
+      "subtitle": "A lantern for every mystery.",
+      "sprite": "/themes/halloween/sprites/pumpkin-scout.webp",
+      "fallback": "web",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "thunder",
+      "name": "Moon Witch",
+      "subtitle": "Magic lights the winding road.",
+      "sprite": "/themes/halloween/sprites/moon-witch.webp",
+      "fallback": "thunder",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "shield",
+      "name": "Ghost Guardian",
+      "subtitle": "Brave beyond the veil.",
+      "sprite": "/themes/halloween/sprites/ghost-guardian.webp",
+      "fallback": "shield",
+      "appearanceFor": "player"
+    },
+    {
+      "id": "raven-guide",
+      "name": "Morrow the Raven",
+      "subtitle": "Keeper of Hollowbrook’s lanterns.",
+      "sprite": "/themes/halloween/sprites/raven-guide.webp",
+      "fallback": "web",
+      "appearanceFor": "entity"
+    }
+  ],
+  "audio": {
+    "midi": "/themes/halloween/audio/moonlit-village.mid",
+    "loop": true,
+    "volume": 0.12,
+    "playlist": [
+      {
+        "name": "Moonlit Village",
+        "midi": "/themes/halloween/audio/moonlit-village.mid"
+      },
+      {
+        "name": "Manor Waltz",
+        "midi": "/themes/halloween/audio/manor-waltz.mid"
+      }
+    ]
+  },
+  "badge": "compass",
+  "sounds": {
+    "clips": [
+      {
+        "name": "Player spawn",
+        "src": "/themes/halloween/audio/sounds/spawn.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Footsteps",
+        "src": "/themes/halloween/audio/sounds/footsteps.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Transport",
+        "src": "/themes/halloween/audio/sounds/transport.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Challenge discovery",
+        "src": "/themes/halloween/audio/sounds/discovery.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Regular challenge solved",
+        "src": "/themes/halloween/audio/sounds/correct.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Boss challenge solved",
+        "src": "/themes/halloween/audio/sounds/bossSolved.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Key obtained",
+        "src": "/themes/halloween/audio/sounds/keyObtained.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Incantation obtained",
+        "src": "/themes/halloween/audio/sounds/incantationObtained.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Expedition complete",
+        "src": "/themes/halloween/audio/sounds/expeditionComplete.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Answer submitted",
+        "src": "/themes/halloween/audio/sounds/submitted.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Incorrect answer",
+        "src": "/themes/halloween/audio/sounds/incorrect.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Non-player entity interaction",
+        "src": "/themes/halloween/audio/sounds/interaction.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Hint unlocked",
+        "src": "/themes/halloween/audio/sounds/hintUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Locked route",
+        "src": "/themes/halloween/audio/sounds/lockedRoute.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Route unlocked",
+        "src": "/themes/halloween/audio/sounds/routeUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Empty search",
+        "src": "/themes/halloween/audio/sounds/searchEmpty.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Map entry",
+        "src": "/themes/halloween/audio/sounds/mapEntry.wav",
+        "source": "theme"
+      }
+    ],
+    "maps": {
+      "town": "/themes/halloween/audio/sounds/mapEntry.wav",
+      "castle": "/themes/halloween/audio/sounds/mapEntry.wav",
+      "toy-workshop": "/themes/halloween/audio/sounds/mapEntry.wav",
+      "cocoa-cottage": "/themes/halloween/audio/sounds/mapEntry.wav",
+      "post-office": "/themes/halloween/audio/sounds/mapEntry.wav",
+      "elf-house": "/themes/halloween/audio/sounds/mapEntry.wav",
+      "bakery": "/themes/halloween/audio/sounds/mapEntry.wav"
+    },
+    "events": {
+      "spawn": "/themes/halloween/audio/sounds/spawn.wav",
+      "footsteps": "/themes/halloween/audio/sounds/footsteps.wav",
+      "transport": "/themes/halloween/audio/sounds/transport.wav",
+      "discovery": "/themes/halloween/audio/sounds/discovery.wav",
+      "correct": "/themes/halloween/audio/sounds/correct.wav",
+      "bossSolved": "/themes/halloween/audio/sounds/bossSolved.wav",
+      "keyObtained": "/themes/halloween/audio/sounds/keyObtained.wav",
+      "incantationObtained": "/themes/halloween/audio/sounds/incantationObtained.wav",
+      "expeditionComplete": "/themes/halloween/audio/sounds/expeditionComplete.wav",
+      "submitted": "/themes/halloween/audio/sounds/submitted.wav",
+      "incorrect": "/themes/halloween/audio/sounds/incorrect.wav",
+      "interaction": "/themes/halloween/audio/sounds/interaction.wav",
+      "hintUnlocked": "/themes/halloween/audio/sounds/hintUnlocked.wav",
+      "lockedRoute": "/themes/halloween/audio/sounds/lockedRoute.wav",
+      "routeUnlocked": "/themes/halloween/audio/sounds/routeUnlocked.wav",
+      "searchEmpty": "/themes/halloween/audio/sounds/searchEmpty.wav"
+    }
+  },
+  "bosses": [
+    {
+      "id": "boss-pumpkin-wraith",
+      "label": "Pumpkin Wraith"
+    }
+  ],
+  "bossSprites": {
+    "boss-pumpkin-wraith": "/themes/halloween/sprites/pumpkin-wraith.webp"
+  }
+}

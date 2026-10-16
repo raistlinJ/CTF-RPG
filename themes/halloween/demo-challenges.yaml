@@ -1,0 +1,225 @@
+# CTF-RPG — Copyright Jaime C Acosta 2026
+# Beginner practice adventure; import with demo-theme.json.
+# These public example answers are not suitable for a graded assessment.
+challenges:
+  - id: hh-demo-v1-starter
+    map: town
+    location: { x: 18, y: 19 }
+    object: Lantern welcome
+    region: Hollowbrook Village
+    text: A jack-o'-lantern has two carved eyes and one carved mouth. How many carved openings does it have? Answer with a number to earn the red manor key.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags: ["3", three]
+    caseSensitive: false
+    points: 100
+    hints:
+      - id: starter-nudge
+        label: Count the openings
+        text: Add the eyes and the mouth.
+        cost: 10
+    downloads: []
+    discoveryVideo: /videos/halloween/lantern-welcome.mp4
+    dependsOn: []
+    rewards: { keys: [red], incantations: [] }
+
+  - id: hh-demo-v1-phrase
+    map: town
+    location: { x: 11, y: 19 }
+    object: Moonstone riddle
+    region: Hollowbrook Village
+    text: What bright object circles Earth and is often seen in the night sky? Answer with one word to learn the shortcut incantation.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags: [moon, the moon]
+    caseSensitive: false
+    points: 75
+    hints:
+      - id: phrase-nudge
+        text: It is not a star, and it changes its visible shape through the month.
+        cost: 0
+    downloads: []
+    dependsOn: []
+    rewards: { keys: [], incantations: [silver moon] }
+
+  - id: hh-demo-v1-small-boss
+    map: toy-workshop
+    location: { x: 15, y: 15 }
+    object: Potion Gremlin
+    region: Potion Atelier
+    text: The recipe lists bat wing, silver leaf, then moonwater. Which ingredient is listed second? Earn the gold conservatory key.
+    grading: automatic
+    visibility: visible
+    icon: boss
+    bossStyle: ember
+    iconSize: 1
+    flags: [silver leaf]
+    caseSensitive: false
+    points: 125
+    hints:
+      - id: small-nudge
+        text: Read the three ingredients in order.
+        cost: 10
+    downloads: []
+    solveVideo: /videos/halloween/potion-gremlin-solved.mp4
+    dependsOn: [hh-demo-v1-starter]
+    rewards: { keys: [gold], incantations: [] }
+
+  - id: hh-demo-v1-bonus
+    map: bakery
+    location: { x: 20, y: 12 }
+    object: Pumpkin tart tray
+    region: Pumpkin Bakery
+    text: The baker made five pumpkin tarts and then added three more. How many tarts are on the tray? This optional reward is a green key.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags: ["8", eight]
+    caseSensitive: false
+    points: 50
+    hints:
+      - id: bonus-free
+        label: Free nudge
+        text: Add the first batch to the second batch.
+        cost: 0
+      - id: bonus-answer
+        label: Reveal answer (gives up bonus key)
+        text: The answer is 8.
+        cost: 5
+        rewardCost: { keys: [green], incantations: [] }
+    downloads: []
+    dependsOn: []
+    rewards: { keys: [green], incantations: [] }
+
+  - id: hh-demo-v1-memory
+    map: cocoa-cottage
+    location: { x: 20, y: 12 }
+    object: Witch's bookshelf
+    region: Witch's Library
+    text: The spellbooks are labeled A, B, and C in order. What letter labels the next book?
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags: [D]
+    caseSensitive: false
+    points: 75
+    hints:
+      - id: memory-nudge
+        text: Say the first four letters of the alphabet.
+        cost: 5
+    downloads: []
+    dependsOn: []
+    rewards: { keys: [], incantations: [] }
+
+  - id: hh-demo-v1-file
+    map: post-office
+    location: { x: 20, y: 12 }
+    object: Raven Post letter
+    region: Raven Post
+    text: Download the raven's delivery note and copy its completion flag exactly, including capital letters and braces.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags: ["FLAG{RAVEN}"]
+    caseSensitive: true
+    points: 100
+    hints:
+      - id: file-nudge
+        text: Look for the line starting with FLAG{ in the note.
+        cost: 10
+    downloads:
+      - name: Raven delivery note
+        url: /downloads/halloween-demo-raven-note.txt
+        filename: halloween-demo-raven-note.txt
+    dependsOn: []
+    rewards: { keys: [], incantations: [] }
+
+  - id: hh-demo-v1-medium-boss
+    map: elf-house
+    location: { x: 20, y: 12 }
+    object: Ghost Warden
+    region: Ghost Conservatory
+    text: A sign says, "The door opens with the color of a ripe pumpkin." Which color should you answer?
+    grading: automatic
+    visibility: visible
+    icon: boss
+    bossStyle: frost
+    iconSize: 2
+    flags: [orange]
+    caseSensitive: false
+    points: 150
+    hints:
+      - id: medium-nudge
+        text: Think of the usual color of a Halloween pumpkin.
+        cost: 15
+    downloads: []
+    dependsOn: [hh-demo-v1-small-boss, hh-demo-v1-phrase]
+    rewards: { keys: [purple], incantations: [] }
+
+  - id: hh-demo-v1-final-boss
+    map: castle
+    location: { x: 19, y: 10 }
+    object: Pumpkin Wraith
+    region: Moonfall Manor
+    text: "The wraith asks: I have a carved face, a candle inside, and I glow on Halloween. What am I?"
+    grading: automatic
+    visibility: visible
+    icon: boss
+    bossStyle: boss-pumpkin-wraith
+    iconSize: 3
+    flags: [jack-o-lantern, jack o lantern, "jack-o'-lantern"]
+    caseSensitive: false
+    points: 200
+    hints:
+      - id: final-nudge
+        text: It starts as a pumpkin before someone carves it.
+        cost: 20
+    downloads: []
+    dependsOn: [hh-demo-v1-medium-boss, hh-demo-v1-file]
+    rewards: { keys: [silver], incantations: [hollowbrook dawn] }
+
+  - id: hh-demo-v1-reflection
+    map: castle
+    location: { x: 25, y: 18 }
+    object: Explorer reflection
+    region: Moonfall Manor
+    text: In one sentence, explain which clue or hint helped you most in Hollowbrook and why. Your instructor will review this written answer.
+    grading: manual
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags: []
+    caseSensitive: false
+    points: 50
+    hints:
+      - id: reflection-guide
+        text: Name the clue and describe how it helped you solve a challenge.
+        cost: 0
+    downloads: []
+    dependsOn: [hh-demo-v1-final-boss]
+    rewards: { keys: [], incantations: [] }
+
+  - id: hh-demo-v1-hidden-example
+    map: town
+    location: { x: 29, y: 8 }
+    object: Hidden lantern practice
+    region: Hollowbrook Village
+    text: "Optional instructor example: A witch has three candles and lights one. How many candles does she have in total?"
+    grading: automatic
+    visibility: hidden
+    icon: star
+    iconSize: 1
+    flags: ["3", three]
+    caseSensitive: false
+    points: 25
+    hints: []
+    downloads: []
+    dependsOn: []
+    rewards: { keys: [], incantations: [] }
