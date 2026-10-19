@@ -1888,11 +1888,11 @@ input::placeholder {
 .user-bulk-actions p { margin:0; color:#b9cdd4; line-height:1.6; font-size:13px; }
 .user-row { display:flex; gap:12px; align-items:center; padding-left:16px; border:1px solid #365462; border-radius:7px; background:#193440; color:#d9e8e4; min-width:0; }
 .user-row > input[type="checkbox"] { width:16px; height:16px; }
-.user-row > button { display:flex; gap:14px; flex:1; min-width:0; align-items:center; text-align:left; padding:17px 17px 17px 0; background:transparent; border:0; color:inherit; }
-.user-row > button > div { flex:1; min-width:0; overflow-wrap:anywhere; }
-.user-row > button > span:last-child { flex-shrink:0; text-align:right; font-size:14px; color:#e4c985; }
+.user-row > :is(button, a) { display:flex; gap:14px; flex:1; min-width:0; align-items:center; text-align:left; padding:17px 17px 17px 0; background:transparent; border:0; color:inherit; text-decoration:none; }
+.user-row > :is(button, a) > div { flex:1; min-width:0; overflow-wrap:anywhere; }
+.user-row > :is(button, a) > span:last-child { flex-shrink:0; text-align:right; font-size:14px; color:#e4c985; }
 .user-row.selected { border-color:#a3e7ca; background:#26423e; }
-.user-row.disabled-account > button { opacity:.65; }
+.user-row.disabled-account > :is(button, a), .user-row > a[aria-disabled="true"] { opacity:.65; }
 .team-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; padding-right:16px; }
 .team-row > .team-row-summary { display:grid; grid-template-columns:42px minmax(130px,1fr) minmax(160px,1.3fr) auto; }
 .team-row-actions { display:flex; gap:8px; }
@@ -1915,7 +1915,7 @@ input::placeholder {
 .user-team-info a { color:#a3e7ca; text-underline-offset:4px; }
 .danger-button { color:#ffb7b7; border-color:#935e60; }
 .bulk-delete-users { max-height:180px; overflow:auto; padding-left:20px; overflow-wrap:anywhere; }
-@media(max-width:500px) { .user-row > button { gap:10px; flex-wrap:wrap; }.user-row > button > div { flex-basis:calc(100% - 52px); }.user-row > button > span:last-child { margin-left:52px; text-align:left; }.user-selection-heading > span { margin-left:0; } }
+@media(max-width:500px) { .user-row > :is(button, a) { gap:10px; flex-wrap:wrap; }.user-row > :is(button, a) > div { flex-basis:calc(100% - 52px); }.user-row > :is(button, a) > span:last-child { margin-left:52px; text-align:left; }.user-selection-heading > span { margin-left:0; } }
 .roster-list > button > div {
   flex: 1;
   min-width: 0;

@@ -1,7 +1,6 @@
 "use client";
 import AdminHeader from "../admin-header";
 import UsersNav from "./users-nav";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import {
@@ -52,7 +51,6 @@ type BulkAction = "disable" | "delete" | "mute" | "unmute" | "remove-team";
 type Registration = { allowRegistration: boolean; revision: number };
 const actionNames: Record<BulkAction, string> = { disable: "Disable", delete: "Delete", mute: "Mute chat", unmute: "Unmute chat", "remove-team": "Remove from team" };
 export default function UsersPage({ mode = "roster" }: { mode?: "roster" | "details" }) {
-  const router = useRouter();
   const [users, setUsers] = useState<Account[]>([]),
     [characters, setCharacters] = useState<Character[]>([]),
     [viewer, setViewer] = useState<string | null>(null),
@@ -342,7 +340,7 @@ export default function UsersPage({ mode = "roster" }: { mode?: "roster" | "deta
                 {filteredUsers.map((a) => (
                   <div key={a.username} className={`user-row${draft?.username === a.username ? " selected" : ""}${a.disabled ? " disabled-account" : ""}${a.muted ? " user-row-with-actions" : ""}`}>
                     <input type="checkbox" aria-label={`Select ${a.username}`} checked={selectedUsers.includes(a.username)} disabled={busy} onChange={e => setSelectedUsers(current => e.target.checked ? [...current, a.username] : current.filter(name => name !== a.username))} />
-                    <button type="button" aria-label={`Edit ${a.username}`} onClick={() => router.push(`/admin/users/details?user=${encodeURIComponent(a.username)}`)} disabled={busy}>
+                    <a href={`/admin/users/details?user=${encodeURIComponent(a.username)}`} aria-label={`Edit ${a.username}`} aria-disabled={busy} onClick={event => { if (busy) event.preventDefault(); }}>
                       <span className="account-avatar">{a.username.slice(0, 2).toUpperCase()}</span>
                       <div>
                         <b>{a.username}</b>
@@ -351,7 +349,7 @@ export default function UsersPage({ mode = "roster" }: { mode?: "roster" | "deta
                         <small>{a.team ? `Team: ${a.team.name}` : "No team"}</small>
                       </div>
                       <span>{a.score} pts<small>{a.completed} solved</small></span>
-                    </button>
+                    </a>
                     {a.muted && <div className="user-row-actions"><button type="button" className="secondary-button" aria-label={`Unmute ${a.username}`} disabled={busy} onClick={() => void applyBulk("unmute", [a], false)}>Unmute</button></div>}
                   </div>
                 ))}
