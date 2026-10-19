@@ -297,22 +297,24 @@ export default function TeamPanel({
                               </time>
                             </div>
                             {m.personalMuted ? <p className="personal-muted-message">Message hidden — you muted this player.</p> : <p>{m.text}</p>}
-                            {m.canPersonalMute && personalMutes && <PersonalMuteButton controls={personalMutes} username={m.sender} muted={m.personalMuted} />}
-                            {data.team?.isYourTeam && !data.isAdmin && !m.fromTeam && !m.outgoing && (
-                              <button className="text-button" onClick={() => onSelect("instructors")}>Reply to instructors</button>
-                            )}
-                            {(data.team?.isYourTeam ||
-                              (data.isAdmin && selected === "instructors")) &&
-                              m.fromTeam &&
-                              (data.isAdmin ||
-                                m.fromTeam.id !== data.ownTeam) && (
-                                <button
-                                  className="text-button"
-                                  onClick={() => onSelect(m.fromTeam!.id)}
-                                >
-                                  Reply to {m.fromTeam.label}
-                                </button>
+                            <div className="team-message-actions">
+                              {m.canPersonalMute && personalMutes && <PersonalMuteButton controls={personalMutes} username={m.sender} muted={m.personalMuted} />}
+                              {data.team?.isYourTeam && !data.isAdmin && !m.fromTeam && !m.outgoing && (
+                                <button className="text-button" onClick={() => onSelect("instructors")}>Reply to instructors</button>
                               )}
+                              {(data.team?.isYourTeam ||
+                                (data.isAdmin && selected === "instructors")) &&
+                                m.fromTeam &&
+                                (data.isAdmin ||
+                                  m.fromTeam.id !== data.ownTeam) && (
+                                  <button
+                                    className="text-button"
+                                    onClick={() => onSelect(m.fromTeam!.id)}
+                                  >
+                                    Reply to {m.fromTeam.label}
+                                  </button>
+                                )}
+                            </div>
                           </article>
                         ))}
                         {!data.messages?.length && (
