@@ -1882,7 +1882,14 @@ input::placeholder {
 .user-roster-layout { max-width:1280px; margin:0 auto; }
 .user-details-layout { max-width:900px; margin:0 auto; }
 @media(max-width:900px) { .users-overview-row { grid-template-columns:1fr; } }
-.users-roster-list { max-height:min(720px,65svh); overflow-y:auto; overscroll-behavior:contain; padding:4px; }
+.user-roster-summary { display:flex; justify-content:space-between; gap:8px 20px; flex-wrap:wrap; margin:0 4px 10px; color:#b9cdd4; font-size:13px; }
+.user-roster-summary strong { color:#a3e7ca; font-weight:600; }
+.users-roster-frame { position:relative; }
+.users-roster-frame.has-more::after { content:""; position:absolute; inset:auto 13px 0 0; height:48px; background:linear-gradient(transparent, #102532df); pointer-events:none; border-bottom:2px solid #74cafa; }
+.users-roster-list { max-height:min(720px,65svh); overflow-y:auto; overscroll-behavior:contain; padding:4px; scrollbar-gutter:stable; scrollbar-color:#74cafa #102532; }
+.users-roster-list::-webkit-scrollbar { width:12px; }
+.users-roster-list::-webkit-scrollbar-track { background:#102532; border-radius:8px; }
+.users-roster-list::-webkit-scrollbar-thumb { background:#74cafa; border:2px solid #102532; border-radius:8px; }
 .user-selection-heading { display:flex; gap:12px 20px; align-items:center; flex-wrap:wrap; font-size:14px; }
 .user-selection-heading > span { margin-left:auto; color:#b9cdd4; }
 .user-bulk-actions p { margin:0; color:#b9cdd4; line-height:1.6; font-size:13px; }
