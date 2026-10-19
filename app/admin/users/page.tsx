@@ -1,5 +1,7 @@
 "use client";
 import AdminHeader from "../admin-header";
+import UsersNav from "./users-nav";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import {
@@ -49,7 +51,8 @@ type Draft = Pick<
 type BulkAction = "disable" | "delete" | "mute" | "unmute" | "remove-team";
 type Registration = { allowRegistration: boolean; revision: number };
 const actionNames: Record<BulkAction, string> = { disable: "Disable", delete: "Delete", mute: "Mute chat", unmute: "Unmute chat", "remove-team": "Remove from team" };
-export default function UsersPage() {
+export default function UsersPage({ mode = "roster" }: { mode?: "roster" | "details" }) {
+  const router = useRouter();
   const [users, setUsers] = useState<Account[]>([]),
     [characters, setCharacters] = useState<Character[]>([]),
     [viewer, setViewer] = useState<string | null>(null),
@@ -91,6 +94,16 @@ export default function UsersPage() {
       setCharacters(d.characters);
       setViewer(d.viewer);
       setRegistration(d.registration);
+      if (mode === "details") {
+        const username = new URLSearchParams(window.location.search).get("user");
+        const account = d.users.find(a => a.username === username);
+        if (account) {
+          select(account);
+        } else {
+          setDraft({ username: "", hero: d.characters[0]?.id || "web", role: "student", disabled: false, muted: false, spawn: null, revision: 0, password: "" });
+          setEditing(false);
+        }
+      }
       setAllowed(true);
       setError("");
     } catch (e) {
@@ -102,21 +115,6 @@ export default function UsersPage() {
   useEffect(() => {
     void Promise.resolve().then(() => load());
   }, []);
-  function fresh() {
-    setDraft({
-      username: "",
-      hero: characters[0]?.id || "web",
-      role: "student",
-      disabled: false,
-      muted: false,
-      spawn: null,
-      revision: 0,
-      password: "",
-    });
-    setEditing(false);
-    setMessage("");
-    setError("");
-  }
   function select(a: Account) {
     setDraft({
       username: a.username,
@@ -162,6 +160,7 @@ export default function UsersPage() {
       setUsers(d.users);
       setCharacters(d.characters);
       select(d.users.find((a) => a.username === draft.username.toLowerCase())!);
+      if (mode === "details") window.history.replaceState(null, "", `/admin/users/details?user=${encodeURIComponent(draft.username.toLowerCase())}`);
       setMessage(
         "User saved. Starting positions apply on next sign-in or reload.",
       );
@@ -241,52 +240,31 @@ export default function UsersPage() {
     <main className="admin-studio">
       <AdminHeader active="users" />
       <section className="admin-workspace">
+        <UsersNav active={mode} />
         <div className="roster-heading">
           <div>
             <span className="eyebrow">ADMIN STUDIO</span>
-            <h1>Users</h1>
+            <h1>{mode === "roster" ? "Users" : editing ? "Edit user" : "New user"}</h1>
             <p>
-              Create users, assign heroes and starting positions, and manage
-              access to the expedition.
+              {mode === "roster" ? "Find users, manage access, and set account creation rules." : "Set account details, hero, access, and starting position."}
             </p>
           </div>
-          {allowed && (
+          {allowed && mode === "roster" && (
             <div className="admin-actions">
               <a className="secondary-button" href="/api/admin/backup">
                 <Download size={17} />
                 Full backup
               </a>
-              <button className="primary" onClick={fresh} disabled={busy}>
+              <a className="primary" href="/admin/users/details">
                 <Plus size={17} />
                 New user
-              </button>
+              </a>
             </div>
           )}
         </div>
         {allowed && error && <p className="error" role="alert">{error}</p>}
         {allowed && message && <p className="success" role="status">{message}</p>}
-        {allowed && registration && (
-          <form className="team-limit admin-editor" onSubmit={saveRegistration}>
-            <label>
-              Account creation
-              <Select
-                value={registration.allowRegistration ? "open" : "admin"}
-                onValueChange={(value) => setRegistration((current) => current && ({ ...current, allowRegistration: value === "open" }))}
-              >
-                <SelectTrigger aria-label="Account creation">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Only admin-created users</SelectItem>
-                  <SelectItem value="open">Allow users to create accounts</SelectItem>
-                </SelectContent>
-              </Select>
-            </label>
-            <p>When restricted, admin-created accounts can sign in. Existing self-registered accounts without admin approval lose access.</p>
-            <button className="primary" disabled={busy}>Save account creation</button>
-          </form>
-        )}
-        {allowed && (
+        {allowed && mode === "roster" && <div className="users-overview-row">
           <section className="user-bulk-actions" aria-label="Bulk user actions">
             <div className="user-selection-heading">
               <label className="admin-checkbox">
@@ -308,7 +286,26 @@ export default function UsersPage() {
             {!!preserved.length && <p>Protected administrator {preserved.map(a => a.username).join(", ")} will be kept when deleting or disabling selected users.</p>}
             {selfSelected && !hasProtectedAdmin && <p>Your own administrator user cannot be disabled or deleted.</p>}
           </section>
-        )}
+          {registration && <form className="admin-editor user-registration-card" onSubmit={saveRegistration}>
+            <label>
+              Account creation
+              <Select
+                value={registration.allowRegistration ? "open" : "admin"}
+                onValueChange={(value) => setRegistration((current) => current && ({ ...current, allowRegistration: value === "open" }))}
+              >
+                <SelectTrigger aria-label="Account creation">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Only admin-created users</SelectItem>
+                  <SelectItem value="open">Allow users to create accounts</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+            <p>When restricted, admin-created accounts can sign in. Existing self-registered accounts without admin approval lose access.</p>
+            <button className="primary" disabled={busy}>Save account creation</button>
+          </form>}
+        </div>}
         {loading ? (
           <p role="status">Loading users…</p>
         ) : !allowed ? (
@@ -320,8 +317,8 @@ export default function UsersPage() {
             </a>
           </div>
         ) : (
-          <div className="roster-columns">
-            <section>
+          <div className={mode === "roster" ? "user-roster-layout" : "user-details-layout"}>
+            {mode === "roster" && <section>
               <div className="roster-search">
                 <label>
                   Find a user
@@ -345,7 +342,7 @@ export default function UsersPage() {
                 {filteredUsers.map((a) => (
                   <div key={a.username} className={`user-row${draft?.username === a.username ? " selected" : ""}${a.disabled ? " disabled-account" : ""}${a.muted ? " user-row-with-actions" : ""}`}>
                     <input type="checkbox" aria-label={`Select ${a.username}`} checked={selectedUsers.includes(a.username)} disabled={busy} onChange={e => setSelectedUsers(current => e.target.checked ? [...current, a.username] : current.filter(name => name !== a.username))} />
-                    <button type="button" aria-label={`Edit ${a.username}`} onClick={() => select(a)} disabled={busy}>
+                    <button type="button" aria-label={`Edit ${a.username}`} onClick={() => router.push(`/admin/users/details?user=${encodeURIComponent(a.username)}`)} disabled={busy}>
                       <span className="account-avatar">{a.username.slice(0, 2).toUpperCase()}</span>
                       <div>
                         <b>{a.username}</b>
@@ -360,8 +357,8 @@ export default function UsersPage() {
                 ))}
                 {!filteredUsers.length && <p>{users.length ? "No users match your search." : "No users yet. Create your first explorer."}</p>}
               </div>
-            </section>
-            {draft ? (
+            </section>}
+            {mode === "details" && (draft ? (
               <form className="admin-editor" onSubmit={save}>
                 <div className="admin-editor-title">
                   <h2>{editing ? "Edit user" : "New user"}</h2>
@@ -576,7 +573,7 @@ export default function UsersPage() {
                     void load();
                   }}
                 >
-                  Cancel and reload users
+                  Cancel and reload account
                 </button>
               </form>
             ) : (
@@ -585,13 +582,13 @@ export default function UsersPage() {
                 <h2>Select an explorer</h2>
                 <p>Pick a user to edit, or create a new one.</p>
               </div>
-            )}
+            ))}
           </div>
         )}
-        <p className="roster-note">
+        {mode === "roster" && <p className="roster-note">
           Full backups include private account hashes, challenge flags, and
           progress. Keep them in a private location.
-        </p>
+        </p>}
       </section>
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
