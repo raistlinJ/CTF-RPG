@@ -1,0 +1,724 @@
+# Instructor assignment content; includes accepted answers.
+challenges:
+  - id: ed-2026-ctfd-18
+    map: commissioning-deck
+    object: 00 · Mission Briefing
+    region: Mission Intake
+    location:
+      x: 4
+      y: 22
+    text: Download the Environment Development exercise PDF. Follow its instructions
+      in order using the assigned Kali Linux, Ubuntu, and Metasploitable VMs.
+      The deck checkpoints correspond to its scored questions. Enter OK to
+      acknowledge the briefing and begin.
+    points: 1
+    grading: automatic
+    visibility: visible
+    flags:
+      - OK
+    flagRules:
+      - value: OK
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn: []
+    hints: []
+    downloads:
+      - name: Environment Development exercise
+        url: /downloads/environment-development/05_assignment_envdev.pdf
+        filename: 05_assignment_envdev.pdf
+    ctfd:
+      challenge:
+        id: 18
+        name: Exercise PDF
+        description: "Download Exercise Here\r
+
+          \r
+
+          Enter OK to get a point."
+        max_attempts: 0
+        value: 1
+        category: Download Exercise Here or on Course Web Page
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 22
+          challenge_id: 18
+          type: static
+          content: OK
+          data: case_insensitive
+      hints: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.
+  - id: ed-2026-ctfd-31
+    map: commissioning-deck
+    object: 01 · Kali VM Address
+    region: VM Assembly Bay
+    location:
+      x: 8
+      y: 22
+    text: What IP Address did you assign the Kali VM?
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - 11.0.0.100
+      - 11.0.0.100/24
+    flagRules:
+      - value: 11.0.0.100
+        caseSensitive: true
+      - value: 11.0.0.100/24
+        caseSensitive: true
+    caseSensitive: true
+    dependsOn:
+      - ed-2026-ctfd-18
+    hints:
+      - id: ctfd-hint-9
+        label: Hint
+        text: |-
+          Format of IP Address:
+          11.0.0.###
+        cost: 0
+    downloads: []
+    ctfd:
+      challenge:
+        id: 31
+        name: "Answer after #9 (a)"
+        description: What IP Address did you assign the Kali VM?
+        max_attempts: 0
+        value: 5
+        category: STEP 1
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 36
+          challenge_id: 31
+          type: static
+          content: 11.0.0.100
+          data: ""
+        - id: 37
+          challenge_id: 31
+          type: static
+          content: 11.0.0.100/24
+          data: ""
+      hints:
+        - id: 9
+          type: standard
+          challenge_id: 31
+          content: |-
+            Format of IP Address:
+            11.0.0.###
+          cost: 0
+          requirements: null
+          title: null
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.
+  - id: ed-2026-ctfd-32
+    map: commissioning-deck
+    object: 02 · Ubuntu VM Address
+    region: VM Assembly Bay
+    location:
+      x: 13
+      y: 22
+    text: What is the IP Address you assigned to the Ubuntu VM?
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - 11.0.0.101
+      - 11.0.0.101/24
+    flagRules:
+      - value: 11.0.0.101
+        caseSensitive: true
+      - value: 11.0.0.101/24
+        caseSensitive: true
+    caseSensitive: true
+    dependsOn:
+      - ed-2026-ctfd-31
+    hints:
+      - id: ctfd-hint-10
+        label: Hint
+        text: |-
+          IP Address Format:
+          11.0.0.###
+        cost: 0
+    downloads: []
+    ctfd:
+      challenge:
+        id: 32
+        name: "Answer after #9 (b)"
+        description: What is the IP Address you assigned to the Ubuntu VM?
+        max_attempts: 0
+        value: 5
+        category: STEP 1
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 38
+          challenge_id: 32
+          type: static
+          content: 11.0.0.101
+          data: ""
+        - id: 39
+          challenge_id: 32
+          type: static
+          content: 11.0.0.101/24
+          data: ""
+      hints:
+        - id: 10
+          type: standard
+          challenge_id: 32
+          content: |-
+            IP Address Format:
+            11.0.0.###
+          cost: 0
+          requirements: null
+          title: null
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.
+  - id: ed-2026-ctfd-33
+    map: commissioning-deck
+    object: 03 · Metasploitable VM Address
+    region: VM Assembly Bay
+    location:
+      x: 18
+      y: 22
+    text: What is the IP Address that you assigned to the metasploitable VM?
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - 11.0.0.102
+      - 11.0.0.102/24
+    flagRules:
+      - value: 11.0.0.102
+        caseSensitive: true
+      - value: 11.0.0.102/24
+        caseSensitive: true
+    caseSensitive: true
+    dependsOn:
+      - ed-2026-ctfd-32
+    hints: []
+    downloads: []
+    ctfd:
+      challenge:
+        id: 33
+        name: "Answer after #9 (c)"
+        description: What is the IP Address that you assigned to the metasploitable VM?
+        max_attempts: 0
+        value: 5
+        category: STEP 1
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 40
+          challenge_id: 33
+          type: static
+          content: 11.0.0.102
+          data: ""
+        - id: 41
+          challenge_id: 33
+          type: static
+          content: 11.0.0.102/24
+          data: ""
+      hints: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.
+  - id: ed-2026-ctfd-34
+    map: commissioning-deck
+    object: 04 · SQL Diagnostic Analysis
+    region: Input Analysis Console
+    location:
+      x: 24
+      y: 22
+    text: "What is the text in the Diagnostic Information Column when you enter the
+      username:\r
+
+      test'\r
+
+      \r
+
+      (note that the character after **test** is a single quote)"
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - SELECT * FROM accounts WHERE username='test'' AND password=''
+      - SELECT * FROM accounts WHERE username='test'' AND password="
+    flagRules:
+      - value: SELECT * FROM accounts WHERE username='test'' AND password=''
+        caseSensitive: false
+      - value: SELECT * FROM accounts WHERE username='test'' AND password="
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - ed-2026-ctfd-33
+    hints:
+      - id: ctfd-hint-11
+        label: Hint
+        text: |-
+          Starts with:
+          SELECT * FROM accounts
+        cost: 0
+    downloads: []
+    ctfd:
+      challenge:
+        id: 34
+        name: Question 17
+        description: "What is the text in the Diagnostic Information Column when you
+          enter the username:\r
+
+          test'\r
+
+          \r
+
+          (note that the character after <b>test</b> is a single quote)"
+        max_attempts: 0
+        value: 5
+        category: STEP 1
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 42
+          challenge_id: 34
+          type: static
+          content: SELECT * FROM accounts WHERE username='test'' AND password=''
+          data: case_insensitive
+        - id: 52
+          challenge_id: 34
+          type: regex
+          content: SELECT \* FROM accounts WHERE username[ ]*=[ ]*'test'' AND password[
+            ]*=[ ]*''
+          data: ""
+        - id: 53
+          challenge_id: 34
+          type: static
+          content: SELECT * FROM accounts WHERE username='test'' AND password="
+          data: case_insensitive
+      hints:
+        - id: 11
+          type: standard
+          challenge_id: 34
+          content: |-
+            Starts with:
+            SELECT * FROM accounts
+          cost: 0
+          requirements: null
+          title: null
+      notes:
+        - Regex alternatives are retained as source metadata. Automatic checking
+          uses the original static alternatives with their per-flag case rules.
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.
+  - id: ed-2026-ctfd-36
+    map: commissioning-deck
+    object: 05 · Host the nginx Service
+    region: Service Hosting Console
+    location:
+      x: 32
+      y: 22
+    text: "Submit OK to indicate that you've finished this question.\r
+
+      \r
+
+      \r
+
+      \r\n"
+    points: 1
+    grading: automatic
+    visibility: visible
+    flags:
+      - OK
+    flagRules:
+      - value: OK
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - ed-2026-ctfd-34
+    hints: []
+    downloads: []
+    ctfd:
+      challenge:
+        id: 36
+        name: "#8"
+        description: "Submit OK to indicate that you've finished this question.\r
+
+          \r
+
+          \r
+
+          \r\n"
+        max_attempts: 0
+        value: 1
+        category: STEP 2
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 45
+          challenge_id: 36
+          type: static
+          content: OK
+          data: case_insensitive
+      hints: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.
+  - id: ed-2026-ctfd-35
+    map: commissioning-deck
+    object: 06 · Identify the Vulnerable Version
+    region: Vulnerability Research Bench
+    location:
+      x: 34
+      y: 8
+    text: What version of the vulnerable software that **does not require additional
+      configurations** for the exploit to work?
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - "1.890"
+    flagRules:
+      - value: "1.890"
+        caseSensitive: true
+    caseSensitive: true
+    dependsOn:
+      - ed-2026-ctfd-36
+    hints: []
+    downloads: []
+    ctfd:
+      challenge:
+        id: 35
+        name: "#2 (b)"
+        description: What version of the vulnerable software that <b>does not require
+          additional configurations</b> for the exploit to work?
+        max_attempts: 0
+        value: 5
+        category: STEP 3
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 43
+          challenge_id: 35
+          type: static
+          content: "1.890"
+          data: ""
+        - id: 44
+          challenge_id: 35
+          type: regex
+          content: "[a-z|A-Z]*[ ]*1.89[0]*"
+          data: ""
+      hints: []
+      notes:
+        - Regex alternatives are retained as source metadata. Automatic checking
+          uses the original static alternatives with their per-flag case rules.
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.
+  - id: ed-2026-ctfd-37
+    map: commissioning-deck
+    object: 07 · Verify the Webmin Endpoint
+    region: Webmin Test Bench
+    location:
+      x: 25
+      y: 8
+    text: "Submit the URL where the installation text claims the webmin web service
+      is running (where you can now login to). \r
+
+      \r
+
+      Include the \"port\" number.\r
+
+      \r
+
+      Sample format: https://myurl:12345/"
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - https://researchdev-VM:10000/
+      - https://researchdev-VM:10000
+      - researchdev-VM:10000
+      - researchdev-VM:10000/
+    flagRules:
+      - value: https://researchdev-VM:10000/
+        caseSensitive: false
+      - value: https://researchdev-VM:10000
+        caseSensitive: false
+      - value: researchdev-VM:10000
+        caseSensitive: false
+      - value: researchdev-VM:10000/
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - ed-2026-ctfd-35
+    hints:
+      - id: ctfd-hint-12
+        label: Hint
+        text: |-
+          You answer should start with:
+          https://resear
+        cost: 0
+    downloads: []
+    ctfd:
+      challenge:
+        id: 37
+        name: "#6"
+        description: "Submit the URL where the installation text claims the webmin web
+          service is running (where you can now login to). \r
+
+          \r
+
+          Include the \"port\" number.\r
+
+          \r
+
+          Sample format: https://myurl:12345/"
+        max_attempts: 0
+        value: 5
+        category: STEP 3
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 46
+          challenge_id: 37
+          type: static
+          content: https://researchdev-VM:10000/
+          data: case_insensitive
+        - id: 47
+          challenge_id: 37
+          type: static
+          content: https://researchdev-VM:10000
+          data: case_insensitive
+        - id: 48
+          challenge_id: 37
+          type: static
+          content: researchdev-VM:10000
+          data: case_insensitive
+        - id: 49
+          challenge_id: 37
+          type: static
+          content: researchdev-VM:10000/
+          data: case_insensitive
+      hints:
+        - id: 12
+          type: standard
+          challenge_id: 37
+          content: |-
+            You answer should start with:
+            https://resear
+          cost: 0
+          requirements: null
+          title: null
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.
+  - id: ed-2026-ctfd-38
+    map: commissioning-deck
+    object: 08 · Analyze the Remote Host
+    region: Remote Analysis Bench
+    location:
+      x: 16
+      y: 8
+    text: "How many lines are in the /etc/shadow file?\r\n"
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - "43"
+    flagRules:
+      - value: "43"
+        caseSensitive: true
+    caseSensitive: true
+    dependsOn:
+      - ed-2026-ctfd-37
+    hints: []
+    downloads: []
+    ctfd:
+      challenge:
+        id: 38
+        name: "#12"
+        description: "How many lines are in the /etc/shadow file?\r\n"
+        max_attempts: 0
+        value: 5
+        category: STEP 3
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 50
+          challenge_id: 38
+          type: static
+          content: "43"
+          data: ""
+      hints: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.
+  - id: ed-2026-ctfd-24
+    map: commissioning-deck
+    object: 09 · Individual Debrief
+    region: Launch Control
+    location:
+      x: 7
+      y: 8
+    text: To be done individually. Email a document with the subject
+      Assignment-EnvDev1 to svutep@gmail.com, as specified in the exercise PDF.
+      Include a one–two paragraph write-up describing (1) the purpose of the
+      exercise, (2) where you had trouble, if any, and (3) highlights of what
+      you learned. Enter OK to indicate completion. Your document is submitted
+      through the course email process.
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - OK
+    flagRules:
+      - value: OK
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - ed-2026-ctfd-38
+    hints: []
+    downloads: []
+    ctfd:
+      challenge:
+        id: 24
+        name: FINAL DELIVERABLE
+        description: "<center><h3>***To be done Individually***</h3></center>\r
+
+          <br>\r
+
+          Email a document file with the subject
+          Assignment-StaticBinaryAnalysisP2 to <a
+          href=\"mailto:svutep@gmail.com\"> svutep@gmail.com </a>\r
+
+          <br><br>\r
+
+          The document must contain the following:\r
+
+          <br><br>\r
+
+          Describe (1) the purpose of the exercise, (2) where you had trouble
+          (if any), (3) highlights about what you learned.\r
+
+          <br><br>\r
+
+          <h5>Enter \"OK\" to get a point for this challenge</h5>"
+        max_attempts: 0
+        value: 5
+        category: Your Summary
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 28
+          challenge_id: 24
+          type: static
+          content: OK
+          data: case_insensitive
+      hints: []
+      notes:
+        - Email subject corrected from Assignment-StaticBinaryAnalysisP2 to
+          Assignment-EnvDev1 to match the attached exercise PDF.
+        - Sequential prerequisites added in exercise order; source export has no
+          requirements.

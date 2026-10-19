@@ -59,6 +59,8 @@ try {
       "challenge_settings",
       "registration_settings",
       "team_messages",
+      "personal_chat_mutes",
+      "personal_chat_settings",
       "team_social_settings",
       "player_presence",
       "presence_settings",
@@ -102,6 +104,8 @@ try {
         a.heroSelected,
       );
     for (const a of snapshot.deletedAccounts) sqlite.prepare("INSERT INTO deleted_accounts(username,deleted_at) VALUES(?,?)").run(a.username,a.deleted_at);
+    for (const r of snapshot.personalChatSettings) sqlite.prepare('INSERT INTO personal_chat_settings(user,mute_all,revision) VALUES(?,?,?)').run(r.user,r.mute_all,r.revision);
+    for (const r of snapshot.personalChatMutes) sqlite.prepare('INSERT INTO personal_chat_mutes(user,target,muted) VALUES(?,?,?)').run(r.user,r.target,r.muted);
     for (const t of snapshot.teams)
       sqlite
         .prepare(

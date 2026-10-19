@@ -209,6 +209,17 @@ export const teamMessages = sqliteTable(
   ],
 );
 
+export const personalChatSettings = sqliteTable("personal_chat_settings", {
+  user: text("user").primaryKey().references(() => students.id, { onDelete: "cascade" }),
+  muteAll: integer("mute_all").notNull().default(0),
+  revision: integer("revision").notNull().default(0),
+}, t => [check("personal_chat_settings_mute_all", sql`${t.muteAll} IN (0,1)`)]);
+export const personalChatMutes = sqliteTable("personal_chat_mutes", {
+  user: text("user").notNull().references(() => students.id, { onDelete: "cascade" }),
+  target: text("target").notNull().references(() => students.id, { onDelete: "cascade" }),
+  muted: integer("muted").notNull(),
+}, t => [primaryKey({ columns: [t.user,t.target] }),check("personal_chat_mutes_muted", sql`${t.muted} IN (0,1)`),check("personal_chat_mutes_other", sql`${t.user} <> ${t.target}`)]);
+
 export const scoreboardSettings = sqliteTable("scoreboard_settings", {
   id: text("id").primaryKey(),
   visibility: text("visibility").notNull(),

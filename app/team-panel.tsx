@@ -1,5 +1,6 @@
 "use client";
 import { clientUuid } from "@/lib/client-uuid.mjs";
+import { PersonalMuteButton, PersonalMuteControls, type PersonalMutes } from "./personal-mutes";
 import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
@@ -37,7 +38,9 @@ type Message = {
   sender: string;
   fromTeam: TeamCard | null;
   toTeam: TeamCard;
-  text: string;
+  text: string | null;
+  canPersonalMute?: boolean;
+  personalMuted?: boolean;
   createdAt: number;
   outgoing: boolean;
 };
@@ -58,12 +61,14 @@ export default function TeamPanel({
   selected,
   onSelect,
   onRead,
+  personalMutes,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selected: string | null;
   onSelect: (id: string | null) => void;
   onRead: (at: number) => void;
+  personalMutes?: PersonalMutes;
 }) {
   const [data, setData] = useState<ResponseData | null>(null),
     [error, setError] = useState(""),
@@ -119,6 +124,7 @@ export default function TeamPanel({
       clearInterval(timer);
     };
   }, [open, selected]);
+  useEffect(() => { if (open) void load(true); }, [personalMutes?.settings?.revision]);
   useEffect(() => {
     if (nearBottom.current && messageList.current)
       messageList.current.scrollTop = messageList.current.scrollHeight;
@@ -169,7 +175,7 @@ export default function TeamPanel({
       <DialogContent className="team-dialog">
         <div className="team-dialog-heading">
           <div>
-            <span className="eyebrow">EXPEDITION TEAMS</span>
+            <span className="eyebrow">{selected ? "MESSAGES & TEAM DETAILS" : "EXPEDITION TEAMS"}</span>
             <DialogTitle>
               {selected ? data?.team?.label || "Team details" : "Teams"}
             </DialogTitle>
@@ -182,9 +188,10 @@ export default function TeamPanel({
             <RefreshCw size={17} />
           </button>
         </div>
-        <DialogDescription className="sr-only">
-          Team information and conversations.
+        <DialogDescription className="team-message-help">
+          Reopen this conversation anytime with Messages in the game header or press M while exploring.
         </DialogDescription>
+        {personalMutes && <PersonalMuteControls controls={personalMutes} />}
         {selected && (
           <button
             className="text-button team-back"
@@ -222,7 +229,7 @@ export default function TeamPanel({
                           <small>points</small>
                         </strong>
                       )}
-                      {t.canMessage && <MessageCircle size={19} />}
+                      {t.canReadMessages && <span className="team-open-messages"><MessageCircle size={17} aria-hidden="true" /> Open messages</span>}
                     </button>
                   ))}
                   {!data.teams?.length && <p>No teams yet.</p>}
@@ -289,7 +296,11 @@ export default function TeamPanel({
                                 })}
                               </time>
                             </div>
-                            <p>{m.text}</p>
+                            {m.personalMuted ? <p className="personal-muted-message">Message hidden — you muted this player.</p> : <p>{m.text}</p>}
+                            {m.canPersonalMute && personalMutes && <PersonalMuteButton controls={personalMutes} username={m.sender} muted={m.personalMuted} />}
+                            {data.team?.isYourTeam && !data.isAdmin && !m.fromTeam && !m.outgoing && (
+                              <button className="text-button" onClick={() => onSelect("instructors")}>Reply to instructors</button>
+                            )}
                             {(data.team?.isYourTeam ||
                               (data.isAdmin && selected === "instructors")) &&
                               m.fromTeam &&
@@ -364,6 +375,7 @@ export default function TeamPanel({
             </>
           )
         )}
+        <div className="team-message-footer"><button type="button" className="secondary-button" onClick={() => onOpenChange(false)}>Close messages</button></div>
       </DialogContent>
     </Dialog>
   );

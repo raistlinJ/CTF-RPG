@@ -1,3 +1,4 @@
+import { personalMuteContext, personalizeMessages } from './personal-mutes.mjs';
 import { registrationSettings } from "./registration-settings.mjs";
 import { teamRestriction } from "./team-actions.mjs";
 const reply = (data, status = 200) =>
@@ -40,42 +41,20 @@ export const teamPolicy = (features, own) =>
   own ? features : features.everyone;
 export const teamLabel = (team, features) =>
   features.names ? team.name : `Team #${team.id.slice(0, 8)}`;
-export async function teamInbox(db, features, team) {
-  if ((!features.messaging && !features.everyone.messaging) || !team) return 0;
-  return (
-    (
-      await db
-        .prepare(
-          `SELECT MAX(created_at) AS latest FROM team_messages WHERE recipient_team=? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team))`,
-        )
-        .bind(team, +features.messaging, +features.everyone.messaging)
-        .first()
-    )?.latest || 0
-  );
+export async function teamInbox(db, features, team, userId, admin, config) {
+  return (await messageStats(db,features,team,userId,admin,config)).latestMessageAt;
 }
 
-export async function messageStats(db, features, team, userId, admin) {
-  const received = team
-    ? await db
-        .prepare(
-          `SELECT COUNT(*) AS count,MAX(created_at) AS latest FROM team_messages WHERE recipient_team=? AND sender_user IS NOT ? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team))`,
-        )
-        .bind(team, userId, +features.messaging, +features.everyone.messaging)
-        .first()
-    : null;
-  const instructors =
-    admin && features.messaging
-      ? await db
-          .prepare(
-            "SELECT COUNT(*) AS count,MAX(created_at) AS latest FROM instructor_messages",
-          )
-          .bind()
-          .first()
-      : null;
-  return {
-    receivedCount: (received?.count || 0) + (instructors?.count || 0),
-    latestMessageAt: Math.max(received?.latest || 0, instructors?.latest || 0),
-  };
+export async function messageStats(db, features, team, userId, admin, config = {accounts:{users:[]}}) {
+  const received = team ? (await db.prepare(
+    `SELECT sender_user,sender_team,COUNT(*) AS count,MAX(created_at) AS latest FROM team_messages WHERE recipient_team=? AND sender_user IS NOT ? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) GROUP BY sender_user,sender_team`
+  ).bind(team,userId || null,+features.messaging,+features.everyone.messaging).all()).results : [];
+  const instructors = admin && features.messaging ? (await db.prepare(
+    'SELECT sender_user,COUNT(*) AS count,MAX(created_at) AS latest FROM instructor_messages GROUP BY sender_user'
+  ).bind().all()).results : [];
+  const context = userId ? await personalMuteContext(db,config,userId,[...received,...instructors].map(m=>m.sender_user)) : null;
+  const allowed = [...received.filter(m=>m.sender_team === null || !context?.isMuted(m.sender_user)),...instructors.filter(m=>!context?.isMuted(m.sender_user))];
+  return {receivedCount:allowed.reduce((sum,m)=>sum+m.count,0),latestMessageAt:Math.max(0,...allowed.map(m=>m.latest || 0))};
 }
 export async function teamScores(db, config, includeDisabled = false) {
   const scores = new Map();
@@ -462,7 +441,7 @@ export async function handleTeamSocial(
       ownTeam: own,
       teams: [...teams.map(summary), instructorCard],
       muted,
-      latestMessageAt: await teamInbox(db, features, own),
+      latestMessageAt: await teamInbox(db, features, own, u?.id, admin, config),
     });
   if (selectedId === "instructors") {
     let messages = [];
@@ -477,6 +456,7 @@ export async function handleTeamSocial(
       ).results;
       messages = incoming.map((m) => ({
         id: m.id,
+        senderUser: m.sender_user,
         sender: m.sender,
         fromTeam: summary(teams.find((t) => t.id === m.team)),
         toTeam: instructorCard,
@@ -496,6 +476,7 @@ export async function handleTeamSocial(
         messages.push(
           ...replies.map((m) => ({
             id: m.id,
+            senderUser: m.sender_user,
             sender: m.sender,
             fromTeam: null,
             toTeam: summary(teams.find((t) => t.id === own)),
@@ -514,10 +495,10 @@ export async function handleTeamSocial(
       features,
       ownTeam: own,
       team: instructorCard,
-      messages,
+      messages: await personalizeMessages(db,config,u?.id,messages),
       muted,
       isAdmin: admin,
-      latestMessageAt: (await messageStats(db, features, own, u?.id, admin))
+      latestMessageAt: (await messageStats(db, features, own, u?.id, admin, config))
         .latestMessageAt,
     });
   }
@@ -538,7 +519,7 @@ export async function handleTeamSocial(
     const rows = (
       await db
         .prepare(
-          `SELECT id,sender_team,recipient_team,sender,text,created_at FROM team_messages WHERE ${predicate} AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) ORDER BY created_at DESC,id DESC LIMIT 100`,
+          `SELECT id,sender_user,sender_team,recipient_team,sender,text,created_at FROM team_messages WHERE ${predicate} AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) ORDER BY created_at DESC,id DESC LIMIT 100`,
         )
         .bind(...args, +features.messaging, +features.everyone.messaging)
         .all()
@@ -547,7 +528,7 @@ export async function handleTeamSocial(
       const incoming = (
         await db
           .prepare(
-            "SELECT id,team AS sender_team,NULL AS recipient_team,sender,text,created_at FROM instructor_messages WHERE team=? ORDER BY created_at DESC,id DESC LIMIT 100",
+            "SELECT id,sender_user,team AS sender_team,NULL AS recipient_team,sender,text,created_at FROM instructor_messages WHERE team=? ORDER BY created_at DESC,id DESC LIMIT 100",
           )
           .bind(selectedId)
           .all()
@@ -560,6 +541,7 @@ export async function handleTeamSocial(
     }
     messages = rows.reverse().map((m) => ({
       id: m.id,
+      senderUser: m.sender_user,
       sender: m.sender,
       fromTeam: m.sender_team
         ? summary(teams.find((t) => t.id === m.sender_team))
@@ -578,7 +560,7 @@ export async function handleTeamSocial(
     team: summary(selected),
     muted,
     isAdmin: admin,
-    messages,
-    latestMessageAt: await teamInbox(db, features, own),
+    messages: await personalizeMessages(db,config,u?.id,messages),
+    latestMessageAt: await teamInbox(db, features, own, u?.id, admin, config),
   });
 }

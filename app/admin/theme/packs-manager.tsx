@@ -30,6 +30,8 @@ type State = {
     preview: string;
     locations: string[];
     demoCount: number;
+    demoDescription?: string;
+    contentLabel?: string;
   }[];
 };
 type Placement = {
@@ -127,7 +129,7 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
       );
       if (demo) {
         const contentResponse = await fetch("/api/admin/packs?kind=content&preset=" + encodeURIComponent(id));
-        if (!contentResponse.ok) throw Error("Could not load demo challenges.");
+        if (!contentResponse.ok) throw Error("Could not load matching challenges.");
         setPaired(new File([await contentResponse.blob()], id + "-demo-content.zip", {type:"application/zip"}));
       } else setPaired(null);
       setOverflow(null);
@@ -231,12 +233,12 @@ export default function PacksAdmin({ section = "import-export" }: { section?: "i
                   </div>
                   {p.demoCount > 0 && <>
                     <div className="admin-actions">
-                      <button className="secondary-button" disabled={busy} onClick={() => void preparePreset(p.id, true)}>Load demo adventure</button>
-                      <a className="secondary-button" href={"/api/admin/packs?kind=theme&preset=" + p.id + "&demo=true"}>Demo theme ZIP</a>
-                      <a className="secondary-button" href={"/api/admin/packs?kind=content&preset=" + p.id}>Demo content ZIP</a>
+                      <button className="secondary-button" disabled={busy} onClick={() => void preparePreset(p.id, true)}>{p.contentLabel === "assignment" ? "Load assignment" : "Load demo adventure"}</button>
+                      <a className="secondary-button" href={"/api/admin/packs?kind=theme&preset=" + p.id + "&demo=true"}>{p.contentLabel === "assignment" ? "Assignment theme ZIP" : "Demo theme ZIP"}</a>
+                      <a className="secondary-button" href={"/api/admin/packs?kind=content&preset=" + p.id}>{p.contentLabel === "assignment" ? "Assignment content ZIP" : "Demo content ZIP"}</a>
                     </div>
-                    <p><strong>{p.demoCount} beginner examples</strong> · 1×1, 2×2, and 3×3 bosses · keys and incantations · locked routes · hints and files · instructor reflection. One example starts hidden.</p>
-                    <small>Load demo adventure replaces the world and challenges together after confirmation. Accounts and recorded scores stay saved. Use this theme changes only the world.</small>
+                    {p.demoDescription ? <p>{p.demoDescription}</p> : <p><strong>{p.demoCount} beginner examples</strong> · 1×1, 2×2, and 3×3 bosses · keys and incantations · locked routes · hints and files · instructor reflection. One example starts hidden.</p>}
+                    <small>{p.contentLabel === "assignment" ? "Load assignment" : "Load demo adventure"} replaces the world and challenges together after confirmation. Accounts and recorded scores stay saved. Use this theme changes only the world.</small>
                   </>}
                   {preparingPreset === p.id && (
                     <p role="status">

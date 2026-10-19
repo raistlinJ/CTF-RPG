@@ -66,6 +66,8 @@ export function validateSnapshot(input) {
       challenges: z.array(z.unknown()).max(100),
       accounts: z.array(account).max(10000),
       deletedAccounts: z.array(z.object({username:z.string().regex(/^[a-z0-9_-]{3,24}$/), deleted_at:z.number().int().min(0)}).strict()).max(100000).default([]),
+      personalChatSettings: z.array(z.object({user:z.string(),mute_all:z.number().int().min(0).max(1),revision:z.number().int().min(0)}).strict()).max(10000).default([]),
+      personalChatMutes: z.array(z.object({user:z.string(),target:z.string(),muted:z.number().int().min(0).max(1)}).strict()).max(100000).default([]),
       teams: z
         .array(
           z
@@ -259,6 +261,9 @@ export function validateSnapshot(input) {
   if (new Set(snapshot.earnedRewards.map(r => `${r.user}\0${r.challenge}`)).size !== snapshot.earnedRewards.length || new Set(snapshot.unlockedTransports.map(r => `${r.user}\0${r.transport}`)).size !== snapshot.unlockedTransports.length) throw Error("Duplicate inventory or unlock progress in backup.");
   if (snapshot.earnedRewards.some(r => !completionIds.has(`${r.user}\0${r.challenge}`))) throw Error("Inventory rewards must belong to completed challenges.");
   const teamIds = new Set(snapshot.teams.map((t) => t.id));
+  if (new Set(snapshot.personalChatSettings.map(r=>r.user)).size !== snapshot.personalChatSettings.length || snapshot.personalChatSettings.some(r=>!ids.has(r.user)) ||
+      new Set(snapshot.personalChatMutes.map(r=>`${r.user}\0${r.target}`)).size !== snapshot.personalChatMutes.length || snapshot.personalChatMutes.some(r=>!ids.has(r.user) || !ids.has(r.target) || r.user===r.target))
+    throw Error("Invalid personal chat mutes in backup.");
   if (new Set(snapshot.teamPointAwards.map((a) => a.id)).size !== snapshot.teamPointAwards.length || snapshot.teamPointAwards.some((a) => !teamIds.has(a.team)))
     throw Error("Invalid team point gifts in backup.");
   if (
@@ -456,6 +461,8 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     teamFeatures: (({ revision, ...flags }) => flags)(
       await teamFeatures(db, config),
     ),
+    personalChatSettings: (await db.prepare('SELECT user,mute_all,revision FROM personal_chat_settings ORDER BY user').bind().all()).results,
+    personalChatMutes: (await db.prepare('SELECT user,target,muted FROM personal_chat_mutes ORDER BY user,target').bind().all()).results,
     teamMessages: (
       await db
         .prepare(

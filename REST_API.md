@@ -45,8 +45,25 @@ Use a valid player `hero` ID from `GET /api/config` if supplying a character on 
 | GET, POST | `/api/admin/notifications` | Read or send notifications. |
 | GET | `/api/admin/backup` | Download the complete recreation ZIP. |
 | GET | `/api/scoreboard` | Read rankings with the account's configured permissions. |
+| GET, POST | `/api/chat-mutes` | Read/update the signed-in account's personal chat mutes. |
 
 These are the same endpoints used by the admin UI. JSON writes use `Content-Type: application/json`; map, media/audio/sound, and pack uploads use the endpoint's multipart form format. Editing uses the current `revision` and, where required, `themeRevision` / `contentRevision` returned by the corresponding reads. A stale save returns 409; refresh before applying changes again.
+
+## Personal chat mutes
+
+`GET /api/chat-mutes` returns `{muteAll, revision, overrides}`, where overrides maps previously selected usernames to booleans. All access is scoped to the signed-in account; a platform-admin header without an individual game session cannot manage personal preferences.
+
+Post one of these JSON bodies with the latest returned revision:
+
+```json
+{"action":"set","username":"another-player","muted":true,"revision":0}
+```
+
+Use `muted:false` to unmute one player. For bulk changes use `{"action":"mute-all","revision":1}` or `{"action":"unmute-all","revision":2}`. Bulk actions clear earlier individual exceptions; mute-all also applies to future contacts. You cannot personally mute yourself, current teammates, or administrators. Current role and team membership are checked when reading messages, so those exemptions remain active after membership or role changes.
+
+Permitted chat responses include `canPersonalMute` and `personalMuted` on each message. A personally muted message has `text:null`, retaining only the sender/metadata needed to display an unmute control. Personal mutes also filter the receiver's incoming message statistics. They do not change global moderation or other recipients' conversations. Full account backups preserve these preferences; theme/content packs exclude them.
+
+Self-hosted SQLite adds the required tables on startup. Cloudflare/D1 deployments must apply `drizzle/0028_personal_chat_mutes.sql` before using the updated messaging endpoints.
 
 ## Create a student account
 

@@ -1,0 +1,921 @@
+[
+  {
+    "id": "ed-2026-ctfd-18",
+    "map": "commissioning-deck",
+    "object": "00 · Mission Briefing",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 4,
+      "y": 22
+    },
+    "region": "Mission Intake",
+    "text": "Download the Environment Development exercise PDF. Follow its instructions in order using the assigned Kali Linux, Ubuntu, and Metasploitable VMs. The deck checkpoints correspond to its scored questions. Enter OK to acknowledge the briefing and begin.",
+    "flagRules": [
+      {
+        "value": "OK",
+        "caseSensitive": false
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 18,
+        "name": "Exercise PDF",
+        "description": "Download Exercise Here\r\n\r\nEnter OK to get a point.",
+        "max_attempts": 0,
+        "value": 1,
+        "category": "Download Exercise Here or on Course Web Page",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 22,
+          "challenge_id": 18,
+          "type": "static",
+          "content": "OK",
+          "data": "case_insensitive"
+        }
+      ],
+      "hints": [],
+      "notes": [
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [],
+    "flags": [
+      "OK"
+    ],
+    "caseSensitive": false,
+    "points": 1,
+    "hints": [],
+    "downloads": [
+      {
+        "name": "Environment Development exercise",
+        "url": "/downloads/environment-development/05_assignment_envdev.pdf",
+        "filename": "05_assignment_envdev.pdf"
+      }
+    ],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ed-2026-ctfd-31",
+    "map": "commissioning-deck",
+    "object": "01 · Kali VM Address",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 8,
+      "y": 22
+    },
+    "region": "VM Assembly Bay",
+    "text": "What IP Address did you assign the Kali VM?",
+    "flagRules": [
+      {
+        "value": "11.0.0.100",
+        "caseSensitive": true
+      },
+      {
+        "value": "11.0.0.100/24",
+        "caseSensitive": true
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 31,
+        "name": "Answer after #9 (a)",
+        "description": "What IP Address did you assign the Kali VM?",
+        "max_attempts": 0,
+        "value": 5,
+        "category": "STEP 1",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 36,
+          "challenge_id": 31,
+          "type": "static",
+          "content": "11.0.0.100",
+          "data": ""
+        },
+        {
+          "id": 37,
+          "challenge_id": 31,
+          "type": "static",
+          "content": "11.0.0.100/24",
+          "data": ""
+        }
+      ],
+      "hints": [
+        {
+          "id": 9,
+          "type": "standard",
+          "challenge_id": 31,
+          "content": "Format of IP Address:\n11.0.0.###",
+          "cost": 0,
+          "requirements": null,
+          "title": null
+        }
+      ],
+      "notes": [
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ed-2026-ctfd-18"
+    ],
+    "flags": [
+      "11.0.0.100",
+      "11.0.0.100/24"
+    ],
+    "caseSensitive": true,
+    "points": 5,
+    "hints": [
+      {
+        "id": "ctfd-hint-9",
+        "label": "Hint",
+        "text": "Format of IP Address:\n11.0.0.###",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ed-2026-ctfd-32",
+    "map": "commissioning-deck",
+    "object": "02 · Ubuntu VM Address",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 13,
+      "y": 22
+    },
+    "region": "VM Assembly Bay",
+    "text": "What is the IP Address you assigned to the Ubuntu VM?",
+    "flagRules": [
+      {
+        "value": "11.0.0.101",
+        "caseSensitive": true
+      },
+      {
+        "value": "11.0.0.101/24",
+        "caseSensitive": true
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 32,
+        "name": "Answer after #9 (b)",
+        "description": "What is the IP Address you assigned to the Ubuntu VM?",
+        "max_attempts": 0,
+        "value": 5,
+        "category": "STEP 1",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 38,
+          "challenge_id": 32,
+          "type": "static",
+          "content": "11.0.0.101",
+          "data": ""
+        },
+        {
+          "id": 39,
+          "challenge_id": 32,
+          "type": "static",
+          "content": "11.0.0.101/24",
+          "data": ""
+        }
+      ],
+      "hints": [
+        {
+          "id": 10,
+          "type": "standard",
+          "challenge_id": 32,
+          "content": "IP Address Format:\n11.0.0.###",
+          "cost": 0,
+          "requirements": null,
+          "title": null
+        }
+      ],
+      "notes": [
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ed-2026-ctfd-31"
+    ],
+    "flags": [
+      "11.0.0.101",
+      "11.0.0.101/24"
+    ],
+    "caseSensitive": true,
+    "points": 5,
+    "hints": [
+      {
+        "id": "ctfd-hint-10",
+        "label": "Hint",
+        "text": "IP Address Format:\n11.0.0.###",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ed-2026-ctfd-33",
+    "map": "commissioning-deck",
+    "object": "03 · Metasploitable VM Address",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 18,
+      "y": 22
+    },
+    "region": "VM Assembly Bay",
+    "text": "What is the IP Address that you assigned to the metasploitable VM?",
+    "flagRules": [
+      {
+        "value": "11.0.0.102",
+        "caseSensitive": true
+      },
+      {
+        "value": "11.0.0.102/24",
+        "caseSensitive": true
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 33,
+        "name": "Answer after #9 (c)",
+        "description": "What is the IP Address that you assigned to the metasploitable VM?",
+        "max_attempts": 0,
+        "value": 5,
+        "category": "STEP 1",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 40,
+          "challenge_id": 33,
+          "type": "static",
+          "content": "11.0.0.102",
+          "data": ""
+        },
+        {
+          "id": 41,
+          "challenge_id": 33,
+          "type": "static",
+          "content": "11.0.0.102/24",
+          "data": ""
+        }
+      ],
+      "hints": [],
+      "notes": [
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ed-2026-ctfd-32"
+    ],
+    "flags": [
+      "11.0.0.102",
+      "11.0.0.102/24"
+    ],
+    "caseSensitive": true,
+    "points": 5,
+    "hints": [],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ed-2026-ctfd-34",
+    "map": "commissioning-deck",
+    "object": "04 · SQL Diagnostic Analysis",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 24,
+      "y": 22
+    },
+    "region": "Input Analysis Console",
+    "text": "What is the text in the Diagnostic Information Column when you enter the username:\r\ntest'\r\n\r\n(note that the character after **test** is a single quote)",
+    "flagRules": [
+      {
+        "value": "SELECT * FROM accounts WHERE username='test'' AND password=''",
+        "caseSensitive": false
+      },
+      {
+        "value": "SELECT * FROM accounts WHERE username='test'' AND password=\"",
+        "caseSensitive": false
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 34,
+        "name": "Question 17",
+        "description": "What is the text in the Diagnostic Information Column when you enter the username:\r\ntest'\r\n\r\n(note that the character after <b>test</b> is a single quote)",
+        "max_attempts": 0,
+        "value": 5,
+        "category": "STEP 1",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 42,
+          "challenge_id": 34,
+          "type": "static",
+          "content": "SELECT * FROM accounts WHERE username='test'' AND password=''",
+          "data": "case_insensitive"
+        },
+        {
+          "id": 52,
+          "challenge_id": 34,
+          "type": "regex",
+          "content": "SELECT \\* FROM accounts WHERE username[ ]*=[ ]*'test'' AND password[ ]*=[ ]*''",
+          "data": ""
+        },
+        {
+          "id": 53,
+          "challenge_id": 34,
+          "type": "static",
+          "content": "SELECT * FROM accounts WHERE username='test'' AND password=\"",
+          "data": "case_insensitive"
+        }
+      ],
+      "hints": [
+        {
+          "id": 11,
+          "type": "standard",
+          "challenge_id": 34,
+          "content": "Starts with:\nSELECT * FROM accounts",
+          "cost": 0,
+          "requirements": null,
+          "title": null
+        }
+      ],
+      "notes": [
+        "Regex alternatives are retained as source metadata. Automatic checking uses the original static alternatives with their per-flag case rules.",
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ed-2026-ctfd-33"
+    ],
+    "flags": [
+      "SELECT * FROM accounts WHERE username='test'' AND password=''",
+      "SELECT * FROM accounts WHERE username='test'' AND password=\""
+    ],
+    "caseSensitive": false,
+    "points": 5,
+    "hints": [
+      {
+        "id": "ctfd-hint-11",
+        "label": "Hint",
+        "text": "Starts with:\nSELECT * FROM accounts",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ed-2026-ctfd-36",
+    "map": "commissioning-deck",
+    "object": "05 · Host the nginx Service",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 32,
+      "y": 22
+    },
+    "region": "Service Hosting Console",
+    "text": "Submit OK to indicate that you've finished this question.\r\n\r\n\r\n\r\n",
+    "flagRules": [
+      {
+        "value": "OK",
+        "caseSensitive": false
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 36,
+        "name": "#8",
+        "description": "Submit OK to indicate that you've finished this question.\r\n\r\n\r\n\r\n",
+        "max_attempts": 0,
+        "value": 1,
+        "category": "STEP 2",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 45,
+          "challenge_id": 36,
+          "type": "static",
+          "content": "OK",
+          "data": "case_insensitive"
+        }
+      ],
+      "hints": [],
+      "notes": [
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ed-2026-ctfd-34"
+    ],
+    "flags": [
+      "OK"
+    ],
+    "caseSensitive": false,
+    "points": 1,
+    "hints": [],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ed-2026-ctfd-35",
+    "map": "commissioning-deck",
+    "object": "06 · Identify the Vulnerable Version",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 34,
+      "y": 8
+    },
+    "region": "Vulnerability Research Bench",
+    "text": "What version of the vulnerable software that **does not require additional configurations** for the exploit to work?",
+    "flagRules": [
+      {
+        "value": "1.890",
+        "caseSensitive": true
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 35,
+        "name": "#2 (b)",
+        "description": "What version of the vulnerable software that <b>does not require additional configurations</b> for the exploit to work?",
+        "max_attempts": 0,
+        "value": 5,
+        "category": "STEP 3",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 43,
+          "challenge_id": 35,
+          "type": "static",
+          "content": "1.890",
+          "data": ""
+        },
+        {
+          "id": 44,
+          "challenge_id": 35,
+          "type": "regex",
+          "content": "[a-z|A-Z]*[ ]*1.89[0]*",
+          "data": ""
+        }
+      ],
+      "hints": [],
+      "notes": [
+        "Regex alternatives are retained as source metadata. Automatic checking uses the original static alternatives with their per-flag case rules.",
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ed-2026-ctfd-36"
+    ],
+    "flags": [
+      "1.890"
+    ],
+    "caseSensitive": true,
+    "points": 5,
+    "hints": [],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ed-2026-ctfd-37",
+    "map": "commissioning-deck",
+    "object": "07 · Verify the Webmin Endpoint",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 25,
+      "y": 8
+    },
+    "region": "Webmin Test Bench",
+    "text": "Submit the URL where the installation text claims the webmin web service is running (where you can now login to). \r\n\r\nInclude the \"port\" number.\r\n\r\nSample format: https://myurl:12345/",
+    "flagRules": [
+      {
+        "value": "https://researchdev-VM:10000/",
+        "caseSensitive": false
+      },
+      {
+        "value": "https://researchdev-VM:10000",
+        "caseSensitive": false
+      },
+      {
+        "value": "researchdev-VM:10000",
+        "caseSensitive": false
+      },
+      {
+        "value": "researchdev-VM:10000/",
+        "caseSensitive": false
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 37,
+        "name": "#6",
+        "description": "Submit the URL where the installation text claims the webmin web service is running (where you can now login to). \r\n\r\nInclude the \"port\" number.\r\n\r\nSample format: https://myurl:12345/",
+        "max_attempts": 0,
+        "value": 5,
+        "category": "STEP 3",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 46,
+          "challenge_id": 37,
+          "type": "static",
+          "content": "https://researchdev-VM:10000/",
+          "data": "case_insensitive"
+        },
+        {
+          "id": 47,
+          "challenge_id": 37,
+          "type": "static",
+          "content": "https://researchdev-VM:10000",
+          "data": "case_insensitive"
+        },
+        {
+          "id": 48,
+          "challenge_id": 37,
+          "type": "static",
+          "content": "researchdev-VM:10000",
+          "data": "case_insensitive"
+        },
+        {
+          "id": 49,
+          "challenge_id": 37,
+          "type": "static",
+          "content": "researchdev-VM:10000/",
+          "data": "case_insensitive"
+        }
+      ],
+      "hints": [
+        {
+          "id": 12,
+          "type": "standard",
+          "challenge_id": 37,
+          "content": "You answer should start with:\nhttps://resear",
+          "cost": 0,
+          "requirements": null,
+          "title": null
+        }
+      ],
+      "notes": [
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ed-2026-ctfd-35"
+    ],
+    "flags": [
+      "https://researchdev-VM:10000/",
+      "https://researchdev-VM:10000",
+      "researchdev-VM:10000",
+      "researchdev-VM:10000/"
+    ],
+    "caseSensitive": false,
+    "points": 5,
+    "hints": [
+      {
+        "id": "ctfd-hint-12",
+        "label": "Hint",
+        "text": "You answer should start with:\nhttps://resear",
+        "cost": 0,
+        "rewardCost": {
+          "keys": [],
+          "incantations": []
+        }
+      }
+    ],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ed-2026-ctfd-38",
+    "map": "commissioning-deck",
+    "object": "08 · Analyze the Remote Host",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 16,
+      "y": 8
+    },
+    "region": "Remote Analysis Bench",
+    "text": "How many lines are in the /etc/shadow file?\r\n",
+    "flagRules": [
+      {
+        "value": "43",
+        "caseSensitive": true
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 38,
+        "name": "#12",
+        "description": "How many lines are in the /etc/shadow file?\r\n",
+        "max_attempts": 0,
+        "value": 5,
+        "category": "STEP 3",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 50,
+          "challenge_id": 38,
+          "type": "static",
+          "content": "43",
+          "data": ""
+        }
+      ],
+      "hints": [],
+      "notes": [
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ed-2026-ctfd-37"
+    ],
+    "flags": [
+      "43"
+    ],
+    "caseSensitive": true,
+    "points": 5,
+    "hints": [],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  },
+  {
+    "id": "ed-2026-ctfd-24",
+    "map": "commissioning-deck",
+    "object": "09 · Individual Debrief",
+    "icon": "star",
+    "bossStyle": "classic",
+    "iconSize": 1,
+    "location": {
+      "x": 7,
+      "y": 8
+    },
+    "region": "Launch Control",
+    "text": "To be done individually. Email a document with the subject Assignment-EnvDev1 to svutep@gmail.com, as specified in the exercise PDF. Include a one–two paragraph write-up describing (1) the purpose of the exercise, (2) where you had trouble, if any, and (3) highlights of what you learned. Enter OK to indicate completion. Your document is submitted through the course email process.",
+    "flagRules": [
+      {
+        "value": "OK",
+        "caseSensitive": false
+      }
+    ],
+    "ctfd": {
+      "challenge": {
+        "id": 24,
+        "name": "FINAL DELIVERABLE",
+        "description": "<center><h3>***To be done Individually***</h3></center>\r\n<br>\r\nEmail a document file with the subject Assignment-StaticBinaryAnalysisP2 to <a href=\"mailto:svutep@gmail.com\"> svutep@gmail.com </a>\r\n<br><br>\r\nThe document must contain the following:\r\n<br><br>\r\nDescribe (1) the purpose of the exercise, (2) where you had trouble (if any), (3) highlights about what you learned.\r\n<br><br>\r\n<h5>Enter \"OK\" to get a point for this challenge</h5>",
+        "max_attempts": 0,
+        "value": 5,
+        "category": "Your Summary",
+        "type": "standard",
+        "state": "visible",
+        "requirements": null,
+        "connection_info": null,
+        "next_id": null,
+        "attribution": null,
+        "logic": "",
+        "initial": null,
+        "minimum": null,
+        "decay": null,
+        "function": null,
+        "position": 0
+      },
+      "flags": [
+        {
+          "id": 28,
+          "challenge_id": 24,
+          "type": "static",
+          "content": "OK",
+          "data": "case_insensitive"
+        }
+      ],
+      "hints": [],
+      "notes": [
+        "Email subject corrected from Assignment-StaticBinaryAnalysisP2 to Assignment-EnvDev1 to match the attached exercise PDF.",
+        "Sequential prerequisites added in exercise order; source export has no requirements."
+      ]
+    },
+    "grading": "automatic",
+    "visibility": "visible",
+    "dependsOn": [
+      "ed-2026-ctfd-38"
+    ],
+    "flags": [
+      "OK"
+    ],
+    "caseSensitive": false,
+    "points": 5,
+    "hints": [],
+    "downloads": [],
+    "discoveryVideo": null,
+    "solveVideo": null,
+    "rewards": {
+      "keys": [],
+      "incantations": []
+    }
+  }
+]

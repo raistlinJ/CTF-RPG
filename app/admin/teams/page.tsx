@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import TeamPanel from "@/app/team-panel";
+import { usePersonalMutes } from "@/app/personal-mutes";
 import type { Team } from "@/app/team-setup";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 
@@ -21,6 +22,14 @@ export default function TeamsAdmin() {
     [viewedTeam, setViewedTeam] = useState<string | null>(null), [panelOpen, setPanelOpen] = useState(false),
     [giftTeam, setGiftTeam] = useState<Team | null>(null), [selectedIds, setSelectedIds] = useState<string[]>([]),
     [query, setQuery] = useState(""), [confirmDelete, setConfirmDelete] = useState(false);
+  const [chatUsername, setChatUsername] = useState<string>();
+  const personalMutes = usePersonalMutes(chatUsername,panelOpen);
+  useEffect(() => {
+    if (!allowed) return;
+    let live = true;
+    void fetch("/api/auth").then(r=>r.json()).then(d=>{if(live)setChatUsername((d as {user?:{username:string}}).user?.username);}).catch(()=>{});
+    return () => { live = false; };
+  }, [allowed]);
   async function load() {
     const r = await fetch("/api/admin/teams"), d = await r.json() as { error?: string; teams: ManagedTeam[]; members?: Member[]; maxMembers: number };
     if (!r.ok) throw Error(d.error || "Could not load teams.");
@@ -91,7 +100,7 @@ export default function TeamsAdmin() {
       </>}
     </section>
     {giftTeam && <GiftPointsDialog team={giftTeam} onClose={()=>setGiftTeam(null)} onSaved={async points=>{await load();setMessage(`Gifted ${points.toLocaleString()} points to ${giftTeam.name}.`);}}/>}
-    <TeamPanel open={panelOpen} onOpenChange={setPanelOpen} selected={viewedTeam} onSelect={setViewedTeam} onRead={()=>{}}/>
+    <TeamPanel personalMutes={chatUsername ? personalMutes : undefined} open={panelOpen} onOpenChange={setPanelOpen} selected={viewedTeam} onSelect={setViewedTeam} onRead={()=>{}}/>
     <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}><AlertDialogContent><AlertDialogHeader>
       <AlertDialogTitle>Delete {selected.length} {selected.length===1?"team":"teams"}?</AlertDialogTitle>
       <AlertDialogDescription>Members will choose a team again. Their accounts, individual points and challenge progress stay saved. Team messages and point gifts are removed.</AlertDialogDescription>

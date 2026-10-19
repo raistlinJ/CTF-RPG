@@ -113,7 +113,7 @@ export async function handlePresence(
     gameRevision: `${themeRevision}:${currentCatalog.revision}:${settings.revision}:${[...milestones].join(",")}:${completions.map((r) => `${r.challenge}=${r.points}`).join(",")}`,
     self: { teammate: !!member, crowned: crowned(member?.team, true) },
     teamFeatures: features,
-    ...(await messageStats(db, features, member?.team, u.id, admin)),
+    ...(await messageStats(db, features, member?.team, u.id, admin, config)),
     scoreboard: await scoreboardSettings(db),
   };
   if (setting.visibility === "off")

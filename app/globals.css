@@ -121,9 +121,11 @@ header {
   flex-wrap: wrap;
 }
 .player-header .brand {
-  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 .player-header .ctf-brand-name {
+  min-width: 0;
   white-space: nowrap;
 }
 .player-header .ctf-brand-name small {
@@ -132,10 +134,22 @@ header {
   overflow-wrap: anywhere;
 }
 .player-header .header-right {
+  flex: 0 1 auto;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px 16px;
   min-width: 0;
+  max-width: 100%;
+}
+.player-header .edition {
+  display: block;
+  flex: 0 0 100%;
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
 }
 .player-header .admin-link,
 .player-header .text-button {
@@ -145,27 +159,6 @@ header {
 .player-header button,
 .player-header svg {
   flex-shrink: 0;
-}
-@media (min-width: 761px) {
-  .player-header {
-    flex-wrap: nowrap;
-  }
-  .player-header .brand,
-  .player-header .ctf-brand-name {
-    min-width: 0;
-  }
-  .player-header .brand {
-    flex-shrink: 1;
-  }
-  .player-header .header-right {
-    flex: 1 0 max-content;
-    flex-wrap: nowrap;
-  }
-  .player-header .edition {
-    flex: 1 1 0;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
 }
 .edition,
 .eyebrow {
@@ -2399,6 +2392,18 @@ input::placeholder {
 .team-banner-button { color:inherit; background:transparent; border:0; padding:0; font:inherit; cursor:pointer; text-align:left; line-height:1.6; overflow-wrap:anywhere; }
 .team-banner-button:hover { text-decoration:underline; }
 .game-teams-button { display:inline-flex; gap:6px; align-items:center; }
+.game-messages-button { display:inline-flex; gap:7px; align-items:center; }
+.message-unread-count { display:inline-grid;place-items:center;min-width:23px;padding:2px 6px;border-radius:12px;background:#f2cc68;color:#18283a;font-size:12px;font-weight:700; }
+.team-message-help { color:#a6bcc6;font-size:13px;line-height:1.6;margin:0; }
+.team-open-messages { display:inline-flex;align-items:center;gap:6px;color:#b0e8d3;font-size:12px; }
+.team-message-footer { display:flex;justify-content:flex-end; }
+.personal-mute-controls { display:grid;gap:10px;padding:12px;border:1px solid #456575;border-radius:8px;background:#102633; }
+.personal-mute-controls strong,.personal-mute-controls small { display:block; }
+.personal-mute-controls small { margin-top:4px;color:#a6bcc6;font-size:12px;line-height:1.5; }
+.personal-mute-actions { display:flex;gap:8px;flex-wrap:wrap; }
+.personal-mute-actions .secondary-button { padding:7px 11px;font-size:13px; }
+.personal-mute-button { display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:13px; }
+.personal-muted-message { color:#a6bcc6;font-style:italic; }
 .message-badge { color:#a8eed2; font-size:10px; }
 .nearby-player { pointer-events:auto; padding:0; border:0; background:transparent; cursor:pointer; }
 .nearby-player:disabled { cursor:default; }
@@ -2450,9 +2455,10 @@ input::placeholder {
 }
 
 .player-count { position:absolute;right:-5px;bottom:-4px;border:1px solid #baabed;border-radius:10px;background:#38275f;color:white;padding:1px 5px;font-size:11px;z-index:3; }
-.player-dialog { background:#142c39!important;color:#f2f3ef; width:min(560px,94vw);max-height:90dvh;overflow:hidden; }
+.player-dialog { background:#142c39!important;color:#f2f3ef; width:min(560px,94vw);max-height:90dvh;display:flex;flex-direction:column;overflow-y:auto; }
+.player-dialog > :not(.player-card-list) { flex-shrink:0; }
 .player-popup-note { color:#b8c8d1;font-size:13px; }
-.player-card-list { max-height:60dvh;overflow-y:auto;overscroll-behavior:contain;display:grid;gap:12px;padding:2px 5px 2px 0; }
+.player-card-list { min-height:0;flex:1 1 auto;max-height:60dvh;overflow-y:auto;overscroll-behavior:contain;display:grid;gap:12px;padding:2px 5px 2px 0; }
 .player-card { display:flex;gap:16px;padding:16px;border:1px solid #496373;border-radius:10px;background:#1b3545; }
 .player-card>.portrait { width:64px;height:64px;flex-shrink:0; }
 .player-card>div { min-width:0;overflow-wrap:anywhere; }
@@ -2475,7 +2481,9 @@ input::placeholder {
 .team-message-form button:disabled { cursor: default; }
 .team-message-form button[aria-busy="true"] { cursor: wait; }
 
-.avatar-message-badge { position:absolute;transform:translate(-50%,calc(-100% - 30px));min-width:23px;padding:3px 6px;border-radius:12px;background:#f2cc68;color:#18283a;border:2px solid #172d3d;font-size:12px;font-weight:bold;text-align:center;z-index:5;pointer-events:none; }
+.avatar-message-badge { position:absolute;transform:translate(-50%,calc(-100% - 30px));display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:44px;min-height:32px;padding:5px 9px;border-radius:16px;background:#f2cc68;color:#18283a;border:2px solid #172d3d;font-size:12px;font-weight:bold;text-align:center;white-space:nowrap;z-index:5;pointer-events:auto;cursor:pointer; }
+.avatar-message-badge:hover { background:#ffe08a; }
+.avatar-message-badge:focus-visible { outline:3px solid #fff;outline-offset:3px; }
 
 /* CTF-RPG solve celebrations — Copyright (c) 2026 Jaime C Acosta */
 .challenge-solve-shine { position: absolute; z-index: 15; pointer-events: none; color: #fff8b5; font-size: clamp(16px, 3vw, 36px); line-height: 1; text-shadow: 0 0 8px #fff, 0 0 18px #ffc84a; animation: challenge-solve-shine 2.4s ease-out forwards; }

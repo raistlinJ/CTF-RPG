@@ -4,6 +4,8 @@ Copyright © 2026 Jaime C Acosta.
 
 Each theme has a reusable theme ZIP and a paired demo adventure:
 
+Environment Development adds an assignment-specific pack: `environment-development.zip` is the orbital commissioning deck; `environment-development-demo-theme.zip` and `environment-development-demo-content.zip` load its ten sequential CTFd-export challenges and original exercise PDF. The library action is **Load assignment**. See [the assignment guide](../themes/environment-development/README.md) for progression and conversion details, including two regex alternatives retained as metadata. Content contains instructor answers.
+
 - `north-pole.zip` and `agentic-circuit.zip` contain the theme manifest, maps, sprites, MIDI music, sound effects, and default sound assignments. They contain no challenges or student progress.
 - `halloween.zip` contains the Halloween Hollow world, three heroes, a guide and boss appearance, MIDI music, and sound effects. Like the other reusable theme ZIPs, it has no demo content.
 - `solstice-vanguard.zip` contains the original Solstice Vanguard holiday superhero world, three heroes, a guide and boss appearance, MIDI music, and sound effects. It has no demo content.

@@ -132,7 +132,7 @@ docker compose -f compose.https.yaml down
 
 ## Backups and verification
 
-Back up configuration, `public/sprites`, `public/audio`, and the SQLite database. Stop the service before copying its database (including any `-wal`/`-shm` files), or use SQLite's online backup mechanism. Keep `data/` writable by the server account. Build output is disposable and can be regenerated. Entity activation, cutscene playback history, inventory, and transport unlocks live in the same database as challenge progress. SQLite creates new tables automatically when the upgraded application starts; Cloudflare/D1 installations need migrations through `0021_entity_activations.sql`, as listed in [README.md](README.md#run-the-cloudflare-preview-locally).
+Back up configuration, `public/sprites`, `public/audio`, and the SQLite database. Stop the service before copying its database (including any `-wal`/`-shm` files), or use SQLite's online backup mechanism. Keep `data/` writable by the server account. Build output is disposable and can be regenerated. Entity activation, cutscene playback history, inventory, and transport unlocks live in the same database as challenge progress. SQLite creates new tables automatically when the upgraded application starts; Cloudflare/D1 installations need migrations through `0028_personal_chat_mutes.sql`, as listed in [README.md](README.md#run-the-cloudflare-preview-locally).
 
 ```sh
 npm run build:selfhost

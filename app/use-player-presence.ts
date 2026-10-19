@@ -1,6 +1,7 @@
 "use client";
 import type { TeamFeatures } from "./team-panel";
 import { useEffect, useRef, useState } from "react";
+import { emptyMessageInbox, receiveMessages, readMessages } from "@/lib/message-inbox.mjs";
 export type ChallengeSolve = { id: string; map: string; x: number; y: number; count: number };
 export type SolveShine = ChallengeSolve & { key: string };
 export type NearbyPlayer = {
@@ -19,11 +20,12 @@ export function usePlayerPresence(
   map: string,
   pos: { x: number; y: number },
   themeRevision: number | undefined,
+  readMessagesAt = 0,
 ) {
   const [gameRevision, setGameRevision] = useState<string>();
   const [challengeSolves, setChallengeSolves] = useState<ChallengeSolve[]>([]);
   const [solveShines, setSolveShines] = useState<SolveShine[]>([]);
-  const [messageCount, setMessageCount] = useState(0);
+  const [inbox, setInbox] = useState(emptyMessageInbox);
   const [scoreboard, setScoreboard] = useState<{
     visibility: "admins" | "all";
     mode: string;
@@ -43,20 +45,20 @@ export function usePlayerPresence(
     }),
     [latestMessageAt, setLatestMessageAt] = useState(0),
     [status, setStatus] = useState("");
-  const current = useRef({ map, pos, themeRevision });
-  current.current = { map, pos, themeRevision };
+  const current = useRef({ map, pos, themeRevision, readMessagesAt });
+  current.current = { map, pos, themeRevision, readMessagesAt };
+  useEffect(() => { setInbox(state => readMessages(state, readMessagesAt)); }, [readMessagesAt]);
   useEffect(() => {
     setSnapshot({ map: current.current.map, players: [] });
     setStatus("");
     setSelf({ teammate: false, crowned: false });
+    setInbox(emptyMessageInbox());
+    setLatestMessageAt(0);
     if (!username || !enabled || themeRevision === undefined) return;
     let previousSolves: Map<string, number> | undefined;
     let shineTimer: ReturnType<typeof setTimeout> | undefined;
     setSolveShines([]);
     setChallengeSolves([]);
-    let previousCount: number | undefined;
-    let badgeTimer: ReturnType<typeof setTimeout> | undefined;
-    setMessageCount(0);
     let live = true,
       timer: ReturnType<typeof setInterval> | undefined,
       inFlight = false,
@@ -116,15 +118,7 @@ export function usePlayerPresence(
           setFeatures(d.teamFeatures);
           setLatestMessageAt(d.latestMessageAt);
           setScoreboard(d.scoreboard);
-          if (previousCount !== undefined && d.receivedCount > previousCount) {
-            const incoming = d.receivedCount - previousCount;
-            setMessageCount((n) => n + incoming);
-            clearTimeout(badgeTimer);
-            badgeTimer = setTimeout(() => {
-              if (live) setMessageCount(0);
-            }, 5000);
-          }
-          previousCount = d.receivedCount;
+          setInbox(state => receiveMessages(state, d, current.current.readMessagesAt));
           setStatus(
             d.truncated ? "Showing the 100 most recently active players." : "",
           );
@@ -153,7 +147,6 @@ export function usePlayerPresence(
     return () => {
       live = false;
       clearInterval(timer);
-      clearTimeout(badgeTimer);
       clearTimeout(shineTimer);
       controller?.abort();
       document.removeEventListener("visibilitychange", visibilityChanged);
@@ -167,7 +160,7 @@ export function usePlayerPresence(
     self,
     features,
     latestMessageAt,
-    messageCount,
+    messageCount: inbox.latestMessageAt <= readMessagesAt ? 0 : inbox.unreadCount,
     challengeSolves,
     gameRevision,
     solveShines: solveShines.filter((c) => c.map === map),

@@ -3,18 +3,20 @@ import { drawBossIcon, challengeSize, challengeDistance, challengeTiles, challen
 import { useBossSprites } from "./use-boss-sprites";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
+import { usePersonalMutes, PersonalMuteButton, PersonalMuteControls, type PersonalMutes } from "./personal-mutes";
 import ChallengeCutscene, { type Cutscene } from "./challenge-cutscene";
 import { EntityConversation, EntityMarker } from "./entity-dialogue";
 import SolvedAnswer from "./solved-answer";
-import { visibleSprite } from "@/lib/visible-sprite";
+import { drawCharacter, matchingSprite, type SpriteImage } from "@/lib/character-artwork";
 import type { EntitySummary } from "@/lib/non-player-entities";
 import { entityInInteractionRange } from "@/lib/non-player-entities.mjs";
 import { clientUuid } from "@/lib/client-uuid.mjs";
+import { savedMessageReadAt, saveMessageReadAt } from "@/lib/message-inbox.mjs";
 import { KEY_PALETTE, hintCostLabel } from "@/lib/inventory-data.mjs";
 import { PlayerInventory, TransportUnlock, type Inventory, type LockedTransport } from "./player-inventory";
 import { usePlayerPresence, type NearbyPlayer, type SolveShine } from "./use-player-presence";
 import TeamSetup, { type Team } from "./team-setup";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ScoresPanel from "./scoreboard/scores-panel";
 import TeamPointGifts from "./team-point-gifts";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -32,6 +34,7 @@ import {
   LogOut,
   Sparkles,
   MapPin,
+  MessageCircle,
   Flag,
 } from "lucide-react";
 import {
@@ -144,24 +147,23 @@ type GameResponse = GameState & {
   awardedPoints?: number;
 };
 function useSprite(path: string | null) {
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [artwork, setArtwork] = useState<SpriteImage | null>(null);
   useEffect(() => {
-    setImage(null);
     if (!path) return;
     let live = true;
     const img = new Image();
     img.onload = () => {
-      if (live) setImage(img);
+      if (live) setArtwork({ path, image: img });
     };
     img.onerror = () => {
-      if (live) setImage(null);
+      if (live) setArtwork({ path, image: null });
     };
     img.src = path;
     return () => {
       live = false;
     };
   }, [path]);
-  return image;
+  return matchingSprite(path, artwork);
 }
 const adminAvatar: Character = {
   id: "quest-admin",
@@ -173,94 +175,6 @@ const adminAvatar: Character = {
 };
 function administratorAppearance(sprite: string | null = null): Character {
   return sprite ? { ...adminAvatar, sprite } : adminAvatar;
-}
-function drawCharacter(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  character: Character,
-  image: HTMLImageElement | null,
-  size: number,
-) {
-  if (character.administrator && !image) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(size / 32, size / 32);
-    const r = (c: string, a: number, b: number, w: number, h: number) => {
-      ctx.fillStyle = c;
-      ctx.fillRect(a, b, w, h);
-    };
-    r("#1d203f", -9, 12, 18, 3);
-    r("#ede5ff", -6, -15, 12, 4);
-    r("#eac6a2", -5, -11, 10, 8);
-    r("#413568", -5, -7, 10, 2);
-    r("#805dcc", -8, -2, 16, 14);
-    r("#eee5ff", -2, -2, 4, 14);
-    r("#e9c970", -8, 9, 16, 3);
-    r("#34334e", -6, 12, 5, 3);
-    r("#34334e", 1, 12, 5, 3);
-    r("#e9c970", 10, -10, 2, 24);
-    r("#8ae6ff", 8, -15, 6, 6);
-    r("#d5e8ff", -12, 0, 5, 7);
-    r("#4b587c", -11, 1, 3, 5);
-    ctx.restore();
-  } else if (image) {
-    const bounds = visibleSprite(image);
-    const ratio = bounds.w / bounds.h;
-    const h = size,
-      w = size * ratio;
-    ctx.drawImage(
-      image,
-      bounds.x,
-      bounds.y,
-      bounds.w,
-      bounds.h,
-      x - w / 2,
-      y - h / 2,
-      w,
-      h,
-    );
-  } else sprite(ctx, x, y, character.fallback, size / 32);
-}
-function sprite(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  hero: Hero,
-  scale = 1,
-) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-  const rect = (c: string, x: number, y: number, w: number, h: number) => {
-    ctx.fillStyle = c;
-    ctx.fillRect(x, y, w, h);
-  };
-  rect("#163340", -7, 12, 18, 4);
-  if (hero === "thunder") {
-    rect("#b9434d", -7, -3, 14, 15);
-    rect("#ebd887", -7, -15, 14, 12);
-    rect("#f2c9a0", -4, -12, 8, 8);
-    rect("#91a6b1", -6, 0, 12, 9);
-    rect("#a7c4ce", 9, -6, 7, 6);
-    rect("#695348", 11, 0, 2, 10);
-  } else {
-    rect(hero === "web" ? "#d94c57" : "#438ac4", -6, -15, 12, 12);
-    rect("#f4f5df", -4, -11, 3, 3);
-    rect("#f4f5df", 2, -11, 3, 3);
-    rect(hero === "web" ? "#d94c57" : "#438ac4", -7, -2, 14, 10);
-    rect("#d94c57", -4, 3, 8, 3);
-    if (hero === "shield") {
-      rect("#da6464", 6, 0, 10, 10);
-      rect("#eee1b9", 8, 2, 6, 6);
-      rect("#438ac4", 10, 4, 2, 2);
-    } else {
-      rect("#263956", -3, -1, 6, 6);
-    }
-  }
-  rect("#253e65", -6, 8, 5, 6);
-  rect("#253e65", 2, 8, 5, 6);
-  ctx.restore();
 }
 export function World({
   hero,
@@ -282,6 +196,7 @@ export function World({
   onPlayerSelect,
   selfPlayer,
   messageCount = 0,
+  onOpenMessages,
   solveShines = [],
   selfMarkers = { teammate: false, crowned: false },
   unlockedTransports = [],
@@ -305,6 +220,7 @@ export function World({
   onPlayerSelect?: (x: number, y: number) => void;
   selfPlayer?: NearbyPlayer;
   messageCount?: number;
+  onOpenMessages?: () => void;
   solveShines?: SolveShine[];
   selfMarkers?: { teammate: boolean; crowned: boolean };
   unlockedTransports?: string[];
@@ -327,7 +243,8 @@ export function World({
   const image = useSprite(hero.sprite);
   const bossSprites = useBossSprites(bossSpritePaths);
   const background = useSprite(mapInfo(map)?.background || null);
-  useEffect(() => {
+  // Clear and redraw before paint so a changed appearance cannot flash the old frame.
+  useLayoutEffect(() => {
     const c = ref.current!;
     const ctx = c.getContext("2d")!;
     const t = 24;
@@ -567,18 +484,21 @@ export function World({
         <div className="entity-map-layer">{entities.filter(e => e.map === map).map(e => <EntityMarker key={e.id} entity={e} character={characters.find(c => c.id === e.characterId)} showName={!!onSelect || entityInInteractionRange(e, map, pos.x, pos.y)} />)}</div>
         {!onSelect && selfPlayer && (
           <div className="nearby-player-layer" aria-label="Players on this map">
-            {messageCount > 0 && (
-              <div
+            {messageCount > 0 && onOpenMessages && (
+              <button
+                type="button"
                 className="avatar-message-badge"
-                role="status"
-                aria-label={`${messageCount} new messages`}
+                aria-label={`Open messages: ${messageCount} unread`}
+                aria-haspopup="dialog"
+                title="Open your inbox. Use Messages in the header to reopen it anytime."
+                onClick={onOpenMessages}
                 style={{
                   left: `${((pos.x + 0.5) / 40) * 100}%`,
                   top: `${((pos.y + 0.5) / 28) * 100}%`,
                 }}
               >
-                {messageCount}
-              </div>
+                <MessageCircle size={14} aria-hidden="true" /> {messageCount} · Open
+              </button>
             )}
             {players.some((p) => p.x === pos.x && p.y === pos.y) &&
               (selfMarkers.teammate || selfMarkers.crowned) && (
@@ -685,7 +605,8 @@ export function World({
 export function Portrait({ hero }: { hero: Character }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const image = useSprite(hero.sprite);
-  useEffect(() => {
+  // The canvas persists when selection or theme artwork changes.
+  useLayoutEffect(() => {
     const c = ref.current!.getContext("2d")!;
     c.imageSmoothingEnabled = false;
     c.clearRect(0, 0, 100, 100);
@@ -803,9 +724,19 @@ export default function Game() {
   const [teamPanelOpen, setTeamPanelOpen] = useState(false),
     [selectedTeam, setSelectedTeam] = useState<string | null>(null),
     [readMessagesAt, setReadMessagesAt] = useState(0);
+  const personalMutes = usePersonalMutes(user?.username, !!playerTile || teamPanelOpen);
   function openTeam(id: string | null) {
     setSelectedTeam(id);
     setTeamPanelOpen(true);
+  }
+  useEffect(() => {
+    let at = 0;
+    try { if (user) at = savedMessageReadAt(localStorage, user.username); } catch {}
+    setReadMessagesAt(at);
+  }, [user?.username]);
+  function markMessagesRead(at: number) {
+    setReadMessagesAt(previous => Math.max(previous, at));
+    try { if (user) saveMessageReadAt(localStorage, user.username, at); } catch {}
   }
   const presence = usePlayerPresence(
     user?.username,
@@ -813,7 +744,16 @@ export default function Game() {
     map,
     pos,
     config?.themeRevision,
+    readMessagesAt,
   );
+  const hasUnreadMessages = presence.latestMessageAt > readMessagesAt;
+  function openMessages() {
+    const inbox = canAdmin ? "instructors" : team?.id;
+    if (!inbox) return;
+    setPlayerTile(null);
+    // Incoming messages go to the inbox; otherwise reopen the last conversation.
+    openTeam(hasUnreadMessages ? inbox : selectedTeam || inbox);
+  }
   const [entities, setEntities] = useState<EntitySummary[]>([]);
   function applyGame(d: GameState) {
     setEntities(d.entities || []);
@@ -1120,6 +1060,10 @@ export default function Game() {
         e.preventDefault();
         search();
       }
+      if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        openMessages();
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -1142,6 +1086,9 @@ export default function Game() {
     team,
     teamPanelOpen,
     playerTile,
+    selectedTeam,
+    readMessagesAt,
+    presence.latestMessageAt,
   ]);
   async function login(e: React.FormEvent) {
     e.preventDefault();
@@ -1328,20 +1275,25 @@ export default function Game() {
         </a>
         <div className="header-right">
           {user && <NotificationsInbox key={user.username} username={user.username}/>}
-          <span className="edition">{config?.theme.description}</span>
+          {user && (canAdmin || team) && (
+            <button
+              type="button"
+              className="text-button game-messages-button"
+              aria-haspopup="dialog"
+              aria-label={hasUnreadMessages ? `Messages: ${presence.messageCount > 0 ? presence.messageCount + " unread" : "new messages"}` : "Messages"}
+              title="Open or reopen messages (M)"
+              onClick={openMessages}
+            >
+              <MessageCircle size={17} aria-hidden="true" /> Messages
+              {hasUnreadMessages && <span className="message-unread-count" aria-live="polite" aria-atomic="true">{presence.messageCount > 0 ? presence.messageCount : "New"}</span>}
+            </button>
+          )}
           {user && (canAdmin || team) && (
             <button
               className="text-button game-teams-button"
               onClick={() => openTeam(null)}
             >
               Teams
-              {(presence.features.messaging ||
-                presence.features.everyone.messaging) &&
-                presence.latestMessageAt > readMessagesAt && (
-                  <span className="message-badge" aria-label="New messages">
-                    ●
-                  </span>
-                )}
             </button>
           )}
           {user &&
@@ -1386,8 +1338,9 @@ export default function Game() {
                   setNearbyOptions(null);
                   setUser(null);
                   setTeamPanelOpen(false);
-                  setPlayerTile(null);
+                  setSelectedTeam(null);
                   setReadMessagesAt(0);
+                  setPlayerTile(null);
                   setActive(null);
                   setTeam(null);
                   setCanAdmin(false);
@@ -1405,6 +1358,7 @@ export default function Game() {
             </button>
           )}
         </div>
+        <p className="edition">{config?.theme.description}</p>
       </header>
       <PlayerPopup
         tile={playerTile}
@@ -1419,6 +1373,9 @@ export default function Game() {
         characters={heroes}
         adminSprite={config?.theme.adminSprite}
         canAdmin={canAdmin}
+        personalMutes={personalMutes}
+        viewerUsername={user?.username}
+        viewerTeam={team?.id || null}
         featureRevision={presence.features.revision}
         onMessage={(id) => {
           setPlayerTile(null);
@@ -1426,11 +1383,12 @@ export default function Game() {
         }}
       />
       <TeamPanel
+        personalMutes={personalMutes}
         open={teamPanelOpen}
         onOpenChange={setTeamPanelOpen}
         selected={selectedTeam}
         onSelect={setSelectedTeam}
-        onRead={(at) => setReadMessagesAt((previous) => Math.max(previous, at))}
+        onRead={markMessagesRead}
       />
       {audioError && (
         <p role="status" className="audio-error">
@@ -1574,6 +1532,7 @@ export default function Game() {
               players={presence.players}
               selfMarkers={presence.self}
               messageCount={presence.messageCount}
+              onOpenMessages={openMessages}
               solveShines={presence.solveShines}
               selfPlayer={selfPlayer}
               onPlayerSelect={(x, y) => setPlayerTile({ map, x, y })}
@@ -1624,6 +1583,7 @@ export default function Game() {
               <span>
                 <kbd>E</kbd> search nearby
               </span>
+              <span><kbd>M</kbd> messages · click the message bubble above your explorer</span>
               <span>Look for ✦ sparkles and character speech bubbles</span>
             </div>
             <div className="message" role="status">
@@ -1907,6 +1867,9 @@ function PlayerPopup({
   onMessage,
   featureRevision,
   canAdmin,
+  personalMutes,
+  viewerUsername,
+  viewerTeam,
 }: {
   tile: { map: string; x: number; y: number } | null;
   onClose: () => void;
@@ -1916,6 +1879,9 @@ function PlayerPopup({
   onMessage: (id: string) => void;
   featureRevision: number;
   canAdmin: boolean;
+  personalMutes: PersonalMutes;
+  viewerUsername?: string;
+  viewerTeam: string | null;
 }) {
   const [teams, setTeams] = useState<
     { id: string; label: string; score?: number; canMessage: boolean }[] | null
@@ -2014,6 +1980,7 @@ function PlayerPopup({
           {tile?.x}, {tile?.y}
         </p>
         {error && <p role="alert">{error}</p>}
+        <PersonalMuteControls controls={personalMutes} />
         <div className="player-card-list">
           {!players.length && <p>These players have moved or left the map.</p>}
           {players.map((p) => {
@@ -2069,9 +2036,12 @@ function PlayerPopup({
                       {muting === p.username
                         ? "Saving…"
                         : mutes.find((m) => m.username === p.username)?.muted
-                          ? "Unmute user"
-                          : "Mute user"}
+                          ? "Unmute user globally"
+                          : "Mute user globally"}
                     </button>
+                  )}
+                  {p.username !== viewerUsername && p.role !== "admin" && !(viewerTeam && p.team === viewerTeam) && (
+                    <PersonalMuteButton controls={personalMutes} username={p.username} />
                   )}
                 </div>
               </article>
