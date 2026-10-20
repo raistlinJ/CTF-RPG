@@ -12,6 +12,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {runtimeConfig,defaultGameConfig} from '../lib/runtime-config.mjs';
 import {publicConfig} from '../lib/config-schema.mjs';
 import {initializeSchema,createSQLiteAdapter} from '../server/sqlite.mjs';
+import {midiFixture} from './helpers/midi.mjs';
 import {PAGE_ROUTES} from '../lib/page-routes.mjs';
 import {ensureStartupAdmin} from '../server/protected-admin.mjs';
 async function port(){const s=createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const p=s.address().port;await new Promise(r=>s.close(r));return p;}
@@ -99,4 +100,25 @@ test('native challenge-file uploads accept analysis files above the generic API 
   const download=await fetch(base+attachment.url);assert.equal(download.status,200);assert.equal(download.headers.get('content-disposition'),'attachment');assert.deepEqual(new Uint8Array(await download.arrayBuffer()),bytes);
   const oversized=await fetch(base+'/api/admin/challenge-files?name=too-big.pcap',{method:'POST',headers:{Origin:base,Cookie:cookie},body:new Uint8Array(4*1024*1024+1)});assert.equal(oversized.status,413);assert.match((await oversized.json()).error,/4 MB/);
  }finally{await stop(child);rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('native map music accepts a 100-file batch above 33 MB and persists the full library', async () => {
+ const dir=fixture(), p=await port(), base=`http://127.0.0.1:${p}`; let child=await start(dir,p);
+ try {
+  const auth=await fetch(base+'/api/auth',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({mode:'login',username:'teacher01',password:'initial-pass#with$dollar',hero:'web'})});
+  assert.equal(auth.status,200); const cookie=auth.headers.get('set-cookie').split(';')[0];
+  const headers={Origin:base,Cookie:cookie};
+  const initial=await (await fetch(base+'/api/admin/theme-audio',{headers})).json();
+  const form=new FormData();
+  form.set('revision',String(initial.revision)); form.set('playlist','[]'); form.set('volume','.2'); form.set('loop','true');
+  for(let pitch=0;pitch<100;pitch++)form.append('files',new File([midiFixture({pitch,metadataBytes:pitch===0?34*1024*1024:0})],`Track ${pitch}.mid`));
+  const response=await fetch(base+'/api/admin/theme-audio',{method:'POST',headers,body:form});
+  const saved=await response.json(); assert.equal(response.status,200,JSON.stringify(saved)); assert.equal(saved.uploaded,100);
+  await stop(child); child=await start(dir,p);
+  const persisted=await (await fetch(base+'/api/admin/theme-audio',{headers})).json();
+  assert.equal(persisted.audio.playlist.length,100);
+  const download=await fetch(base+persisted.audio.playlist[0].midi);
+  assert.equal(download.status,200); assert.ok((await download.arrayBuffer()).byteLength>34*1024*1024);
+ } finally {await stop(child);rmSync(dir,{recursive:true,force:true});}
 });

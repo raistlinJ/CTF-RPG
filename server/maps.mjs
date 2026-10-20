@@ -223,6 +223,7 @@ export async function updateMap(req, state) {
     { theme: state.theme },
     state.store,
     state.readBaseAsset,
+    { allowLargeMusic: true },
   );
   const entries = unzipSync(new Uint8Array(await exported.arrayBuffer()));
   const used = new Set(themeAssetPaths(next).map((p) => "assets" + p));
@@ -255,7 +256,7 @@ export async function updateMap(req, state) {
     if (form.has(key)) packed.set(key, String(form.get(key)));
   const result = await importPacks(
     new Request(req.url, { method: "POST", body: packed }),
-    { ...state, preservePlacements: isolated },
+    { ...state, preservePlacements: isolated, allowLargeMusic: true },
     "theme",
   );
   const explicitMoves = challenges.flatMap((c) => {

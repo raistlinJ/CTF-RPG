@@ -71,7 +71,7 @@ export default function ImagesPanel({ onDirtyChange, onSaved, knownRevision }: {
         </article>)}{!visibleImages.length && <p>No images in this view.</p>}</div>
       </section>
       <section className="admin-editor theme-media-section"><h2>Upload images</h2>
-        <p>PNG, JPEG, WebP, or GIF. Up to 10 images per upload and 4 MB per image; the complete theme must fit within 32 MB, including existing artwork, audio, retained originals, and unused uploads. Only unused uploads can be deleted.</p>
+        <p>PNG, JPEG, WebP, or GIF. Up to 10 images per upload and 4 MB per image; theme images and sound effects must fit within 32 MB, including existing artwork, retained originals, and unused uploads. Map music is excluded from this size limit. Only unused uploads can be deleted.</p>
         <label>Choose images<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple disabled={busy} onChange={e => {
           const selected = Array.from(e.target.files || []); e.target.value = "";
           if (selected.length > 10 || selected.some(file => file.size > IMAGE_FILE_LIMIT)) { setError("Choose at most 10 images, each up to 4 MB."); return; }

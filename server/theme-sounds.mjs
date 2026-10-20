@@ -1,6 +1,6 @@
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { THEME_PACK_LIMIT, THEME_UPLOAD_LIMIT } from '../lib/pack-limits.mjs';
-import { parseTheme, themeAssetPaths } from '../lib/theme-schema.mjs';
+import { parseTheme, themeNonMusicAssetPaths } from '../lib/theme-schema.mjs';
 import { SOUND_EVENTS } from '../lib/sound-events.mjs';
 import { musicTracks } from '../lib/midi-playlist.mjs';
 import { assertAsset, assetTypes, readAsset } from './packs.mjs';
@@ -59,11 +59,11 @@ export async function handleThemeSounds(req, {db, user, platformAdmin, theme, th
       } else throw Error('Unknown sound action.');
     }
     let total = 0;
-    for (const path of themeAssetPaths(next)) {
+    for (const path of themeNonMusicAssetPaths(next)) {
       const bytes = staged.find(item => item.src === path)?.bytes || await readAsset(path, assetStore, readBaseAsset);
       if (!bytes) throw Error(`Theme asset is unavailable: ${path}`);
       total += bytes.length;
-      if (total > THEME_PACK_LIMIT) throw Error('Theme images and audio exceed the 32 MB theme limit.');
+      if (total > THEME_PACK_LIMIT) throw Error('Theme images and sound effects exceed the 32 MB asset limit.');
     }
     for (const item of staged) await assetStore.put(item.key, item.bytes, item.type);
     const result = await db.prepare("INSERT INTO theme_catalog(id,payload,revision) SELECT 'active',?,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=? ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,revision=theme_catalog.revision+1 WHERE theme_catalog.revision=?").bind(JSON.stringify(next),themeRevision,themeRevision).run();

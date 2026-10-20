@@ -1,7 +1,7 @@
 import { THEME_PACK_LIMIT, THEME_UPLOAD_LIMIT } from "../lib/pack-limits.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { BOSS_STYLES, themeBossStyles } from '../lib/challenge-icon.mjs';
-import { parseTheme, themeAssetPaths } from '../lib/theme-schema.mjs';
+import { parseTheme, themeAssetPaths, themeNonMusicAssetPaths } from '../lib/theme-schema.mjs';
 import { assertAsset, assetTypes, readAsset } from './packs.mjs';
 
 const reply = (data, status = 200) => Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -119,11 +119,11 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
       } else throw Error('Unknown media action.');
     }
     let size = 0;
-    for (const path of themeAssetPaths(next)) {
+    for (const path of themeNonMusicAssetPaths(next)) {
       const bytes = staged.find(item => item.src === path)?.bytes || await readAsset(path, assetStore, readBaseAsset);
       if (!bytes) throw Error(`Theme image is unavailable: ${path}`);
       size += bytes.length;
-      if (size > THEME_PACK_LIMIT) throw Error('Theme images and audio exceed the 32 MB theme pack limit.');
+      if (size > THEME_PACK_LIMIT) throw Error('Theme images and sound effects exceed the 32 MB asset limit.');
     }
     for (const item of staged) await assetStore.put(item.key, item.bytes, item.type);
     const result = await db.prepare("INSERT INTO theme_catalog(id,payload,revision) SELECT 'active',?,1 WHERE COALESCE((SELECT revision FROM theme_catalog WHERE id='active'),0)=? ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,revision=theme_catalog.revision+1 WHERE theme_catalog.revision=?").bind(JSON.stringify(next), themeRevision, themeRevision).run();
