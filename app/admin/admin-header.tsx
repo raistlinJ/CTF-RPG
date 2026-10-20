@@ -3,7 +3,7 @@ import {Snowflake} from "lucide-react";
 const pages=[
  {id:"challenges",href:"/admin",label:"Challenges"},{id:"theme",href:"/admin/theme/maps",label:"Theme"},
  {id:"users",href:"/admin/users",label:"Users"},{id:"teams",href:"/admin/teams",label:"Teams"},
- {id:"notifications",href:"/admin/notifications",label:"Notifications"},{id:"data",href:"/admin/data",label:"Import & backup"},
+ {id:"social",href:"/admin/social",label:"Social"},{id:"data",href:"/admin/data",label:"Import & backup"},
 ] as const;
 export default function AdminHeader({active}:{active:(typeof pages)[number]["id"]|"scores"|"game"}) {
  return <header className="admin-header"><a className="brand" href="/admin"><span className="brand-icon"><Snowflake size={24}/></span>CTF-RPG <b>STUDIO</b></a>

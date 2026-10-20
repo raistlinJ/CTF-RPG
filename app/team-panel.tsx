@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel} from "@/components/ui/alert-dialog";
 import {
   MessageCircle,
   Users,
@@ -74,7 +75,10 @@ export default function TeamPanel({
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false),
     [busy, setBusy] = useState(false),
-    [text, setText] = useState("");
+    [text, setText] = useState(""),
+    [confirmClear, setConfirmClear] = useState(false),
+    [clearing, setClearing] = useState(false),
+    [clearNotice, setClearNotice] = useState("");
   const request = useRef({ id: "", text: "", team: "" }),
     generation = useRef(0),
     messageList = useRef<HTMLDivElement>(null),
@@ -129,9 +133,27 @@ export default function TeamPanel({
     if (nearBottom.current && messageList.current)
       messageList.current.scrollTop = messageList.current.scrollHeight;
   }, [selected, data?.messages?.at(-1)?.id]);
+  async function clearChats() {
+    if (clearing || busy) return;
+    setClearing(true);
+    setError("");
+    const version = generation.current;
+    try {
+      const r = await fetch("/api/chat-history", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"clear-all"})});
+      const result = await r.json() as {error?:string;clearedThrough:number};
+      if (!r.ok) throw Error(result.error || "Could not clear your chats.");
+      onRead(result.clearedThrough);
+      setClearNotice("Your chat history has been cleared. New messages will appear here.");
+      if (version === generation.current) {
+        generation.current++;
+        setData(current => current ? {...current,messages:[],latestMessageAt:0} : current);
+        void load(true);
+      }
+    } catch(e) {setError((e as Error).message);} finally {setClearing(false);setConfirmClear(false);}
+  }
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    if (busy || !selected || !text.trim()) return;
+    if (busy || clearing || !selected || !text.trim()) return;
     setBusy(true);
     sendFailed.current = false;
     setError("");
@@ -171,6 +193,7 @@ export default function TeamPanel({
     }
   }
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="team-dialog">
         <div className="team-dialog-heading">
@@ -201,6 +224,7 @@ export default function TeamPanel({
             All teams
           </button>
         )}
+        {clearNotice && <p role="status">{clearNotice}</p>}
         {error && (
           <p className="error" role="alert">
             {error}
@@ -377,8 +401,10 @@ export default function TeamPanel({
             </>
           )
         )}
-        <div className="team-message-footer"><button type="button" className="secondary-button" onClick={() => onOpenChange(false)}>Close messages</button></div>
+        <div className="team-message-footer">{data && <button type="button" className="secondary-button" disabled={clearing||busy} onClick={()=>setConfirmClear(true)}>Clear my chats</button>}<button type="button" className="secondary-button" onClick={() => onOpenChange(false)}>Close messages</button></div>
       </DialogContent>
     </Dialog>
+    <AlertDialog open={confirmClear} onOpenChange={value=>{if(!clearing)setConfirmClear(value);}}><AlertDialogContent className="chat-confirmation"><AlertDialogHeader><AlertDialogTitle>Clear your chat history?</AlertDialogTitle><AlertDialogDescription>This hides all past sent and received chats from your view, across every team and the instructor conversation. Your teammates, recipients, and administrators keep their copies. New messages will still appear. You cannot undo this clear.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={clearing}>Cancel</AlertDialogCancel><button type="button" className="secondary-button danger-button" disabled={clearing} onClick={()=>void clearChats()}>{clearing?"Clearing…":"Clear my chats"}</button></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    </>
   );
 }

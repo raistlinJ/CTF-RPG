@@ -1,3 +1,4 @@
+import { chatClearedThrough } from './chat-history.mjs';
 import { personalMuteContext, personalizeMessages } from './personal-mutes.mjs';
 import { registrationSettings } from "./registration-settings.mjs";
 import { teamRestriction } from "./team-actions.mjs";
@@ -46,12 +47,13 @@ export async function teamInbox(db, features, team, userId, admin, config) {
 }
 
 export async function messageStats(db, features, team, userId, admin, config = {accounts:{users:[]}}) {
+  const clearedThrough = await chatClearedThrough(db,userId);
   const received = team ? (await db.prepare(
-    `SELECT sender_user,sender_team,COUNT(*) AS count,MAX(created_at) AS latest FROM team_messages WHERE recipient_team=? AND sender_user IS NOT ? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) GROUP BY sender_user,sender_team`
-  ).bind(team,userId || null,+features.messaging,+features.everyone.messaging).all()).results : [];
+    `SELECT sender_user,sender_team,COUNT(*) AS count,MAX(created_at) AS latest FROM team_messages WHERE created_at>? AND recipient_team=? AND sender_user IS NOT ? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) GROUP BY sender_user,sender_team`
+  ).bind(clearedThrough,team,userId || null,+features.messaging,+features.everyone.messaging).all()).results : [];
   const instructors = admin && features.messaging ? (await db.prepare(
-    'SELECT sender_user,COUNT(*) AS count,MAX(created_at) AS latest FROM instructor_messages GROUP BY sender_user'
-  ).bind().all()).results : [];
+    'SELECT sender_user,COUNT(*) AS count,MAX(created_at) AS latest FROM instructor_messages WHERE created_at>? GROUP BY sender_user'
+  ).bind(clearedThrough).all()).results : [];
   const context = userId ? await personalMuteContext(db,config,userId,[...received,...instructors].map(m=>m.sender_user)) : null;
   const allowed = [...received.filter(m=>m.sender_team === null || !context?.isMuted(m.sender_user)),...instructors.filter(m=>!context?.isMuted(m.sender_user))];
   return {receivedCount:allowed.reduce((sum,m)=>sum+m.count,0),latestMessageAt:Math.max(0,...allowed.map(m=>m.latest || 0))};
@@ -397,6 +399,7 @@ export async function handleTeamSocial(
     return reply({ sent: true, id: body.id });
   }
   if (req.method !== "GET") return reply({ error: "Method not allowed." }, 405);
+  const clearedThrough = await chatClearedThrough(db,u?.id);
   const teams = (
     await db
       .prepare(
@@ -495,7 +498,7 @@ export async function handleTeamSocial(
       features,
       ownTeam: own,
       team: instructorCard,
-      messages: await personalizeMessages(db,config,u?.id,messages),
+      messages: await personalizeMessages(db,config,u?.id,messages.filter(m=>m.createdAt>clearedThrough)),
       muted,
       isAdmin: admin,
       latestMessageAt: (await messageStats(db, features, own, u?.id, admin, config))
@@ -560,7 +563,7 @@ export async function handleTeamSocial(
     team: summary(selected),
     muted,
     isAdmin: admin,
-    messages: await personalizeMessages(db,config,u?.id,messages),
+    messages: await personalizeMessages(db,config,u?.id,messages.filter(m=>m.createdAt>clearedThrough)),
     latestMessageAt: await teamInbox(db, features, own, u?.id, admin, config),
   });
 }

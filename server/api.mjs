@@ -29,6 +29,7 @@ import {
 } from "./team-social.mjs";
 import { handleTeamSocial } from "./team-social.mjs";
 import { handlePersonalMutes } from "./personal-mutes.mjs";
+import { handleChatHistory, handleAdminChats } from "./chat-history.mjs";
 import { handlePresence } from "./presence.mjs";
 import { spawnSchema, canSpawn, resolveSpawn } from "../lib/spawn.mjs";
 import { updateMap } from "./maps.mjs";
@@ -279,6 +280,8 @@ function createRequestApi({
       });
     if (["/api/team-social", "/api/admin/team-social"].includes(path))
       return handleTeamSocial(req, { db, config, user, platformAdmin });
+    if (path === "/api/chat-history") return handleChatHistory(req,{db,user});
+    if (path === "/api/admin/chats") return handleAdminChats(req,{db,user,platformAdmin});
     if (path === "/api/chat-mutes") return handlePersonalMutes(req,{db,config,user});
     if (["/api/teams", "/api/admin/teams"].includes(path))
       return handleTeams(req, { db, config, user, platformAdmin });

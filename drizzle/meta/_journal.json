@@ -204,6 +204,13 @@
       "when": 1792432800000,
       "tag": "0028_personal_chat_mutes",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1792432800001,
+      "tag": "0029_chat_history",
+      "breakpoints": true
     }
   ]
 }

@@ -2396,7 +2396,20 @@ input::placeholder {
 .message-unread-count { display:inline-grid;place-items:center;min-width:23px;padding:2px 6px;border-radius:12px;background:#f2cc68;color:#18283a;font-size:12px;font-weight:700; }
 .team-message-help { color:#a6bcc6;font-size:13px;line-height:1.6;margin:0; }
 .team-open-messages { display:inline-flex;align-items:center;gap:6px;color:#b0e8d3;font-size:12px; }
-.team-message-footer { display:flex;justify-content:flex-end; }
+.team-message-footer { display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-end; }
+.chat-confirmation { background:#10222c;color:#e4eff1;max-height:90vh;overflow-y:auto; }
+.social-chat-actions { display:flex;flex-wrap:wrap;gap:12px;align-items:center; }
+.social-chat-filters { display:grid;grid-template-columns:minmax(200px,2fr) repeat(2,minmax(150px,1fr));gap:16px;margin:20px 0; }
+.social-chat-filters label { display:grid;gap:8px;min-width:0; }
+.social-chat-filters input,.social-chat-filters select { width:100%;min-width:0;padding:10px;border:1px solid #456575;border-radius:6px;background:#10222c;color:#e4eff1; }
+.social-chat-list { display:grid;gap:16px; }
+.social-chat-message { padding:18px;border:1px solid #385561;border-radius:8px;background:#142c39;min-width:0; }
+.social-chat-heading { display:flex;flex-wrap:wrap;justify-content:space-between;align-items:start;gap:12px; }
+.social-chat-heading>div { flex:1;min-width:160px;overflow-wrap:anywhere; }
+.social-chat-heading small { display:block;margin-top:6px;color:#b6cbd0; }
+.social-chat-body { white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;margin:14px 0 0; }
+.social-chat-preview { max-height:40vh;overflow-y:auto;overflow-wrap:anywhere; }
+@media(max-width:650px){.social-chat-filters { grid-template-columns:1fr; }}
 .personal-mute-controls { display:grid;gap:10px;padding:12px;border:1px solid #456575;border-radius:8px;background:#102633; }
 .personal-mute-controls strong,.personal-mute-controls small { display:block; }
 .personal-mute-controls small { margin-top:4px;color:#a6bcc6;font-size:12px;line-height:1.5; }

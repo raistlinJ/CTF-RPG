@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS team_messages(id TEXT PRIMARY KEY,sender_user TEXT RE
 CREATE INDEX IF NOT EXISTS idx_team_messages_recipient_created ON team_messages(recipient_team,created_at);
 CREATE INDEX IF NOT EXISTS idx_team_messages_sender_team_created ON team_messages(sender_team,created_at);
 CREATE INDEX IF NOT EXISTS idx_team_messages_sender_user_created ON team_messages(sender_user,created_at);
+CREATE TABLE IF NOT EXISTS chat_history_settings(user TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,cleared_through INTEGER NOT NULL DEFAULT 0 CHECK(cleared_through>=0));
 CREATE TABLE IF NOT EXISTS personal_chat_settings(user TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,mute_all INTEGER NOT NULL DEFAULT 0 CHECK(mute_all IN (0,1)),revision INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS personal_chat_mutes(user TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,target TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,muted INTEGER NOT NULL CHECK(muted IN (0,1)),PRIMARY KEY(user,target),CHECK(user<>target));
 CREATE TABLE IF NOT EXISTS challenge_settings(id TEXT PRIMARY KEY,visibility TEXT NOT NULL,revision INTEGER NOT NULL);

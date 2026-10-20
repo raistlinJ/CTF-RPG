@@ -209,6 +209,11 @@ export const teamMessages = sqliteTable(
   ],
 );
 
+export const chatHistorySettings = sqliteTable("chat_history_settings", {
+  user: text("user").primaryKey().references(() => students.id, { onDelete: "cascade" }),
+  clearedThrough: integer("cleared_through").notNull().default(0),
+}, t => [check("chat_history_settings_cleared_through", sql`${t.clearedThrough} >= 0`)]);
+
 export const personalChatSettings = sqliteTable("personal_chat_settings", {
   user: text("user").primaryKey().references(() => students.id, { onDelete: "cascade" }),
   muteAll: integer("mute_all").notNull().default(0),
