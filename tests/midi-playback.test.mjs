@@ -5,7 +5,6 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import ts from 'typescript';
-import {midiFixture} from './helpers/midi.mjs';
 import midiPackage from '@tonejs/midi';
 const module = {exports:{}};
 const code = ts.transpileModule(readFileSync('lib/midi-player.ts','utf8'), {
@@ -13,7 +12,7 @@ const code = ts.transpileModule(readFileSync('lib/midi-player.ts','utf8'), {
 }).outputText;
 new Function('require','module','exports',code)(createRequire(resolve('lib/midi-player.ts')),module,module.exports);
 const {MidiPlayer}=module.exports;
-function fixture(initialState='suspended', bytes=null) {
+function fixture(initialState='suspended') {
   const originals={AudioContext:globalThis.AudioContext,fetch:globalThis.fetch,setInterval:globalThis.setInterval,clearInterval:globalThis.clearInterval};
   const contexts=[],timers=new Map(),fetchPaths=[];let fetches=0,started=0;
   const gain=()=>({gain:{value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}});
@@ -27,7 +26,7 @@ function fixture(initialState='suspended', bytes=null) {
   }
   const midi=new midiPackage.Midi();midi.addTrack().addNote({midi:60,time:0,duration:.3,velocity:.8});
   globalThis.AudioContext=AudioContext;
-  globalThis.fetch=async(path)=>{fetches++;fetchPaths.push(path);return{ok:true,arrayBuffer:async()=>bytes?.buffer ?? midi.toArray().buffer};};
+  globalThis.fetch=async(path)=>{fetches++;fetchPaths.push(path);return{ok:true,arrayBuffer:async()=>midi.toArray().buffer};};
   globalThis.setInterval=callback=>{const id={};timers.set(id,callback);return id;};
   globalThis.clearInterval=id=>timers.delete(id);
   return {contexts,fetchPaths,get fetches(){return fetches;},get started(){return started;},tick(){for(const callback of timers.values())callback();},restore(){Object.assign(globalThis,originals);}};
@@ -75,17 +74,4 @@ test('map track selection keeps the same track playing and switches only for a d
     await player.play();
     assert.deepEqual(f.fetchPaths,['/audio/test.mid','/audio/other.mid','/audio/test.mid']);
   } finally {player?.dispose();f.restore();}
-});
-
-
-test('a valid MIDI larger than 5 MB plays and previews', async () => {
-  const f=fixture('running', midiFixture({metadataBytes:6 * 1024 * 1024}));
-  const errors=[];
-  const player=new MidiPlayer(config, error=>errors.push(error.message));
-  try {
-    await player.play(); f.tick();
-    assert.deepEqual(errors, []);
-    assert.equal(f.fetches, 1);
-    assert.equal(f.started, 1);
-  } finally {player.dispose(); f.restore();}
 });

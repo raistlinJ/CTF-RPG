@@ -16,6 +16,7 @@ COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/package-lock.json ./package-lock.json
 COPY --from=build --chown=node:node /app/server ./server
 COPY --from=build --chown=node:node /app/lib ./lib
+COPY --from=build --chown=node:node /app/scripts/load-test.mjs /app/scripts/load-test-metrics.mjs /app/scripts/archive-social.mjs ./scripts/
 COPY --from=build --chown=node:node /app/themes ./themes
 COPY --from=build --chown=node:node /app/selfhost/dist ./selfhost/dist
 COPY --from=build --chown=node:node /app/public ./public

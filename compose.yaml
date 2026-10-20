@@ -10,6 +10,7 @@ services:
       SECURE_COOKIES: ${SECURE_COOKIES:-false}
       ADMIN_USERNAME: ${ADMIN_USERNAME:?Set ADMIN_USERNAME in the root .env}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      DATABASE_EXECUTION: ${DATABASE_EXECUTION:-main}
     volumes:
       - quest-data:/app/data
       - ./content:/app/content:ro

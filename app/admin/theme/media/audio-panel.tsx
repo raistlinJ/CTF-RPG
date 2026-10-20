@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
 
-import { MUSIC_TRACK_LIMIT, MUSIC_UPLOAD_LIMIT } from "@/lib/pack-limits.mjs";
-
 type Track = { name: string; midi: string };
 type Settings = { audio: MusicConfig & { playlist: Track[] }; maps: { id: string; name: string; music: string | null }[]; revision: number };
 type SaveResult = Settings & { uploaded: number; skipped: string[]; error?: string };
@@ -62,10 +60,10 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
     const selected = Array.from(e.target.files || []);
     e.target.value = "";
     if (!selected.length) return;
-    const invalid = selected.find((f) => !/\.midi?$/i.test(f.name));
-    if (invalid) { setError(`"${invalid.name}": choose a MIDI file.`); return; }
-    if (selected.length + files.length > MUSIC_UPLOAD_LIMIT) {
-      setError(`You can queue up to ${MUSIC_UPLOAD_LIMIT} MIDI files at a time.`);
+    const invalid = selected.find((f) => !/\.midi?$/i.test(f.name) || f.size > 5 * 1024 * 1024);
+    if (invalid) { setError(`"${invalid.name}": choose a MIDI file up to 5 MB.`); return; }
+    if (selected.length + files.length > 20) {
+      setError("You can queue up to 20 MIDI files at a time.");
       return;
     }
     setFiles((queued) => [...queued, ...selected]);
@@ -91,7 +89,7 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
       const d = await r.json().catch(() => null) as SaveResult | null;
       if (!r.ok) {
         throw Error(d?.error || (r.status === 413
-          ? "The hosting proxy rejected this upload. Check its request-size limit for map music."
+          ? "The selected files are too large. Audio and the rest of the theme must fit within 32 MB."
           : "Audio could not be saved. Please retry."));
       }
       if (!d?.audio) throw Error("The server returned an unexpected response. Please retry.");
@@ -117,7 +115,8 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
           <form className="theme-media-page theme-audio-form" onSubmit={save}>
             <section className="admin-editor theme-media-section"><h2>Music library</h2>
             <fieldset disabled={busy}>
-              <p>Up to {MUSIC_TRACK_LIMIT} tracks. Upload up to {MUSIC_UPLOAD_LIMIT} MIDI files at once, with no file-size or combined music-size limit. Duplicate MIDI files are skipped.</p>
+              <p>Up to 20 tracks, 5 MB per file. The complete theme, including map artwork, sprites and audio, must fit within 32 MB. Duplicate MIDI files are skipped.</p>
+              {settings.audio.playlist.length>20 && <p role="alert">This library was saved with expanded limits. Remove tracks until 20 remain before saving. Existing tracks have been kept.</p>}
               <ul className="audio-track-list">
                 {settings.audio.playlist.map((track, i) => (
                   <li key={track.midi}>
@@ -142,7 +141,8 @@ export default function AudioPanel({onDirtyChange,onSaved,knownRevision=null,act
               {files.length > 0 && (
                 <section aria-label="MIDI files ready to upload">
                   <p>{files.length} {files.length === 1 ? "file" : "files"} ready to upload</p>
-                  <ul className="audio-track-list">
+                  {settings.audio.playlist.length>20 && <p role="alert">This library was saved with expanded limits. Remove tracks until 20 remain before saving. Existing tracks have been kept.</p>}
+              <ul className="audio-track-list">
                     {files.map((file, i) => (
                       <li key={`${file.name}-${i}`}>
                         <span>{file.name} · ready to upload</span>

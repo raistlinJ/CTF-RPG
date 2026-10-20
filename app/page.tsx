@@ -1,5 +1,6 @@
 "use client";
 import { drawBossIcon, challengeSize, challengeDistance, challengeTiles, challengeBounds, drawChallengeFootprint } from "@/lib/challenge-icon.mjs";
+import { startPolling } from "@/lib/adaptive-poll.mjs";
 import { useBossSprites } from "./use-boss-sprites";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
@@ -1919,16 +1920,13 @@ function PlayerPopup({
   useEffect(() => {
     if (!tile) return;
     let live = true;
-    const controller = new AbortController();
-    async function load(reset = false) {
+    let first = true;
+    async function load(signal: AbortSignal) {
       if (!live) return;
-      if (reset) {
-        setTeams(null);
-        setError("");
-      }
+      if(first){first=false;setTeams(null);setError("");}
       try {
         const r = await fetch("/api/team-social", {
-          signal: controller.signal,
+          signal,
         });
         const d = (await r.json()) as {
           error?: string;
@@ -1940,30 +1938,29 @@ function PlayerPopup({
           }[];
         };
         if (!r.ok) throw Error(d.error || "Could not load team details.");
-        if (live) {
+        if (live && !signal.aborted) {
           setTeams(d.teams);
           if (canAdmin) {
             const response = await fetch("/api/admin/mute", {
-              signal: controller.signal,
+              signal,
             });
             const muted = (await response.json()) as { users: typeof mutes };
-            if (response.ok && live) setMutes(muted.users);
+            if (response.ok && live && !signal.aborted) setMutes(muted.users);
           }
           setError("");
         }
       } catch (e) {
-        if (live) {
+        if (live && !signal.aborted) {
           setTeams(null);
           setError((e as Error).message);
         }
+        throw e;
       }
     }
-    void Promise.resolve().then(() => load(true));
-    const timer = setInterval(() => void load(), 5000);
+    const poller = startPolling(load, {interval:5000});
     return () => {
       live = false;
-      controller.abort();
-      clearInterval(timer);
+      poller.stop();
     };
   }, [tile, featureRevision, canAdmin]);
   return (

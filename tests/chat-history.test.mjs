@@ -176,3 +176,28 @@ test('hosted performance migration adds the native ordering, session and aggrega
     assert.match(sqlite.prepare('EXPLAIN QUERY PLAN SELECT 1 FROM sessions WHERE user=? AND expires>?').get('user',0).detail,/idx_sessions_user_expires/);
   }finally{sqlite.close();}
 });
+
+test('indexed chat search preserves literal searches, current names, updates, and deletion semantics',async()=>{
+ const s=await fixture();try {
+  assert.equal(s.db.capabilities.chatSearch,true);
+  const sender=s.sqlite.prepare("SELECT id FROM students WHERE username='bobby'").get().id;
+  const insert=s.sqlite.prepare('INSERT INTO team_messages VALUES(?,?,?,?,?,?,?)');
+  for(const [index,text] of ['Needle in text','literal %_ body','a "quoted" phrase','écho café','line\nbreak','C++ exercise','nothing special'].entries())insert.run('search-'+index,sender,s.beta,s.alpha,'Historical sender',text,Date.now()-1000);
+  s.sqlite.prepare('INSERT INTO instructor_messages VALUES(?,?,?,?,?,?)').run('search-instructor',sender,s.beta,'Historical sender','Needle for instructors',Date.now()-1000);
+  s.sqlite.prepare("UPDATE teams SET name='Renamed Beta' WHERE id=?").run(s.beta);
+  const queries=['Needle','needle','%_','"quoted"','écho','line\nbreak','C++','Historical','bobby','Renamed','Alpha','Instructors','go','unlikely missing text'];
+  for(const query of queries) {
+   const path='/api/admin/chats?'+new URLSearchParams({q:query});
+   s.db.capabilities.chatSearch=true;const indexed=await s.clients.teacher(path);
+   s.db.capabilities.chatSearch=false;const scanned=await s.clients.teacher(path);
+   assert.equal(indexed.status,200,JSON.stringify(indexed.data));assert.equal(scanned.status,200);
+   assert.equal(indexed.data.total,scanned.data.total,query);
+   assert.deepEqual(indexed.data.messages.map(row=>row.kind+row.id).sort(),scanned.data.messages.map(row=>row.kind+row.id).sort(),query);
+  }
+  s.db.capabilities.chatSearch=true;
+  s.sqlite.prepare("UPDATE team_messages SET text='Updated unique marker' WHERE id='search-0'").run();
+  assert.equal((await s.clients.teacher('/api/admin/chats?q=Updated')).data.total,1);
+  await s.clients.teacher('/api/admin/chats',{action:'delete',kind:'team',id:'search-0'});
+  assert.equal((await s.clients.teacher('/api/admin/chats?q=Updated')).data.total,0);
+ }finally{s.sqlite.close();}
+});

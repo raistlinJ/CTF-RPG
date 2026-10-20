@@ -1,0 +1,226 @@
+{
+  "runtime": "v24.22.0",
+  "machine": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD Opteron(TM) Processor 6238",
+    "logicalCpus": 24,
+    "memoryMiB": 64375
+  },
+  "generatedAt": "2026-10-20T19:03:59.797Z",
+  "dataset": {
+    "users": 100,
+    "teams": 25,
+    "messages": 100000,
+    "notifications": 100,
+    "challenges": 10,
+    "mediaAssets": 31
+  },
+  "databaseExecution": "worker",
+  "scope": "Isolated native server on loopback; gameplay uses pre-authenticated users. Login bursts and cold media downloads are reported when enabled; excludes browser rendering and Internet latency.",
+  "phases": [
+    {
+      "users": 100,
+      "durationSeconds": 120,
+      "elapsedSeconds": 120.09,
+      "chatRatio": 1,
+      "mediaRatio": 0.2,
+      "downloadedBytes": 136017729,
+      "requests": 6314,
+      "requestsPerSecond": 52.58,
+      "errors": 0,
+      "statuses": {
+        "200": 6314
+      },
+      "server": {
+        "cpuPercent": 125.394,
+        "eventLoopUtilization": 0.299,
+        "eventLoopP95Ms": 16.654,
+        "eventLoopMaxMs": 54.264,
+        "rssMiB": 287.496
+      },
+      "endpoints": {
+        "/api/assets/02d006035ebd4d79df94b9a25ec1d6c952d11285cee830f877fc3fa46008f504.png": {
+          "requests": 4,
+          "p50Ms": 3.07,
+          "p95Ms": 26.11,
+          "p99Ms": 26.11
+        },
+        "/api/game": {
+          "requests": 265,
+          "p50Ms": 308.6,
+          "p95Ms": 727.14,
+          "p99Ms": 1128.46
+        },
+        "/api/team-social": {
+          "requests": 2532,
+          "p50Ms": 299,
+          "p95Ms": 659.58,
+          "p99Ms": 1072.12
+        },
+        "/api/presence": {
+          "requests": 3427,
+          "p50Ms": 331,
+          "p95Ms": 716.87,
+          "p99Ms": 1234.01
+        },
+        "/api/assets/b5bc7f9b459c359b91f49d002869bc6e47c3f657d654481fd7f042a997decaf9.mid": {
+          "requests": 4,
+          "p50Ms": 3.17,
+          "p95Ms": 8.5,
+          "p99Ms": 8.5
+        },
+        "/api/assets/dc3d218a378915a7ef02ef621930fa533875f85b83a59dddfe65790efa732e2b.wav": {
+          "requests": 4,
+          "p50Ms": 2.88,
+          "p95Ms": 17.4,
+          "p99Ms": 17.4
+        },
+        "/api/assets/607535548388702a668242c069e7599ca0fb35854df0c4dd30016d8d7babbfaf.png": {
+          "requests": 4,
+          "p50Ms": 51.3,
+          "p95Ms": 72.92,
+          "p99Ms": 72.92
+        },
+        "/api/assets/3a20f02c50f7a27120b2221c7ef92eff91c5472ed089a855f8ce69992765f23f.wav": {
+          "requests": 4,
+          "p50Ms": 3.44,
+          "p95Ms": 9.16,
+          "p99Ms": 9.16
+        },
+        "/api/assets/d2851a8a631b3011faf9f223f2779b134ee0a1e010bb832f8ef066e5dc3214aa.mid": {
+          "requests": 4,
+          "p50Ms": 2.88,
+          "p95Ms": 16.3,
+          "p99Ms": 16.3
+        },
+        "/api/assets/5e33f9b9c6d4ce9897cfce24442cd3fd31ad8d0233a1d69cf8b89a884559f945.mid": {
+          "requests": 4,
+          "p50Ms": 2.72,
+          "p95Ms": 4.35,
+          "p99Ms": 4.35
+        },
+        "/api/admin/chats": {
+          "requests": 11,
+          "p50Ms": 104.67,
+          "p95Ms": 158.72,
+          "p99Ms": 158.72
+        },
+        "/api/assets/70da6b0fda12b5acf1d6de5bd1dd395b3c94e80b6d8debcb3a3f95e9c74c0c04.wav": {
+          "requests": 4,
+          "p50Ms": 2.65,
+          "p95Ms": 3.57,
+          "p99Ms": 3.57
+        },
+        "/api/assets/2f55250f5450631564ade37d4ea3d8eaf6d3f2dddaef34c6777b3a2e321f28c1.mid": {
+          "requests": 4,
+          "p50Ms": 3.66,
+          "p95Ms": 30.31,
+          "p99Ms": 30.31
+        },
+        "/api/assets/caa0bf024b1ca2a42277c5159e405b0fd1ce465b28491eee32b2ed54deb494c2.mid": {
+          "requests": 4,
+          "p50Ms": 4.52,
+          "p95Ms": 17.33,
+          "p99Ms": 17.33
+        },
+        "/api/assets/82db468795610976c38d9d1bdd120070f98f88cbf3ebb4595dde7bcf8b2b583c.wav": {
+          "requests": 4,
+          "p50Ms": 2.58,
+          "p95Ms": 2.95,
+          "p99Ms": 2.95
+        },
+        "/api/assets/d2a1e277c150f0ceb59baf79edff67ce3419c59e29b1f9098568a9bca3e91170.mid": {
+          "requests": 4,
+          "p50Ms": 2.44,
+          "p95Ms": 4.83,
+          "p99Ms": 4.83
+        },
+        "/api/assets/0e9f73b9d88a802e9812bf5b8ed7eaa788316144ddf02031b2abd3a18222cbe8.png": {
+          "requests": 4,
+          "p50Ms": 18.2,
+          "p95Ms": 31.06,
+          "p99Ms": 31.06
+        },
+        "/api/assets/d2399db2184596455d79cfba510eee81b2f0e6586cb366b98b83351368a2334c.wav": {
+          "requests": 4,
+          "p50Ms": 5.76,
+          "p95Ms": 9.35,
+          "p99Ms": 9.35
+        },
+        "/api/assets/34c20a96786fdbfdcccac003f0922836f13b90e49e83efe84a6f0e264056376e.png": {
+          "requests": 4,
+          "p50Ms": 6.47,
+          "p95Ms": 14.52,
+          "p99Ms": 14.52
+        },
+        "/api/assets/6ec7cd4dcb682a7df8388ba563c7676f379c8fdfe82b0d0ff66e9df413c25d7a.wav": {
+          "requests": 4,
+          "p50Ms": 3.12,
+          "p95Ms": 14.1,
+          "p99Ms": 14.1
+        },
+        "/api/assets/0e840a8898841cefd66ac98493fdbc73f751262c92ee8b6bc4fce383c77b4df5.png": {
+          "requests": 4,
+          "p50Ms": 5.78,
+          "p95Ms": 6.17,
+          "p99Ms": 6.17
+        },
+        "/api/assets/131636f0501c33a0789ae2a870771fade1228dc0d305d8e8f12af95a59dac209.mid": {
+          "requests": 4,
+          "p50Ms": 2.48,
+          "p95Ms": 12.58,
+          "p99Ms": 12.58
+        },
+        "/api/assets/520051d1bf7f5b730fcb36029378e964068e9613d64bb7be952c6c818f972c1b.mid": {
+          "requests": 3,
+          "p50Ms": 3.32,
+          "p95Ms": 4.9,
+          "p99Ms": 4.9
+        },
+        "/api/assets/d5c20903da955a9eac654216eddcaac45aa14be577c0bbec788ba40f2d0d9dd0.png": {
+          "requests": 4,
+          "p50Ms": 6,
+          "p95Ms": 9.12,
+          "p99Ms": 9.12
+        }
+      },
+      "sampleErrors": []
+    }
+  ],
+  "loginBurst": {
+    "users": 100,
+    "concurrency": 25,
+    "elapsedSeconds": 2.1415877089999995,
+    "statuses": {
+      "200": 100
+    },
+    "errors": 0,
+    "p50Ms": 472.83,
+    "p95Ms": 540.13,
+    "p99Ms": 616.26,
+    "server": {
+      "cpuPercent": 410.9184860189144,
+      "eventLoopUtilization": 0.2674476210839549,
+      "eventLoopP95Ms": 11.657215,
+      "eventLoopMaxMs": 59.244543,
+      "rssMiB": 191.05859375
+    }
+  },
+  "remoteContext": {
+    "host": "arlsouth5.utep.edu",
+    "source": "staged performance working tree",
+    "runtimeImage": "sha256:6fa32430670592269838a98c6a1731e1ac16db4fd790b03523a5148582d934d7",
+    "isolation": {
+      "network": "none; loopback within test container",
+      "publishedPorts": 0,
+      "rootFilesystem": "read-only",
+      "memoryLimitMiB": 2048,
+      "pidsLimit": 128,
+      "cpuShares": 128,
+      "cpuQuota": null
+    },
+    "inputs": "read-only export of active theme/challenges; copied referenced assets; accounts, teams, history, and sessions synthetic",
+    "productionDeploymentChanged": false
+  }
+}

@@ -1,12 +1,13 @@
-import { unzipSync, zipSync, strToU8 } from "fflate";
 import { z } from "zod";
 import { lockSchema } from "../lib/inventory.mjs";
 import { entitiesSchema } from "../lib/non-player-entities.mjs";
 import { challengeLocationAvailable } from "../lib/challenge-placement.mjs";
 import { createWorld, themePortals } from "../lib/world-data.mjs";
-import { stringify } from "yaml";
 import { parseTheme, themeAssetPaths } from "../lib/theme-schema.mjs";
-import { exportPack, importPacks, assertAsset, readAsset } from "./packs.mjs";
+import { commitCatalogs, themeContentValid, assertAsset, assetTypes } from "./packs.mjs";
+import { assetSize } from "./asset-size.mjs";
+import { THEME_PACK_LIMIT } from "../lib/pack-limits.mjs";
+import { validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 
 export async function updateMap(req, state) {
   const reader = req.body?.getReader();
@@ -218,47 +219,26 @@ export async function updateMap(req, state) {
       );
     occupied.add(key);
   }
-  const exported = await exportPack(
-    "theme",
-    { theme: state.theme },
-    state.store,
-    state.readBaseAsset,
-    { allowLargeMusic: true },
-  );
-  const entries = unzipSync(new Uint8Array(await exported.arrayBuffer()));
-  const used = new Set(themeAssetPaths(next).map((p) => "assets" + p));
-  for (const key of Object.keys(entries))
-    if (key.startsWith("assets/") && !used.has(key)) delete entries[key];
+  validateProgressionDependencies(challenges, next.world.entities || []);
+  themeContentValid(next, challenges);
+  // Existing immutable assets keep their paths and upload metadata. Read sizes
+  // rather than compressing/re-hashing the complete theme for a small map edit.
+  let total = 0;
   for (const path of themeAssetPaths(next)) {
-    if (path === imagePath || entries["assets" + path]) continue;
-    const asset = await readAsset(path, state.store, state.readBaseAsset);
-    if (!asset) throw Error("The previous map artwork is unavailable.");
-    entries["assets" + path] = asset;
+    const size = path === imagePath ? imageBytes.length : await assetSize(path, state.store, state.readBaseAsset);
+    if (size === null) throw Error(`Theme asset is unavailable: ${path}`);
+    total += size;
+    if (total > THEME_PACK_LIMIT) throw Error('Theme assets exceed the 32 MB theme pack limit.');
   }
-  entries["theme.yaml"] = strToU8(stringify(next));
-  if (imageBytes) entries["assets" + imagePath] = imageBytes;
-  const packed = new FormData();
-  packed.set("file", new Blob([zipSync(entries)]), "map-theme.zip");
-  if (moves.length) {
-    const content = await exportPack(
-      "content",
-      { challenges },
-      state.store,
-      state.readBaseAsset,
-    );
-    packed.set(
-      "content",
-      new Blob([await content.arrayBuffer()]),
-      "moved-content.zip",
-    );
+  if (imageBytes) {
+    if (!state.store) throw Error('Asset storage is unavailable.');
+    const ext = imagePath.split('.').pop();
+    const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', imageBytes)), byte => byte.toString(16).padStart(2,'0')).join('');
+    const key = digest + '.' + ext;
+    await state.store.put(key, imageBytes, assetTypes[ext]);
+    next.world.maps[index].background = '/api/assets/' + key;
   }
-  for (const key of ["themeRevision", "contentRevision"])
-    if (form.has(key)) packed.set(key, String(form.get(key)));
-  const result = await importPacks(
-    new Request(req.url, { method: "POST", body: packed }),
-    { ...state, preservePlacements: isolated, allowLargeMusic: true },
-    "theme",
-  );
+  const result = await commitCatalogs(state, {theme:parseTheme(next), content:moves.length ? challenges : null, placement:{moved:[], excluded:[], challenges}});
   const explicitMoves = challenges.flatMap((c) => {
     const before = state.challenges.find((old) => old.id === c.id);
     return before.location.x !== c.location.x ||

@@ -1,3 +1,4 @@
+import {searchCandidates} from './chat-search.mjs';
 const reply = (data, status = 200) => Response.json(data, {status, headers:{'Cache-Control':'no-store'}});
 
 export async function chatClearedThrough(db, user) {
@@ -66,19 +67,23 @@ export async function handleAdminChats(req, {db,user,platformAdmin}) {
   // Covering time indexes count the source tables without joining every message
   // to accounts and teams. With no filters, reuse this count for both totals.
   const allTotal = (await db.prepare('SELECT (SELECT COUNT(*) FROM team_messages WHERE created_at<=?)+(SELECT COUNT(*) FROM instructor_messages WHERE created_at<=?) AS count').bind(through,through).first()).count;
-  const total = !query && !from && !to ? allTotal : (await db.prepare(`SELECT COUNT(*) AS count FROM (${allChats}) WHERE ${where}`).bind(...args).first()).count;
-  // Bound each ordered source before merging: the outer sort handles at most
-  // 102 rows for cursor pages, rather than sorting the complete joined history.
+  const filtered = allChats.split(/\s+UNION ALL\s+/).map((source,index)=>{
+    const kind=index===0?'team':'instructor';
+    const candidates=searchCandidates(kind,query,db.capabilities?.chatSearch);
+    return {kind,sql:`${source} WHERE ${where}${candidates?' AND '+candidates.sql:''}`,args:[...args,...(candidates?.args || [])]};
+  });
+  const total = !query && !from && !to ? allTotal : (await db.prepare(`SELECT COUNT(*) AS count FROM (${filtered.map(source=>source.sql).join(' UNION ALL ')})`).bind(...filtered.flatMap(source=>source.args)).first()).count;
+  // Bound each ordered source before merging, including indexed search candidates.
   const sourceArgs = [];
-  const orderedSources = allChats.split(/\s+UNION ALL\s+/).map((source,index) => {
-    const kind = index === 0 ? 'team' : 'instructor';
+  const orderedSources = filtered.map(source => {
+    const {kind}=source;
     let boundary = '', bindings = [];
     if (cursor) {
       if (kind === cursor.kind) { boundary = ' AND (m.created_at,m.id)<(?,?)'; bindings = [cursor.at,cursor.id]; }
       else { boundary = kind < cursor.kind ? ' AND m.created_at<=?' : ' AND m.created_at<?'; bindings = [cursor.at]; }
     }
-    sourceArgs.push(...args,...bindings,offset+51);
-    return `SELECT * FROM (${source} WHERE ${where}${boundary} ORDER BY m.created_at DESC,m.id DESC LIMIT ?)`;
+    sourceArgs.push(...source.args,...bindings,offset+51);
+    return `SELECT * FROM (${source.sql}${boundary} ORDER BY m.created_at DESC,m.id DESC LIMIT ?)`;
   });
   const rows = (await db.prepare(`${orderedSources.join(' UNION ALL ')} ORDER BY created_at DESC,kind DESC,id DESC LIMIT 51 OFFSET ?`).bind(...sourceArgs,offset).all()).results;
   const messages = rows.slice(0,50), last = messages.at(-1);

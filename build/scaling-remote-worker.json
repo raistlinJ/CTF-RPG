@@ -1,0 +1,568 @@
+{
+  "runtime": "v24.22.0",
+  "machine": {
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD Opteron(TM) Processor 6238",
+    "logicalCpus": 24,
+    "memoryMiB": 64375
+  },
+  "generatedAt": "2026-10-20T18:57:32.060Z",
+  "dataset": {
+    "users": 250,
+    "teams": 63,
+    "messages": 100000,
+    "notifications": 100,
+    "challenges": 10,
+    "mediaAssets": 31
+  },
+  "databaseExecution": "worker",
+  "scope": "Isolated native server on loopback; gameplay uses pre-authenticated users. Login bursts and cold media downloads are reported when enabled; excludes browser rendering and Internet latency.",
+  "phases": [
+    {
+      "users": 50,
+      "durationSeconds": 30,
+      "elapsedSeconds": 30.02,
+      "chatRatio": 1,
+      "mediaRatio": 0.2,
+      "downloadedBytes": 20739035,
+      "requests": 861,
+      "requestsPerSecond": 28.68,
+      "errors": 0,
+      "statuses": {
+        "200": 861
+      },
+      "server": {
+        "cpuPercent": 80.854,
+        "eventLoopUtilization": 0.275,
+        "eventLoopP95Ms": 12.239,
+        "eventLoopMaxMs": 23.527,
+        "rssMiB": 253.43
+      },
+      "endpoints": {
+        "/api/assets/02d006035ebd4d79df94b9a25ec1d6c952d11285cee830f877fc3fa46008f504.png": {
+          "requests": 1,
+          "p50Ms": 8.96,
+          "p95Ms": 8.96,
+          "p99Ms": 8.96
+        },
+        "/api/team-social": {
+          "requests": 332,
+          "p50Ms": 61.55,
+          "p95Ms": 118.56,
+          "p99Ms": 131.16
+        },
+        "/api/presence": {
+          "requests": 478,
+          "p50Ms": 44.55,
+          "p95Ms": 107.67,
+          "p99Ms": 137.93
+        },
+        "/api/game": {
+          "requests": 39,
+          "p50Ms": 37.53,
+          "p95Ms": 107.71,
+          "p99Ms": 122.63
+        },
+        "/api/assets/b5bc7f9b459c359b91f49d002869bc6e47c3f657d654481fd7f042a997decaf9.mid": {
+          "requests": 1,
+          "p50Ms": 6.33,
+          "p95Ms": 6.33,
+          "p99Ms": 6.33
+        },
+        "/api/assets/607535548388702a668242c069e7599ca0fb35854df0c4dd30016d8d7babbfaf.png": {
+          "requests": 1,
+          "p50Ms": 52.16,
+          "p95Ms": 52.16,
+          "p99Ms": 52.16
+        },
+        "/api/admin/chats": {
+          "requests": 2,
+          "p50Ms": 36.59,
+          "p95Ms": 51.31,
+          "p99Ms": 51.31
+        },
+        "/api/assets/caa0bf024b1ca2a42277c5159e405b0fd1ce465b28491eee32b2ed54deb494c2.mid": {
+          "requests": 1,
+          "p50Ms": 4.35,
+          "p95Ms": 4.35,
+          "p99Ms": 4.35
+        },
+        "/api/assets/0e9f73b9d88a802e9812bf5b8ed7eaa788316144ddf02031b2abd3a18222cbe8.png": {
+          "requests": 1,
+          "p50Ms": 38.47,
+          "p95Ms": 38.47,
+          "p99Ms": 38.47
+        },
+        "/api/assets/34c20a96786fdbfdcccac003f0922836f13b90e49e83efe84a6f0e264056376e.png": {
+          "requests": 1,
+          "p50Ms": 6.69,
+          "p95Ms": 6.69,
+          "p99Ms": 6.69
+        },
+        "/api/assets/0e840a8898841cefd66ac98493fdbc73f751262c92ee8b6bc4fce383c77b4df5.png": {
+          "requests": 1,
+          "p50Ms": 14.1,
+          "p95Ms": 14.1,
+          "p99Ms": 14.1
+        },
+        "/api/assets/131636f0501c33a0789ae2a870771fade1228dc0d305d8e8f12af95a59dac209.mid": {
+          "requests": 1,
+          "p50Ms": 3.32,
+          "p95Ms": 3.32,
+          "p99Ms": 3.32
+        },
+        "/api/assets/520051d1bf7f5b730fcb36029378e964068e9613d64bb7be952c6c818f972c1b.mid": {
+          "requests": 1,
+          "p50Ms": 8.74,
+          "p95Ms": 8.74,
+          "p99Ms": 8.74
+        },
+        "/api/assets/d5c20903da955a9eac654216eddcaac45aa14be577c0bbec788ba40f2d0d9dd0.png": {
+          "requests": 1,
+          "p50Ms": 5.8,
+          "p95Ms": 5.8,
+          "p99Ms": 5.8
+        }
+      },
+      "sampleErrors": []
+    },
+    {
+      "users": 100,
+      "durationSeconds": 30,
+      "elapsedSeconds": 30.12,
+      "chatRatio": 1,
+      "mediaRatio": 0.2,
+      "downloadedBytes": 35202947,
+      "requests": 1687,
+      "requestsPerSecond": 56.01,
+      "errors": 0,
+      "statuses": {
+        "200": 1687
+      },
+      "server": {
+        "cpuPercent": 120.911,
+        "eventLoopUtilization": 0.443,
+        "eventLoopP95Ms": 14.041,
+        "eventLoopMaxMs": 27.279,
+        "rssMiB": 270.121
+      },
+      "endpoints": {
+        "/api/presence": {
+          "requests": 929,
+          "p50Ms": 75.35,
+          "p95Ms": 156.85,
+          "p99Ms": 198.11
+        },
+        "/api/team-social": {
+          "requests": 659,
+          "p50Ms": 81.39,
+          "p95Ms": 151.91,
+          "p99Ms": 202.41
+        },
+        "/api/game": {
+          "requests": 76,
+          "p50Ms": 70.39,
+          "p95Ms": 177.15,
+          "p99Ms": 190.53
+        },
+        "/api/assets/0e840a8898841cefd66ac98493fdbc73f751262c92ee8b6bc4fce383c77b4df5.png": {
+          "requests": 1,
+          "p50Ms": 11.91,
+          "p95Ms": 11.91,
+          "p99Ms": 11.91
+        },
+        "/api/assets/6ec7cd4dcb682a7df8388ba563c7676f379c8fdfe82b0d0ff66e9df413c25d7a.wav": {
+          "requests": 1,
+          "p50Ms": 2.87,
+          "p95Ms": 2.87,
+          "p99Ms": 2.87
+        },
+        "/api/admin/chats": {
+          "requests": 3,
+          "p50Ms": 34.05,
+          "p95Ms": 40.3,
+          "p99Ms": 40.3
+        },
+        "/api/assets/520051d1bf7f5b730fcb36029378e964068e9613d64bb7be952c6c818f972c1b.mid": {
+          "requests": 1,
+          "p50Ms": 8.67,
+          "p95Ms": 8.67,
+          "p99Ms": 8.67
+        },
+        "/api/assets/2f55250f5450631564ade37d4ea3d8eaf6d3f2dddaef34c6777b3a2e321f28c1.mid": {
+          "requests": 1,
+          "p50Ms": 3.08,
+          "p95Ms": 3.08,
+          "p99Ms": 3.08
+        },
+        "/api/assets/02d006035ebd4d79df94b9a25ec1d6c952d11285cee830f877fc3fa46008f504.png": {
+          "requests": 1,
+          "p50Ms": 4.29,
+          "p95Ms": 4.29,
+          "p99Ms": 4.29
+        },
+        "/api/assets/131636f0501c33a0789ae2a870771fade1228dc0d305d8e8f12af95a59dac209.mid": {
+          "requests": 1,
+          "p50Ms": 2.96,
+          "p95Ms": 2.96,
+          "p99Ms": 2.96
+        },
+        "/api/assets/82db468795610976c38d9d1bdd120070f98f88cbf3ebb4595dde7bcf8b2b583c.wav": {
+          "requests": 1,
+          "p50Ms": 11.59,
+          "p95Ms": 11.59,
+          "p99Ms": 11.59
+        },
+        "/api/assets/0e9f73b9d88a802e9812bf5b8ed7eaa788316144ddf02031b2abd3a18222cbe8.png": {
+          "requests": 1,
+          "p50Ms": 53.4,
+          "p95Ms": 53.4,
+          "p99Ms": 53.4
+        },
+        "/api/assets/5e33f9b9c6d4ce9897cfce24442cd3fd31ad8d0233a1d69cf8b89a884559f945.mid": {
+          "requests": 1,
+          "p50Ms": 5.7,
+          "p95Ms": 5.7,
+          "p99Ms": 5.7
+        },
+        "/api/assets/607535548388702a668242c069e7599ca0fb35854df0c4dd30016d8d7babbfaf.png": {
+          "requests": 1,
+          "p50Ms": 34.71,
+          "p95Ms": 34.71,
+          "p99Ms": 34.71
+        },
+        "/api/assets/34c20a96786fdbfdcccac003f0922836f13b90e49e83efe84a6f0e264056376e.png": {
+          "requests": 1,
+          "p50Ms": 9.98,
+          "p95Ms": 9.98,
+          "p99Ms": 9.98
+        },
+        "/api/assets/caa0bf024b1ca2a42277c5159e405b0fd1ce465b28491eee32b2ed54deb494c2.mid": {
+          "requests": 1,
+          "p50Ms": 3.36,
+          "p95Ms": 3.36,
+          "p99Ms": 3.36
+        },
+        "/api/assets/d2851a8a631b3011faf9f223f2779b134ee0a1e010bb832f8ef066e5dc3214aa.mid": {
+          "requests": 1,
+          "p50Ms": 3.4,
+          "p95Ms": 3.4,
+          "p99Ms": 3.4
+        },
+        "/api/assets/3a20f02c50f7a27120b2221c7ef92eff91c5472ed089a855f8ce69992765f23f.wav": {
+          "requests": 1,
+          "p50Ms": 8.77,
+          "p95Ms": 8.77,
+          "p99Ms": 8.77
+        },
+        "/api/assets/b5bc7f9b459c359b91f49d002869bc6e47c3f657d654481fd7f042a997decaf9.mid": {
+          "requests": 1,
+          "p50Ms": 6.43,
+          "p95Ms": 6.43,
+          "p99Ms": 6.43
+        },
+        "/api/assets/d2a1e277c150f0ceb59baf79edff67ce3419c59e29b1f9098568a9bca3e91170.mid": {
+          "requests": 1,
+          "p50Ms": 3.86,
+          "p95Ms": 3.86,
+          "p99Ms": 3.86
+        },
+        "/api/assets/dc3d218a378915a7ef02ef621930fa533875f85b83a59dddfe65790efa732e2b.wav": {
+          "requests": 1,
+          "p50Ms": 2.87,
+          "p95Ms": 2.87,
+          "p99Ms": 2.87
+        },
+        "/api/assets/d2399db2184596455d79cfba510eee81b2f0e6586cb366b98b83351368a2334c.wav": {
+          "requests": 1,
+          "p50Ms": 2.46,
+          "p95Ms": 2.46,
+          "p99Ms": 2.46
+        },
+        "/api/assets/d5c20903da955a9eac654216eddcaac45aa14be577c0bbec788ba40f2d0d9dd0.png": {
+          "requests": 1,
+          "p50Ms": 5.06,
+          "p95Ms": 5.06,
+          "p99Ms": 5.06
+        },
+        "/api/assets/70da6b0fda12b5acf1d6de5bd1dd395b3c94e80b6d8debcb3a3f95e9c74c0c04.wav": {
+          "requests": 1,
+          "p50Ms": 14.15,
+          "p95Ms": 14.15,
+          "p99Ms": 14.15
+        }
+      },
+      "sampleErrors": []
+    },
+    {
+      "users": 250,
+      "durationSeconds": 30,
+      "elapsedSeconds": 32.35,
+      "chatRatio": 1,
+      "mediaRatio": 0.2,
+      "downloadedBytes": 63102145,
+      "requests": 2725,
+      "requestsPerSecond": 84.23,
+      "errors": 0,
+      "statuses": {
+        "200": 2725
+      },
+      "server": {
+        "cpuPercent": 177.837,
+        "eventLoopUtilization": 0.555,
+        "eventLoopP95Ms": 26.608,
+        "eventLoopMaxMs": 83.493,
+        "rssMiB": 359.934
+      },
+      "endpoints": {
+        "/api/assets/dc3d218a378915a7ef02ef621930fa533875f85b83a59dddfe65790efa732e2b.wav": {
+          "requests": 2,
+          "p50Ms": 2.74,
+          "p95Ms": 4.13,
+          "p99Ms": 4.13
+        },
+        "/api/game": {
+          "requests": 180,
+          "p50Ms": 2684.03,
+          "p95Ms": 3999.95,
+          "p99Ms": 4088.86
+        },
+        "/api/team-social": {
+          "requests": 1225,
+          "p50Ms": 2684.49,
+          "p95Ms": 4144.22,
+          "p99Ms": 4198.75
+        },
+        "/api/assets/0e89567398379baa415ef42e85830ac8f95eb518f27e935f208a3f1dad0ae057.wav": {
+          "requests": 1,
+          "p50Ms": 8.71,
+          "p95Ms": 8.71,
+          "p99Ms": 8.71
+        },
+        "/api/assets/5e33f9b9c6d4ce9897cfce24442cd3fd31ad8d0233a1d69cf8b89a884559f945.mid": {
+          "requests": 2,
+          "p50Ms": 2.5,
+          "p95Ms": 10.8,
+          "p99Ms": 10.8
+        },
+        "/api/presence": {
+          "requests": 1267,
+          "p50Ms": 3149.87,
+          "p95Ms": 4454.12,
+          "p99Ms": 4676.11
+        },
+        "/api/assets/82db468795610976c38d9d1bdd120070f98f88cbf3ebb4595dde7bcf8b2b583c.wav": {
+          "requests": 2,
+          "p50Ms": 3.61,
+          "p95Ms": 14.1,
+          "p99Ms": 14.1
+        },
+        "/api/assets/70da6b0fda12b5acf1d6de5bd1dd395b3c94e80b6d8debcb3a3f95e9c74c0c04.wav": {
+          "requests": 2,
+          "p50Ms": 3.05,
+          "p95Ms": 14.97,
+          "p99Ms": 14.97
+        },
+        "/api/assets/131636f0501c33a0789ae2a870771fade1228dc0d305d8e8f12af95a59dac209.mid": {
+          "requests": 2,
+          "p50Ms": 6.4,
+          "p95Ms": 64.4,
+          "p99Ms": 64.4
+        },
+        "/api/assets/caa0bf024b1ca2a42277c5159e405b0fd1ce465b28491eee32b2ed54deb494c2.mid": {
+          "requests": 2,
+          "p50Ms": 6.87,
+          "p95Ms": 31.23,
+          "p99Ms": 31.23
+        },
+        "/api/assets/3a20f02c50f7a27120b2221c7ef92eff91c5472ed089a855f8ce69992765f23f.wav": {
+          "requests": 1,
+          "p50Ms": 4.89,
+          "p95Ms": 4.89,
+          "p99Ms": 4.89
+        },
+        "/api/assets/b5bc7f9b459c359b91f49d002869bc6e47c3f657d654481fd7f042a997decaf9.mid": {
+          "requests": 2,
+          "p50Ms": 3.85,
+          "p95Ms": 23.38,
+          "p99Ms": 23.38
+        },
+        "/api/admin/chats": {
+          "requests": 3,
+          "p50Ms": 958.06,
+          "p95Ms": 1292.21,
+          "p99Ms": 1292.21
+        },
+        "/api/assets/d2851a8a631b3011faf9f223f2779b134ee0a1e010bb832f8ef066e5dc3214aa.mid": {
+          "requests": 2,
+          "p50Ms": 2.4,
+          "p95Ms": 3.26,
+          "p99Ms": 3.26
+        },
+        "/api/assets/0e840a8898841cefd66ac98493fdbc73f751262c92ee8b6bc4fce383c77b4df5.png": {
+          "requests": 2,
+          "p50Ms": 6.67,
+          "p95Ms": 17.87,
+          "p99Ms": 17.87
+        },
+        "/api/assets/0e9f73b9d88a802e9812bf5b8ed7eaa788316144ddf02031b2abd3a18222cbe8.png": {
+          "requests": 2,
+          "p50Ms": 24.04,
+          "p95Ms": 55.12,
+          "p99Ms": 55.12
+        },
+        "/api/assets/2f55250f5450631564ade37d4ea3d8eaf6d3f2dddaef34c6777b3a2e321f28c1.mid": {
+          "requests": 2,
+          "p50Ms": 6.05,
+          "p95Ms": 17.11,
+          "p99Ms": 17.11
+        },
+        "/api/assets/6ec7cd4dcb682a7df8388ba563c7676f379c8fdfe82b0d0ff66e9df413c25d7a.wav": {
+          "requests": 2,
+          "p50Ms": 2.85,
+          "p95Ms": 3.09,
+          "p99Ms": 3.09
+        },
+        "/api/assets/cb2c853c04e65e55eae1a72ec8047c62c48e183d3462ad7a7799a44bb2d813cb.wav": {
+          "requests": 1,
+          "p50Ms": 3.27,
+          "p95Ms": 3.27,
+          "p99Ms": 3.27
+        },
+        "/api/assets/21d77e6a34d610bd8ef94f74ad31d44a6def69a409d45c6dcb5bc0a2fa796124.wav": {
+          "requests": 1,
+          "p50Ms": 52.26,
+          "p95Ms": 52.26,
+          "p99Ms": 52.26
+        },
+        "/api/assets/607535548388702a668242c069e7599ca0fb35854df0c4dd30016d8d7babbfaf.png": {
+          "requests": 2,
+          "p50Ms": 13.78,
+          "p95Ms": 22.38,
+          "p99Ms": 22.38
+        },
+        "/api/assets/8fcacd5174a4b3805c6c789fff06f55d47f6f6c40882de5d7ed3420cf55642d3.wav": {
+          "requests": 1,
+          "p50Ms": 23.51,
+          "p95Ms": 23.51,
+          "p99Ms": 23.51
+        },
+        "/api/assets/34c20a96786fdbfdcccac003f0922836f13b90e49e83efe84a6f0e264056376e.png": {
+          "requests": 2,
+          "p50Ms": 9.27,
+          "p95Ms": 46.9,
+          "p99Ms": 46.9
+        },
+        "/api/assets/d5c20903da955a9eac654216eddcaac45aa14be577c0bbec788ba40f2d0d9dd0.png": {
+          "requests": 2,
+          "p50Ms": 9.94,
+          "p95Ms": 12.71,
+          "p99Ms": 12.71
+        },
+        "/api/assets/d2a1e277c150f0ceb59baf79edff67ce3419c59e29b1f9098568a9bca3e91170.mid": {
+          "requests": 2,
+          "p50Ms": 3.84,
+          "p95Ms": 21.64,
+          "p99Ms": 21.64
+        },
+        "/api/assets/d2399db2184596455d79cfba510eee81b2f0e6586cb366b98b83351368a2334c.wav": {
+          "requests": 2,
+          "p50Ms": 2.5,
+          "p95Ms": 9.96,
+          "p99Ms": 9.96
+        },
+        "/api/assets/520051d1bf7f5b730fcb36029378e964068e9613d64bb7be952c6c818f972c1b.mid": {
+          "requests": 2,
+          "p50Ms": 3.04,
+          "p95Ms": 8.98,
+          "p99Ms": 8.98
+        },
+        "/api/assets/02d006035ebd4d79df94b9a25ec1d6c952d11285cee830f877fc3fa46008f504.png": {
+          "requests": 2,
+          "p50Ms": 3.62,
+          "p95Ms": 3.68,
+          "p99Ms": 3.68
+        },
+        "/api/assets/b5f296061c5f834a0913ef1987b7502432adeebf0e08de6beb312b17652351be.wav": {
+          "requests": 1,
+          "p50Ms": 2.38,
+          "p95Ms": 2.38,
+          "p99Ms": 2.38
+        },
+        "/api/assets/13039f503e32b1db3d62e76b40f177dad1e33c315a133e27517069d134c7e195.wav": {
+          "requests": 1,
+          "p50Ms": 2.29,
+          "p95Ms": 2.29,
+          "p99Ms": 2.29
+        },
+        "/api/assets/72efe16522bc709344d0678147c6d71efc6ab061dc70047b5a8642d305ee4dc2.wav": {
+          "requests": 1,
+          "p50Ms": 42.74,
+          "p95Ms": 42.74,
+          "p99Ms": 42.74
+        },
+        "/api/assets/857d4f595a56eb9dbf36cc98abbc11f7d4df17a3c6c0733767cbf6e2294815f6.wav": {
+          "requests": 1,
+          "p50Ms": 5.03,
+          "p95Ms": 5.03,
+          "p99Ms": 5.03
+        },
+        "/api/assets/3b2e6a075698f54fb798b316a10877ca8e324dd779c5f5d1adf0738ab1021cc1.wav": {
+          "requests": 1,
+          "p50Ms": 2.24,
+          "p95Ms": 2.24,
+          "p99Ms": 2.24
+        },
+        "/api/assets/6b17d013c947b9cf43c27f00769656ee6790777e0dc104d1c979f3b3d8872288.wav": {
+          "requests": 1,
+          "p50Ms": 5.27,
+          "p95Ms": 5.27,
+          "p99Ms": 5.27
+        },
+        "/api/assets/e895b20fb2b636e2cfb16181a4eeaaa12d72ec10aa7a59c9fb3b07e5b2f5b378.wav": {
+          "requests": 1,
+          "p50Ms": 2.72,
+          "p95Ms": 2.72,
+          "p99Ms": 2.72
+        }
+      },
+      "sampleErrors": []
+    }
+  ],
+  "loginBurst": {
+    "users": 100,
+    "concurrency": 25,
+    "elapsedSeconds": 2.162560342000001,
+    "statuses": {
+      "200": 100
+    },
+    "errors": 0,
+    "p50Ms": 473.78,
+    "p95Ms": 545.83,
+    "p99Ms": 617.24,
+    "server": {
+      "cpuPercent": 406.70057273582063,
+      "eventLoopUtilization": 0.2668651152647257,
+      "eventLoopP95Ms": 12.099583,
+      "eventLoopMaxMs": 34.766847,
+      "rssMiB": 190.2421875
+    }
+  },
+  "remoteContext": {
+    "host": "arlsouth5.utep.edu",
+    "source": "staged performance working tree",
+    "runtimeImage": "sha256:6fa32430670592269838a98c6a1731e1ac16db4fd790b03523a5148582d934d7",
+    "isolation": {
+      "network": "none; loopback within test container",
+      "publishedPorts": 0,
+      "rootFilesystem": "read-only",
+      "memoryLimitMiB": 2048,
+      "pidsLimit": 128,
+      "cpuShares": 128,
+      "cpuQuota": null
+    },
+    "inputs": "read-only export of active theme/challenges; copied referenced assets; accounts, teams, history, and sessions synthetic",
+    "productionDeploymentChanged": false
+  }
+}

@@ -1,3 +1,7 @@
+import {createWorkerSQLiteAdapter} from "./sqlite-worker-adapter.mjs";
+import {spoolUpload} from "./native-upload.mjs";
+import {stat as fileStat, readFile, writeFile, rename, rm} from "node:fs/promises";
+import {assetKeyPattern, assetTypes} from "./packs.mjs";
 import {pageRoute} from '../lib/page-routes.mjs';
 import {createAuthRateLimiter} from './auth-rate-limit.mjs';
 import { THEME_UPLOAD_LIMIT, PACK_IMPORT_REQUEST_LIMIT, CTFD_IMPORT_REQUEST_LIMIT, CHALLENGE_FILE_LIMIT } from "../lib/pack-limits.mjs";
@@ -11,7 +15,6 @@ import {
   statSync,
   createReadStream,
   realpathSync,
-  writeFileSync,
 } from "node:fs";
 import { resolve, dirname, extname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,9 +43,12 @@ const databasePath = resolve(
   process.env.DATABASE_PATH || resolve(root, "data/quest.sqlite"),
 );
 mkdirSync(dirname(databasePath), { recursive: true });
-const sqlite = new DatabaseSync(databasePath);
-initializeSchema(sqlite);
-const db = createSQLiteAdapter(sqlite);
+const execution=process.env.DATABASE_EXECUTION || 'main';
+if(!['main','worker'].includes(execution)) throw Error('DATABASE_EXECUTION must be main or worker.');
+let sqlite;
+let db;
+if(execution==='worker') db=await createWorkerSQLiteAdapter(databasePath);
+else {sqlite=new DatabaseSync(databasePath);initializeSchema(sqlite);db=createSQLiteAdapter(sqlite);}
 await ensureStartupAdmin(db, config, process.env.ADMIN_PASSWORD);
 const secure = process.env.SECURE_COOKIES === "true";
 function publicAssets() {
@@ -73,10 +79,14 @@ mkdirSync(assetDirectory, { recursive: true });
 const assetStore = {
   async get(key) {
     const p = resolve(assetDirectory, key);
-    return existsSync(p) ? new Uint8Array(readFileSync(p)) : null;
+    try { return new Uint8Array(await readFile(p)); } catch(error) {if(error.code==='ENOENT')return null;throw error;}
+  },
+  async stat(key) {
+    try {return {size:(await fileStat(resolve(assetDirectory,key))).size};} catch(error) {if(error.code==='ENOENT')return null;throw error;}
   },
   async put(key, bytes) {
-    writeFileSync(resolve(assetDirectory, key), bytes);
+    const path=resolve(assetDirectory,key), temporary=path+'.'+crypto.randomUUID()+'.tmp';
+    try {await writeFile(temporary,bytes,{flag:'wx'});await rename(temporary,path);} finally {await rm(temporary,{force:true});}
   },
 };
 const readBaseAsset = (path) => {
@@ -90,6 +100,14 @@ const readBaseAsset = (path) => {
   )
     return null;
   return new Uint8Array(readFileSync(p));
+};
+readBaseAsset.stat = async path => {
+  const directory=resolve(root,'public'), target=resolve(directory,'.'+path);
+  if (!target.startsWith(directory+sep)) return null;
+  try {
+    if (!realpathSync(target).startsWith(realpathSync(directory)+sep)) return null;
+    const info=await fileStat(target);return info.isFile()?{size:info.size}:null;
+  } catch(error) {if(error.code==='ENOENT')return null;throw error;}
 };
 const api = createApi({
   db,
@@ -139,6 +157,17 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url, requestOrigin);
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "same-origin");
+    if (url.pathname.startsWith('/api/assets/') && req.method==='GET') {
+      const key=url.pathname.slice('/api/assets/'.length);
+      const info=assetKeyPattern.test(key)?await assetStore.stat(key):null;
+      if(!info){res.writeHead(404);return res.end('Not found');}
+      const range=/\.(mp4|webm)$/.test(key)?byteRange(req.headers.range,info.size):null;
+      res.writeHead(range?.status||200,{...range?.headers,'Content-Type':assetTypes[key.split('.').pop()],
+        'Content-Disposition':key.endsWith('.bin')?'attachment':'inline','Cache-Control':'public, max-age=31536000, immutable'});
+      if(range?.status===416)return res.end();
+      const stream=createReadStream(resolve(assetDirectory,key),range?{start:range.start,end:range.end}:undefined);
+      stream.on('error',()=>res.destroy());res.on('close',()=>stream.destroy());stream.pipe(res);return;
+    }
     if (url.pathname.startsWith("/api/")) {
       if (
         url.pathname === "/api/auth" &&
@@ -151,7 +180,7 @@ const server = createServer(async (req, res) => {
       const chunks = [];
       let length = 0;
       const bodyLimit =
-        url.pathname === "/api/admin/theme-audio" ? Infinity : url.pathname === "/api/admin/ctfd-import" ? CTFD_IMPORT_REQUEST_LIMIT : url.pathname === "/api/admin/packs" ? PACK_IMPORT_REQUEST_LIMIT : ["/api/admin/theme-media", "/api/admin/theme-sounds"].includes(url.pathname) ? THEME_UPLOAD_LIMIT : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : url.pathname === "/api/admin/challenge-files" ? CHALLENGE_FILE_LIMIT : 524288;
+        url.pathname === "/api/admin/ctfd-import" ? CTFD_IMPORT_REQUEST_LIMIT : url.pathname === "/api/admin/packs" ? PACK_IMPORT_REQUEST_LIMIT : ["/api/admin/theme-audio", "/api/admin/theme-media", "/api/admin/theme-sounds"].includes(url.pathname) ? THEME_UPLOAD_LIMIT : url.pathname === "/api/admin/maps" ? 5 * 1024 * 1024 : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : url.pathname === "/api/admin/challenge-files" ? CHALLENGE_FILE_LIMIT : 524288;
       const rejectUpload = () => {
         req.resume(); // Drain without retaining the rejected upload or closing before the response flushes.
         res.writeHead(413, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -160,12 +189,16 @@ const server = createServer(async (req, res) => {
           : `Upload exceeds the ${Number((bodyLimit / 1024 / 1024).toFixed(2))} MB request limit.` }));
       };
       if (Number(req.headers["content-length"]) > bodyLimit) { rejectUpload(); return; }
-      for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+      let spooled;
+      const multipart=/^multipart\/form-data\b/i.test(req.headers['content-type']||'');
+      if(multipart) {
+        try {spooled=await spoolUpload(req,bodyLimit);} catch(error) {if(error.status===413){rejectUpload();return;}throw error;}
+      } else for await (const chunk of req.iterator({ destroyOnReturn: false })) {
         length += chunk.length;
         if (length > bodyLimit) { rejectUpload(); return; }
         chunks.push(chunk);
       }
-      const body = Buffer.concat(chunks);
+      const body = spooled?.body || Buffer.concat(chunks);
       if (url.pathname === "/api/auth" && req.method === "POST") {
         let username;
         try { username = JSON.parse(body.toString("utf8"))?.username; } catch {}
@@ -175,19 +208,22 @@ const server = createServer(async (req, res) => {
       for (const [key, value] of Object.entries(req.headers))
         if (value)
           headers.set(key, Array.isArray(value) ? value.join(", ") : value);
+      try {
       const response = await api(
         new Request(url, {
+          duplex: "half",
           method: req.method,
           headers,
           body: ["GET", "HEAD"].includes(req.method)
             ? undefined
-            : body.length
+            : spooled || body.length
               ? body
               : undefined,
         }),
       );
       res.writeHead(response.status, Object.fromEntries(response.headers));
       return res.end(Buffer.from(await response.arrayBuffer()));
+      } finally {await spooled?.cleanup();}
     }
     if (!["GET", "HEAD"].includes(req.method)) {
       res.writeHead(405);
@@ -240,8 +276,8 @@ server.listen(port, host, () =>
 );
 for (const signal of ["SIGINT", "SIGTERM"])
   process.on(signal, () =>
-    server.close(() => {
-      sqlite.close();
+    server.close(async () => {
+      if(sqlite)sqlite.close();else await db.close();
       process.exit(0);
     }),
   );

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { startPolling } from "@/lib/adaptive-poll.mjs";
 import {
   Select,
   SelectContent,
@@ -34,11 +35,11 @@ export default function TeamSetup({
   const joining = useRef(false);
   useEffect(() => {
     let live = true;
-    const load = async () => {
+    const load = async (signal: AbortSignal) => {
       if (joining.current) return;
       const version = ++loadVersion.current;
       try {
-        const r = await fetch("/api/teams"),
+        const r = await fetch("/api/teams", {signal}),
           d = (await r.json()) as {
             error?: string;
             teams: Team[];
@@ -47,7 +48,7 @@ export default function TeamSetup({
             members?: { team: string; username: string; disabled: number }[];
           };
         if (!r.ok) throw Error(d.error || "Could not load teams.");
-        if (live && version === loadVersion.current) {
+        if (live && !signal.aborted && version === loadVersion.current) {
           setTeams(d.teams);
           setTeam(d.team);
           setLimit(d.maxMembers);
@@ -55,22 +56,22 @@ export default function TeamSetup({
           setError("");
         }
       } catch (e) {
-        if (live && version === loadVersion.current) {
+        if (live && !signal.aborted && version === loadVersion.current) {
           setError((e as Error).message);
           setTeam(null);
           onChange(null);
         }
+        throw e;
       } finally {
-        if (live && version === loadVersion.current) setLoading(false);
+        if (live && !signal.aborted && version === loadVersion.current) setLoading(false);
       }
     };
-    void load();
-    window.addEventListener("focus", load);
-    const timer = setInterval(() => { if (!document.hidden) void load(); }, 5000);
+    const poller = startPolling(load, {interval:5000});
+    window.addEventListener("focus", poller.refresh);
     return () => {
       live = false;
-      clearInterval(timer);
-      window.removeEventListener("focus", load);
+      poller.stop();
+      window.removeEventListener("focus", poller.refresh);
     };
   }, [username, onChange, featureRevision]);
   async function save(e: React.FormEvent) {

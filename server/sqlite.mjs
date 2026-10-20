@@ -1,7 +1,15 @@
-export function createSQLiteAdapter(sqlite) {
+import {initializeChatSearch} from "./chat-search.mjs";
+import {notificationRevisionSchema} from "./notification-revisions.mjs";
+export function createSQLiteAdapter(sqlite, {statementLimit = 256} = {}) {
+  const statements = new Map();
   return {
+    capabilities: {notificationRevisions: !!sqlite.prepare("SELECT 1 FROM sqlite_master WHERE name='social_revisions'").get(), chatSearch: !!sqlite.prepare("SELECT 1 FROM sqlite_master WHERE name='team_messages_search'").get()},
     prepare(sql) {
-      const statement = sqlite.prepare(sql);
+      let statement = statements.get(sql);
+      if (statement) statements.delete(sql);
+      else statement = sqlite.prepare(sql);
+      statements.set(sql, statement);
+      if (statements.size > statementLimit) statements.delete(statements.keys().next().value);
       return {
         bind(...args) {
           return {
@@ -142,4 +150,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created_id ON notifications(created
       sqlite.exec(
         `ALTER TABLE students ADD COLUMN ${name} ${type} NOT NULL DEFAULT ${defaultValue}`,
       );
+  sqlite.exec(notificationRevisionSchema);
+  initializeChatSearch(sqlite);
 }

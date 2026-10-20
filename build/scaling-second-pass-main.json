@@ -1,0 +1,336 @@
+{
+  "runtime": "v25.5.0",
+  "machine": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M4 Max",
+    "logicalCpus": 16,
+    "memoryMiB": 49152
+  },
+  "generatedAt": "2026-10-20T16:30:05.311Z",
+  "dataset": {
+    "users": 250,
+    "teams": 63,
+    "messages": 100000,
+    "notifications": 100,
+    "challenges": 7,
+    "mediaAssets": 41
+  },
+  "databaseExecution": "main",
+  "scope": "Isolated native server on loopback; gameplay uses pre-authenticated users. Login bursts and cold media downloads are reported when enabled; excludes browser rendering and Internet latency.",
+  "phases": [
+    {
+      "users": 250,
+      "durationSeconds": 30,
+      "elapsedSeconds": 30,
+      "chatRatio": 1,
+      "mediaRatio": 0.2,
+      "downloadedBytes": 76442393,
+      "requests": 4294,
+      "requestsPerSecond": 143.12,
+      "errors": 0,
+      "statuses": {
+        "200": 4294
+      },
+      "server": {
+        "cpuPercent": 47.521,
+        "eventLoopUtilization": 0.448,
+        "eventLoopP95Ms": 14.41,
+        "eventLoopMaxMs": 22.069,
+        "rssMiB": 265.266
+      },
+      "endpoints": {
+        "/api/team-social": {
+          "requests": 1689,
+          "p50Ms": 5.49,
+          "p95Ms": 11.53,
+          "p99Ms": 15.65
+        },
+        "/api/presence": {
+          "requests": 2385,
+          "p50Ms": 3.49,
+          "p95Ms": 9.72,
+          "p99Ms": 14
+        },
+        "/maps/elf-house.png": {
+          "requests": 2,
+          "p50Ms": 9.26,
+          "p95Ms": 11.76,
+          "p99Ms": 11.76
+        },
+        "/api/game": {
+          "requests": 167,
+          "p50Ms": 1.46,
+          "p95Ms": 7.29,
+          "p99Ms": 10.65
+        },
+        "/audio/sounds/north-pole/footsteps.wav": {
+          "requests": 1,
+          "p50Ms": 29.78,
+          "p95Ms": 29.78,
+          "p99Ms": 29.78
+        },
+        "/maps/post-office.png": {
+          "requests": 2,
+          "p50Ms": 0.48,
+          "p95Ms": 0.58,
+          "p99Ms": 0.58
+        },
+        "/sprites/thunder.png": {
+          "requests": 2,
+          "p50Ms": 0.52,
+          "p95Ms": 1.81,
+          "p99Ms": 1.81
+        },
+        "/audio/sounds/north-pole/incorrect.wav": {
+          "requests": 1,
+          "p50Ms": 3.32,
+          "p95Ms": 3.32,
+          "p99Ms": 3.32
+        },
+        "/sprites/winter-herald.png": {
+          "requests": 1,
+          "p50Ms": 5.87,
+          "p95Ms": 5.87,
+          "p99Ms": 5.87
+        },
+        "/sprites/snowbound-librarian.png": {
+          "requests": 1,
+          "p50Ms": 20.13,
+          "p95Ms": 20.13,
+          "p99Ms": 20.13
+        },
+        "/audio/sounds/north-pole/searchEmpty.wav": {
+          "requests": 1,
+          "p50Ms": 6.73,
+          "p95Ms": 6.73,
+          "p99Ms": 6.73
+        },
+        "/maps/town.png": {
+          "requests": 2,
+          "p50Ms": 0.69,
+          "p95Ms": 1.25,
+          "p99Ms": 1.25
+        },
+        "/maps/bakery.png": {
+          "requests": 2,
+          "p50Ms": 2.96,
+          "p95Ms": 18.54,
+          "p99Ms": 18.54
+        },
+        "/api/admin/chats": {
+          "requests": 3,
+          "p50Ms": 11.42,
+          "p95Ms": 12.28,
+          "p99Ms": 12.28
+        },
+        "/maps/castle.png": {
+          "requests": 2,
+          "p50Ms": 2.55,
+          "p95Ms": 5.03,
+          "p99Ms": 5.03
+        },
+        "/sprites/gingerbread-chef.png": {
+          "requests": 1,
+          "p50Ms": 0.56,
+          "p95Ms": 0.56,
+          "p99Ms": 0.56
+        },
+        "/sprites/glacier-guardian.png": {
+          "requests": 1,
+          "p50Ms": 0.48,
+          "p95Ms": 0.48,
+          "p99Ms": 0.48
+        },
+        "/audio/sounds/north-pole/lockedRoute.wav": {
+          "requests": 1,
+          "p50Ms": 0.51,
+          "p95Ms": 0.51,
+          "p99Ms": 0.51
+        },
+        "/maps/toy-workshop.png": {
+          "requests": 2,
+          "p50Ms": 0.71,
+          "p95Ms": 7.02,
+          "p99Ms": 7.02
+        },
+        "/audio/sounds/north-pole/routeUnlocked.wav": {
+          "requests": 1,
+          "p50Ms": 0.57,
+          "p95Ms": 0.57,
+          "p99Ms": 0.57
+        },
+        "/audio/sounds/north-pole/transport.wav": {
+          "requests": 1,
+          "p50Ms": 3.84,
+          "p95Ms": 3.84,
+          "p99Ms": 3.84
+        },
+        "/sprites/ember-tinkerer.png": {
+          "requests": 1,
+          "p50Ms": 5.43,
+          "p95Ms": 5.43,
+          "p99Ms": 5.43
+        },
+        "/audio/workshop.mid": {
+          "requests": 1,
+          "p50Ms": 4.54,
+          "p95Ms": 4.54,
+          "p99Ms": 4.54
+        },
+        "/sprites/aurora-oracle.png": {
+          "requests": 1,
+          "p50Ms": 14.25,
+          "p95Ms": 14.25,
+          "p99Ms": 14.25
+        },
+        "/audio/sounds/north-pole/bossSolved.wav": {
+          "requests": 1,
+          "p50Ms": 0.61,
+          "p95Ms": 0.61,
+          "p99Ms": 0.61
+        },
+        "/maps/cocoa-cottage.png": {
+          "requests": 2,
+          "p50Ms": 0.57,
+          "p95Ms": 0.62,
+          "p99Ms": 0.62
+        },
+        "/audio/sounds/north-pole/spawn.wav": {
+          "requests": 1,
+          "p50Ms": 1.31,
+          "p95Ms": 1.31,
+          "p99Ms": 1.31
+        },
+        "/sprites/frost-alchemist.png": {
+          "requests": 1,
+          "p50Ms": 1.55,
+          "p95Ms": 1.55,
+          "p99Ms": 1.55
+        },
+        "/sprites/clockwork-toymaker.png": {
+          "requests": 1,
+          "p50Ms": 6.49,
+          "p95Ms": 6.49,
+          "p99Ms": 6.49
+        },
+        "/sprites/aurora-scout.png": {
+          "requests": 1,
+          "p50Ms": 11.04,
+          "p95Ms": 11.04,
+          "p99Ms": 11.04
+        },
+        "/audio/sounds/north-pole/discovery.wav": {
+          "requests": 1,
+          "p50Ms": 0.65,
+          "p95Ms": 0.65,
+          "p99Ms": 0.65
+        },
+        "/audio/sounds/north-pole/keyObtained.wav": {
+          "requests": 1,
+          "p50Ms": 0.57,
+          "p95Ms": 0.57,
+          "p99Ms": 0.57
+        },
+        "/sprites/pine-ranger.png": {
+          "requests": 1,
+          "p50Ms": 1.15,
+          "p95Ms": 1.15,
+          "p99Ms": 1.15
+        },
+        "/audio/sounds/north-pole/incantationObtained.wav": {
+          "requests": 1,
+          "p50Ms": 2,
+          "p95Ms": 2,
+          "p99Ms": 2
+        },
+        "/sprites/web.png": {
+          "requests": 2,
+          "p50Ms": 2.15,
+          "p95Ms": 11.04,
+          "p99Ms": 11.04
+        },
+        "/sprites/starlight-bard.png": {
+          "requests": 1,
+          "p50Ms": 0.74,
+          "p95Ms": 0.74,
+          "p99Ms": 0.74
+        },
+        "/audio/sounds/north-pole/interaction.wav": {
+          "requests": 1,
+          "p50Ms": 17.23,
+          "p95Ms": 17.23,
+          "p99Ms": 17.23
+        },
+        "/audio/sounds/north-pole/expeditionComplete.wav": {
+          "requests": 1,
+          "p50Ms": 2.79,
+          "p95Ms": 2.79,
+          "p99Ms": 2.79
+        },
+        "/sprites/shield.png": {
+          "requests": 1,
+          "p50Ms": 0.54,
+          "p95Ms": 0.54,
+          "p99Ms": 0.54
+        },
+        "/audio/sounds/north-pole/submitted.wav": {
+          "requests": 1,
+          "p50Ms": 1.28,
+          "p95Ms": 1.28,
+          "p99Ms": 1.28
+        },
+        "/sprites/elf-guide.png": {
+          "requests": 1,
+          "p50Ms": 0.57,
+          "p95Ms": 0.57,
+          "p99Ms": 0.57
+        },
+        "/audio/north-pole.mid": {
+          "requests": 1,
+          "p50Ms": 4.65,
+          "p95Ms": 4.65,
+          "p99Ms": 4.65
+        },
+        "/audio/sounds/north-pole/mapEntry.wav": {
+          "requests": 1,
+          "p50Ms": 0.55,
+          "p95Ms": 0.55,
+          "p99Ms": 0.55
+        },
+        "/audio/sounds/north-pole/correct.wav": {
+          "requests": 1,
+          "p50Ms": 0.55,
+          "p95Ms": 0.55,
+          "p99Ms": 0.55
+        },
+        "/audio/sounds/north-pole/hintUnlocked.wav": {
+          "requests": 1,
+          "p50Ms": 0.63,
+          "p95Ms": 0.63,
+          "p99Ms": 0.63
+        }
+      },
+      "sampleErrors": []
+    }
+  ],
+  "loginBurst": {
+    "users": 100,
+    "concurrency": 25,
+    "elapsedSeconds": 0.284411333,
+    "statuses": {
+      "200": 100
+    },
+    "errors": 0,
+    "p50Ms": 61.55,
+    "p95Ms": 68.21,
+    "p99Ms": 73.93,
+    "server": {
+      "cpuPercent": 373.2358445691001,
+      "eventLoopUtilization": 0.20272343618782698,
+      "eventLoopP95Ms": 11.182079,
+      "eventLoopMaxMs": 12.009471,
+      "rssMiB": 563.296875
+    }
+  }
+}

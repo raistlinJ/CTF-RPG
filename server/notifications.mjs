@@ -1,9 +1,23 @@
+const summaryCaches = new WeakMap();
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const visible="(n.scope='all' OR EXISTS(SELECT 1 FROM notification_recipients p WHERE p.notification=n.id AND p.username=?))";
 export async function notificationStats(db,u){
+ let versions, cache, key;
+ if(db.capabilities?.notificationRevisions) {
+  versions=await db.prepare("SELECT (SELECT revision FROM social_revisions WHERE id='notifications') AS globalRevision,COALESCE((SELECT revision FROM social_revisions WHERE id=?),0) AS readRevision").bind('notification:reads:'+u.id).first();
+  key=JSON.stringify([u.id,u.username]);cache=summaryCaches.get(db);
+  const cached=cache?.get(key);
+  if(cached && cached.until>Date.now() && cached.globalRevision===versions.globalRevision && cached.readRevision===versions.readRevision)return {...cached.summary};
+ }
  const row=await db.prepare(`SELECT COUNT(CASE WHEN r.notification IS NULL THEN 1 END) AS unread,COALESCE(MAX(CASE WHEN r.notification IS NULL THEN n.created_at END),0) AS latestAt,COUNT(*) AS total,COALESCE(MAX(n.created_at),0) AS latestSentAt FROM notifications n LEFT JOIN notification_reads r ON r.notification=n.id AND r.user=? WHERE ${visible}`).bind(u.id,u.username).first();
- return {unread:row.unread,latestAt:row.latestAt,historyVersion:`${row.total}:${row.latestSentAt}`};
+ const summary={unread:row.unread,latestAt:row.latestAt,historyVersion:`${row.total}:${row.latestSentAt}`};
+ if(versions) {
+  if(!cache){cache=new Map();summaryCaches.set(db,cache);}
+  if(cache.size>=512)cache.delete(cache.keys().next().value);
+  cache.set(key,{...versions,until:Date.now()+30000,summary});
+ }
+ return {...summary};
 }
 export async function handleNotifications(req,{db,config,user,platformAdmin}){
  const u=await user(req),admin=platformAdmin||u?.role==='admin',url=new URL(req.url),manage=url.pathname.startsWith('/api/admin/');

@@ -86,10 +86,13 @@ export class MidiPlayer {
       if (!r.ok) throw Error("Background music could not be loaded.");
       const data = await r.arrayBuffer();
       if (this.closed || generation !== this.generation) return;
+      if (data.byteLength > 5 * 1024 * 1024)
+        throw Error("MIDI files must be smaller than 5 MB.");
       const midi = new Midi(data);
       if (
         !Number.isFinite(midi.duration) ||
-        midi.duration <= 0
+        midi.duration <= 0 ||
+        midi.duration > 86400
       )
         throw Error("The MIDI file has no playable notes.");
       this.notes = midi.tracks
@@ -105,6 +108,8 @@ export class MidiPlayer {
           })),
         )
         .sort((a, b) => a.time - b.time);
+      if (this.notes.length > 100000)
+        throw Error("The MIDI file contains too many notes.");
       if (this.closed || generation !== this.generation) return;
       this.cursor = 0;
       this.duration = midi.duration + 0.3;

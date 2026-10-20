@@ -1,4 +1,4 @@
-import { CONTENT_PACK_LIMIT, THEME_PACK_LIMIT, IMAGE_FILE_LIMIT, PACK_IMPORT_REQUEST_LIMIT } from "../lib/pack-limits.mjs";
+import { CONTENT_PACK_LIMIT, THEME_PACK_LIMIT, IMAGE_FILE_LIMIT, MIDI_FILE_LIMIT, PACK_IMPORT_REQUEST_LIMIT } from "../lib/pack-limits.mjs";
 import { challengeLocationAvailable } from "../lib/challenge-placement.mjs";
 import { validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { planChallengePlacement } from "../lib/challenge-placement.mjs";
@@ -9,7 +9,6 @@ import {
   parseTheme,
   defaultTheme,
   themeAssetPaths,
-  themeMusicAssetPaths,
   mapThemeAssets,
 } from "../lib/theme-schema.mjs";
 import { createWorld } from "../lib/world-data.mjs";
@@ -69,15 +68,20 @@ function withBundledSounds(theme) {
   }
   return { ...theme, sounds: defaultSoundConfig(base, theme.world.maps.map(map => map.id)) };
 }
+const parsedThemes = new WeakMap();
 export async function activeTheme(db, config) {
   const row = await db
     .prepare("SELECT payload,revision FROM theme_catalog WHERE id='active'")
     .bind()
     .first();
-  return {
-    theme: row ? parseTheme(withBundledSounds(JSON.parse(row.payload))) : defaultTheme(config),
-    revision: row?.revision || 0,
-  };
+  let cached = parsedThemes.get(db);
+  if (!cached || cached.payload !== row?.payload || cached.revision !== (row?.revision || 0) || cached.config !== config) {
+    cached = {payload:row?.payload, revision:row?.revision || 0, config,
+      theme:row ? parseTheme(withBundledSounds(JSON.parse(row.payload)), {allowLegacyAudio:true}) : defaultTheme(config)};
+    parsedThemes.set(db, cached);
+  }
+  // Requests may build mutable drafts. Never share a cached object with a writer.
+  return {theme:structuredClone(cached.theme), revision:cached.revision};
 }
 export async function readAsset(path, store, readBase = seedAsset) {
   if (path.startsWith("/api/assets/")) {
@@ -103,22 +107,21 @@ export const contentPaths = (cs) => [
       .filter((p) => p?.startsWith("/")),
   ),
 ];
-async function packageAssets(entries, paths, store, readBase, limit = CONTENT_PACK_LIMIT, exempt = new Set()) {
+async function packageAssets(entries, paths, store, readBase, limit = CONTENT_PACK_LIMIT) {
   let total = 0;
   for (const path of paths) {
     const bytes = await readAsset(path, store, readBase);
     if (!bytes) throw Error(`Missing local asset: ${path}`);
-    if (!exempt.has(path)) total += bytes.length;
+    total += bytes.length;
     if (total > limit) throw Error(`Assets exceed the ${limit / 1048576} MB pack limit.`);
     entries["assets" + path] = bytes;
   }
 }
-// Only server-generated map edits opt into allowLargeMusic; public ZIP uploads retain archive limits.
-export async function exportPack(kind, state, store, readBase, { allowLargeMusic = false } = {}) {
+export async function exportPack(kind, state, store, readBase) {
   const entries = {};
   if (kind === "theme") {
     entries["theme.yaml"] = strToU8(stringify(state.theme));
-    await packageAssets(entries, themeAssetPaths(state.theme), store, readBase, THEME_PACK_LIMIT, new Set(allowLargeMusic ? themeMusicAssetPaths(state.theme) : []));
+    await packageAssets(entries, themeAssetPaths(state.theme), store, readBase, THEME_PACK_LIMIT);
   } else {
     entries["content.yaml"] = strToU8(
       stringify({
@@ -142,9 +145,9 @@ export async function exportPack(kind, state, store, readBase, { allowLargeMusic
     },
   });
 }
-function unpack(bytes, kind, allowLargeMusic = false) {
+function unpack(bytes, kind) {
   const limit = kind === "theme" ? THEME_PACK_LIMIT : CONTENT_PACK_LIMIT;
-  if (!allowLargeMusic && bytes.length > limit) throw Error(`The ${kind} ZIP must be at most ${limit / 1048576} MB.`);
+  if (bytes.length > limit) throw Error(`The ${kind} ZIP must be at most ${limit / 1048576} MB.`);
   let size = 0,
     count = 0;
   const names = new Set();
@@ -158,11 +161,10 @@ function unpack(bytes, kind, allowLargeMusic = false) {
       )
         throw Error("Invalid/duplicate ZIP entry path or too many files.");
       names.add(f.name);
-      const music = kind === "theme" && /\.midi?$/i.test(f.name);
-      if (!allowLargeMusic || !music) size += f.originalSize;
-      if (size > limit || (!music && f.originalSize > IMAGE_FILE_LIMIT))
+      size += f.originalSize;
+      if (size > limit || f.originalSize > (kind === "theme" && /\.midi?$/i.test(f.name) ? MIDI_FILE_LIMIT : IMAGE_FILE_LIMIT))
         throw Error(
-          `Expanded ${kind} ZIP exceeds the ${limit / 1048576} MB total or per-file limit (${kind === "theme" ? "4 MB images/effects" : "4 MB"}).`,
+          `Expanded ${kind} ZIP exceeds the ${limit / 1048576} MB total or per-file limit (${kind === "theme" ? "4 MB images / 5 MB MIDI" : "4 MB"}).`,
         );
       if (
         f.name === "assets/" ||
@@ -276,7 +278,7 @@ async function stage(pack, kind, store) {
 }
 export async function importPacks(
   req,
-  { db, config, theme, themeRevision, challenges, contentRevision, store, preservePlacements = false, allowLargeMusic = false },
+  { db, config, theme, themeRevision, challenges, contentRevision, store, preservePlacements = false },
   kind,
 ) {
   const reader = req.body?.getReader();
@@ -287,7 +289,7 @@ export async function importPacks(
     const r = await reader.read();
     if (r.done) break;
     length += r.value.length;
-    if (!allowLargeMusic && length > PACK_IMPORT_REQUEST_LIMIT) {
+    if (length > PACK_IMPORT_REQUEST_LIMIT) {
       await reader.cancel();
       throw Error("Import request exceeds 41 MB (32 MB theme plus 8 MB content).");
     }
@@ -315,7 +317,7 @@ export async function importPacks(
     throw Error(
       "The theme or challenges changed. Refresh this page before importing.",
     );
-  const primary = unpack(new Uint8Array(await file.arrayBuffer()), kind, allowLargeMusic),
+  const primary = unpack(new Uint8Array(await file.arrayBuffer()), kind),
     secondary =
       paired && typeof paired.arrayBuffer === "function" && paired.size
         ? unpack(new Uint8Array(await paired.arrayBuffer()), "content")
@@ -363,6 +365,11 @@ export async function importPacks(
           : placement.moved.length || placement.excluded.length
             ? placement.challenges
             : null;
+  return commitCatalogs({db, themeRevision, contentRevision}, {theme:appliedTheme, content:appliedContent, placement});
+}
+
+// Used by validated map edits and pack imports; both catalogs commit atomically.
+export async function commitCatalogs({db, themeRevision, contentRevision}, {theme:appliedTheme = null, content:appliedContent = null, placement = {moved:[], excluded:[], challenges:[]}}) {
   const statements = [];
   if (appliedTheme)
     statements.push(

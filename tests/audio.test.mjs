@@ -16,7 +16,6 @@ import {SOUND_EVENTS} from '../lib/sound-events.mjs';
 import {musicTracks,shuffledTracks} from '../lib/midi-playlist.mjs';
 import {createSnapshot,validateSnapshot} from '../server/backup.mjs';
 import {activeTheme} from '../server/packs.mjs';
-import {midiFixture} from './helpers/midi.mjs';
 function midi(pitch=60){const m=new Midi();m.addTrack().addNote({midi:pitch,time:0,duration:.3,velocity:.8});return m.toArray();}
 function wav(){const bytes=new Uint8Array(844),view=new DataView(bytes.buffer);const word=(at,value)=>{for(let i=0;i<value.length;i++)bytes[at+i]=value.charCodeAt(i);};word(0,'RIFF');view.setUint32(4,836,true);word(8,'WAVE');word(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,8000,true);view.setUint32(28,8000,true);view.setUint16(32,1,true);view.setUint16(34,8,true);word(36,'data');view.setUint32(40,800,true);bytes.fill(128,44);return bytes;}
 function setup(){const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);const db=createSQLiteAdapter(sqlite);const config=parseGame('characters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web');const challenges=parseChallenges(readFileSync('content/challenges.yaml','utf8'));const files=new Map();const api=createApi({db,config,challenges,assetStore:{async get(k){return files.get(k)||null},async put(k,v){files.set(k,v)}},readBaseAsset:p=>new Uint8Array(readFileSync('public'+p))});function client(){let cookie='';return async(path,body)=>{const r=await api(new Request('http://quest.test'+path,{method:body?'POST':'GET',headers:{Origin:'http://quest.test',Cookie:cookie,...(body&&!(body instanceof FormData)?{'Content-Type':'application/json'}:{})},body:body instanceof FormData?body:body?JSON.stringify(body):undefined}));if(r.headers.has('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];return {status:r.status,data:r.headers.get('content-type')?.includes('json')?await r.json():null,r};};}return{sqlite,db,config,challenges,files,client};}
@@ -264,17 +263,17 @@ test('a duplicate in a batch does not count toward the saved playlist limit', as
     const admin = s.client();
     await admin('/api/auth', {username:'teacher', password:'teacher-password', mode:'login'});
     const initial = (await admin('/api/admin/theme-audio')).data;
-    const first = await admin('/api/admin/theme-audio', form(initial, Array.from({length:99}, (_, i) => [`Track ${i}.mid`, midi(i)])));
+    const first = await admin('/api/admin/theme-audio', form(initial, Array.from({length:19}, (_, i) => [`Track ${i}.mid`, midi(40 + i)])));
     assert.equal(first.status, 200, JSON.stringify(first.data));
-    const full = await admin('/api/admin/theme-audio', form(first.data, [['Repeat.mid', midi(0)], ['Last.mid', midi(110)]]));
+    const full = await admin('/api/admin/theme-audio', form(first.data, [['Repeat.mid', midi(40)], ['Last.mid', midi(80)]]));
     assert.equal(full.status, 200, JSON.stringify(full.data));
-    assert.equal(full.data.audio.playlist.length, 100);
+    assert.equal(full.data.audio.playlist.length, 20);
     assert.equal(full.data.uploaded, 1);
     assert.deepEqual(full.data.skipped, ['Repeat.mid']);
-    const rejected = await admin('/api/admin/theme-audio', form(full.data, [['Over limit.mid', midi(111)]]));
+    const rejected = await admin('/api/admin/theme-audio', form(full.data, [['Over limit.mid', midi(81)]]));
     assert.equal(rejected.status, 400);
     assert.equal((await admin('/api/admin/theme-audio')).data.revision, full.data.revision);
-    assert.equal(s.files.size, 100);
+    assert.equal(s.files.size, 20);
   } finally { s.sqlite.close(); }
 });
 
@@ -312,95 +311,4 @@ test('batch uploads recognize an existing public MIDI by its content', async () 
     assert.equal(uploaded.data.audio.playlist[0].midi, '/audio/north-pole.mid');
     assert.equal(s.files.size, 1);
   } finally { s.sqlite.close(); }
-});
-
-
-test('one batch accepts 100 tracks and rejects 101 before saving', async () => {
-  const s = setup();
-  try {
-    const admin = s.client();
-    await admin('/api/auth', {username:'teacher', password:'teacher-password', mode:'login'});
-    const initial = (await admin('/api/admin/theme-audio')).data;
-    const files = Array.from({length:100}, (_, pitch) => [`Track ${pitch}.mid`, midi(pitch)]);
-    const rejected = await admin('/api/admin/theme-audio', form(initial, [...files, ['Extra.mid', midi(110)]]));
-    assert.equal(rejected.status, 400);
-    assert.match(rejected.data.error, /at most 100 MIDI files/);
-    assert.equal(s.files.size, 0);
-    const saved = await admin('/api/admin/theme-audio', form(initial, files));
-    assert.equal(saved.status, 200, JSON.stringify(saved.data));
-    assert.equal(saved.data.uploaded, 100);
-    assert.equal((await admin('/api/config')).data.audio.playlist.length, 100);
-    const snapshot = await createSnapshot({db:s.db, config:s.config, challenges:s.challenges});
-    assert.equal(validateSnapshot(snapshot).theme.audio.playlist.length, 100);
-    const exported = await admin('/api/admin/packs?kind=theme');
-    assert.equal(exported.status, 200);
-    const revisions = (await admin('/api/admin/packs')).data;
-    const pack = new FormData();
-    pack.set('file', new File([await exported.r.arrayBuffer()], 'music.zip'));
-    pack.set('themeRevision', String(revisions.themeRevision));
-    pack.set('contentRevision', String(revisions.contentRevision));
-    const imported = await admin('/api/admin/packs?kind=theme', pack);
-    assert.equal(imported.status, 200, JSON.stringify(imported.data));
-    assert.equal((await admin('/api/admin/theme-audio')).data.audio.playlist.length, 100);
-    const game = parseGame(JSON.stringify({...s.config, audio:saved.data.audio}));
-    assert.equal(game.audio.playlist.length, 100);
-  } finally { s.sqlite.close(); }
-});
-
-test('music above 32 MB uploads, stays assignable, and does not block image or map edits', async () => {
-  const s = setup();
-  try {
-    const admin = s.client();
-    await admin('/api/auth', {username:'teacher', password:'teacher-password', mode:'login'});
-    const initial = (await admin('/api/admin/theme-audio')).data;
-    const bytes = midiFixture({metadataBytes:34 * 1024 * 1024});
-    const uploaded = await admin('/api/admin/theme-audio', form(initial, [['Large.mid', bytes]]));
-    assert.equal(uploaded.status, 200, JSON.stringify(uploaded.data));
-    const track = uploaded.data.audio.playlist[0].midi;
-    assert.deepEqual(new Uint8Array(await (await admin(track)).r.arrayBuffer()), bytes);
-    const sounds = (await admin('/api/admin/theme-sounds')).data;
-    const mapId = sounds.maps[0].id;
-    const assigned = await admin('/api/admin/theme-sounds', {action:'assign', revision:sounds.revision, maps:{}, events:{}, mapMusic:{[mapId]:track}});
-    assert.equal(assigned.status, 200, JSON.stringify(assigned.data));
-    const current = (await admin('/api/admin/theme-audio')).data;
-    assert.equal((await admin('/api/admin/theme-audio', form(current))).status, 200);
-    const media = (await admin('/api/admin/theme-media')).data;
-    const image = await admin('/api/admin/theme-media', {action:'backgrounds', revision:media.revision, mapBackgrounds:{[mapId]:'/sprites/web.png'}});
-    assert.equal(image.status, 200, JSON.stringify(image.data));
-    const state = (await admin('/api/admin/packs')).data;
-    const edit = new FormData();
-    edit.set('action', 'reset-artwork');
-    edit.set('map', JSON.stringify({id:mapId}));
-    edit.set('themeRevision', String(state.themeRevision));
-    edit.set('contentRevision', String(state.contentRevision));
-    const map = await admin('/api/admin/maps', edit);
-    assert.equal(map.status, 200, JSON.stringify(map.data));
-    const final = (await admin('/api/admin/theme-audio')).data;
-    assert.equal(final.maps.find(item => item.id === mapId).music, track);
-    assert.deepEqual(new Uint8Array(await (await admin(track)).r.arrayBuffer()), bytes);
-  } finally { s.sqlite.close(); }
-});
-
-
-test('a MIDI above 5 MB roundtrips through a theme pack within its separate archive budget', async () => {
-  const s=setup();
-  try {
-    const admin=s.client();
-    await admin('/api/auth', {username:'teacher', password:'teacher-password', mode:'login'});
-    const initial=(await admin('/api/admin/theme-audio')).data;
-    const bytes=midiFixture({metadataBytes:6 * 1024 * 1024});
-    const saved=await admin('/api/admin/theme-audio', form(initial, [['Large.mid', bytes]]));
-    assert.equal(saved.status, 200, JSON.stringify(saved.data));
-    const exported=await admin('/api/admin/packs?kind=theme');
-    assert.equal(exported.status, 200);
-    const state=(await admin('/api/admin/packs')).data;
-    const pack=new FormData();
-    pack.set('file', new File([await exported.r.arrayBuffer()], 'music.zip'));
-    pack.set('themeRevision', String(state.themeRevision));
-    pack.set('contentRevision', String(state.contentRevision));
-    const imported=await admin('/api/admin/packs?kind=theme', pack);
-    assert.equal(imported.status, 200, JSON.stringify(imported.data));
-    const restored=(await admin('/api/admin/theme-audio')).data;
-    assert.deepEqual(new Uint8Array(await (await admin(restored.audio.playlist[0].midi)).r.arrayBuffer()), bytes);
-  } finally {s.sqlite.close();}
 });
