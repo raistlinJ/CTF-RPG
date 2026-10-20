@@ -1737,9 +1737,9 @@ export default function Game() {
               aria-label="Challenge files"
             >
               <h3>Challenge files</h3>
-              {active.downloads.map((file) => (
+              {active.downloads.map((file, index) => (
                 <a
-                  key={file.url}
+                  key={`${file.url}:${index}`}
                   href={file.url}
                   download={file.filename || file.name}
                   target={file.url.startsWith("https:") ? "_blank" : undefined}

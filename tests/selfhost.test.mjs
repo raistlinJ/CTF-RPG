@@ -87,3 +87,15 @@ test('shared-network sign-in limits isolate repeated account failures from other
   assert.equal((await login('teacher01','initial-pass#with$dollar')).status,200);
  }finally{await stop(child);rmSync(dir,{recursive:true,force:true});}
 });
+
+test('native challenge-file uploads accept analysis files above the generic API limit, persist on restart, and reject oversized files',async()=>{
+ const dir=fixture(),p=await port(),base=`http://127.0.0.1:${p}`;let child=await start(dir,p);
+ try {
+  const auth=await fetch(base+'/api/auth',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({mode:'login',username:'teacher01',password:'initial-pass#with$dollar',hero:'web'})});assert.equal(auth.status,200);const cookie=auth.headers.get('set-cookie').split(';')[0];
+  const bytes=new Uint8Array(700*1024);for(let i=0;i<bytes.length;i++)bytes[i]=i%256;
+  const upload=await fetch(base+'/api/admin/challenge-files?name=capture.pcap',{method:'POST',headers:{Origin:base,Cookie:cookie},body:bytes});assert.equal(upload.status,200);const attachment=await upload.json();assert.equal(attachment.filename,'capture.pcap');
+  await stop(child);child=await start(dir,p);
+  const download=await fetch(base+attachment.url);assert.equal(download.status,200);assert.equal(download.headers.get('content-disposition'),'attachment');assert.deepEqual(new Uint8Array(await download.arrayBuffer()),bytes);
+  const oversized=await fetch(base+'/api/admin/challenge-files?name=too-big.pcap',{method:'POST',headers:{Origin:base,Cookie:cookie},body:new Uint8Array(4*1024*1024+1)});assert.equal(oversized.status,413);assert.match((await oversized.json()).error,/4 MB/);
+ }finally{await stop(child);rmSync(dir,{recursive:true,force:true});}
+});

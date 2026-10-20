@@ -35,6 +35,7 @@ Use a valid player `hero` ID from `GET /api/config` if supplying a character on 
 | GET, POST | `/api/admin/challenge-dependencies` | Read/edit progression dependencies. |
 | GET, POST | `/api/admin/registration` | Configure self-registration. |
 | GET, POST | `/api/admin/packs` | Read, export and import themes/content. |
+| POST | `/api/admin/challenge-files?name=FILE` | Upload a raw file body (up to 4 MB); returns `name`, `filename`, `url`, and `size` for the challenge download list. Save the challenge separately. |
 | POST | `/api/admin/ctfd-import` | Preview/apply a multipart CTFd import, with explicit skipped-file decisions. |
 | POST | `/api/admin/maps` | Edit ground, spawns, entities and transports. |
 | GET, POST | `/api/admin/theme-media` | Manage image catalogs, appearances, and map backgrounds. |

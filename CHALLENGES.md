@@ -124,6 +124,8 @@ Each download requires:
 - `url`: a local URL beginning with `/`, or an external `https://` URL. Relative filesystem paths, `..`, and unsafe URL schemes are rejected.
 - `filename`: optional suggested download filename, using letters, digits, periods, underscores, or hyphens.
 
+In the admin challenge editor, open **Hints & files → Challenge files → Upload files** to select one or more files directly (up to 4 MB each, 20 attachments per challenge). The editor fills in the URL, label, and a safe download filename. Use **Upload or replace this file** on a row to replace an existing attachment while keeping its label. Click **Save challenge** after uploading. Uploaded files are stored as binary downloads, including packet captures, SQL scripts, PDFs, archives, and other analysis formats. Saved attachments travel with content exports and full backups; the existing 8 MB content asset limit still applies to combined attachments. Removing a row detaches it from that challenge.
+
 For a local file, put it in `public/downloads/`:
 
 ```text
