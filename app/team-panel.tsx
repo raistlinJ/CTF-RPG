@@ -1,4 +1,5 @@
 "use client";
+import { startPolling } from "@/lib/adaptive-poll.mjs";
 import { clientUuid } from "@/lib/client-uuid.mjs";
 import { PersonalMuteButton, PersonalMuteControls, type PersonalMutes } from "./personal-mutes";
 import { useEffect, useRef, useState } from "react";
@@ -84,29 +85,44 @@ export default function TeamPanel({
     messageList = useRef<HTMLDivElement>(null),
     nearBottom = useRef(true),
     sendFailed = useRef(false);
+  const loadRequest = useRef<{version:number;controller:AbortController}|null>(null);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
-  async function load(silent = false) {
+  async function load(silent = false, signal?: AbortSignal) {
     const target = selected,
       version = generation.current;
+    if (loadRequest.current?.version === version) return true;
+    loadRequest.current?.controller.abort();
+    const controller = new AbortController();
+    loadRequest.current = {version,controller};
+    const abort = () => controller.abort();
+    signal?.addEventListener("abort",abort,{once:true});
+    if(signal?.aborted)controller.abort();
+    const timeout = setTimeout(abort,12000);
     if (!silent) setLoading(true);
     try {
       const r = await fetch(
           "/api/team-social" +
             (target ? "?team=" + encodeURIComponent(target) : ""),
+          {signal:controller.signal},
         ),
         d = (await r.json()) as ResponseData;
       if (!r.ok) throw Error(d.error || "Could not load teams.");
-      if (version === generation.current && target === selectedRef.current) {
+      if (!controller.signal.aborted && version === generation.current && target === selectedRef.current) {
         setData(d);
         if (!sendFailed.current) setError("");
         if (target === d.ownTeam || target === "instructors")
           onRead(d.latestMessageAt);
       }
+      return true;
     } catch (e) {
-      if (version === generation.current && target === selectedRef.current)
+      if (!signal?.aborted && version === generation.current && target === selectedRef.current)
         setError((e as Error).message);
+      return false;
     } finally {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort",abort);
+      if (loadRequest.current?.controller === controller) loadRequest.current = null;
       if (version === generation.current && !silent) setLoading(false);
     }
   }
@@ -119,13 +135,15 @@ export default function TeamPanel({
     setText("");
     request.current = { id: "", text: "", team: "" };
     if (!open) return;
-    void load();
-    const timer = setInterval(() => {
-      if (!document.hidden) void load(true);
-    }, 5000);
+    let first = true;
+    const poller = startPolling(async(signal:AbortSignal) => {
+      const silent = !first; first = false;
+      if (!await load(silent,signal)) throw Error("Could not refresh messages.");
+    },{interval:5000});
     return () => {
       generation.current++;
-      clearInterval(timer);
+      poller.stop();
+      loadRequest.current?.controller.abort();
     };
   }, [open, selected]);
   useEffect(() => { if (open) void load(true); }, [personalMutes?.settings?.revision]);

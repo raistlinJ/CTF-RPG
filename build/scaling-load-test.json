@@ -1,0 +1,158 @@
+{
+  "runtime": "v25.5.0",
+  "machine": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M4 Max",
+    "logicalCpus": 16,
+    "memoryMiB": 49152
+  },
+  "generatedAt": "2026-10-20T05:47:55.202Z",
+  "dataset": {
+    "users": 250,
+    "teams": 63,
+    "messages": 100000,
+    "notifications": 100
+  },
+  "scope": "Isolated native server on loopback, pre-authenticated users; excludes login bursts, browser rendering and Internet latency.",
+  "phases": [
+    {
+      "users": 50,
+      "durationSeconds": 20,
+      "elapsedSeconds": 20.01,
+      "chatRatio": 1,
+      "requests": 574,
+      "requestsPerSecond": 28.69,
+      "errors": 0,
+      "statuses": {
+        "200": 574
+      },
+      "server": {
+        "cpuPercent": 25.608,
+        "eventLoopUtilization": 0.235,
+        "eventLoopP95Ms": 17.809,
+        "eventLoopMaxMs": 28.508,
+        "rssMiB": 294.75
+      },
+      "endpoints": {
+        "/api/team-social": {
+          "requests": 231,
+          "p50Ms": 11.53,
+          "p95Ms": 19.91,
+          "p99Ms": 24.05
+        },
+        "/api/presence": {
+          "requests": 317,
+          "p50Ms": 7.93,
+          "p95Ms": 18.31,
+          "p99Ms": 22.78
+        },
+        "/api/game": {
+          "requests": 24,
+          "p50Ms": 8.35,
+          "p95Ms": 18.4,
+          "p99Ms": 20.17
+        },
+        "/api/admin/chats": {
+          "requests": 2,
+          "p50Ms": 7.68,
+          "p95Ms": 14.07,
+          "p99Ms": 14.07
+        }
+      },
+      "sampleErrors": []
+    },
+    {
+      "users": 100,
+      "durationSeconds": 20,
+      "elapsedSeconds": 20.02,
+      "chatRatio": 1,
+      "requests": 1112,
+      "requestsPerSecond": 55.56,
+      "errors": 0,
+      "statuses": {
+        "200": 1112
+      },
+      "server": {
+        "cpuPercent": 38.555,
+        "eventLoopUtilization": 0.356,
+        "eventLoopP95Ms": 16.794,
+        "eventLoopMaxMs": 27.542,
+        "rssMiB": 295.281
+      },
+      "endpoints": {
+        "/api/presence": {
+          "requests": 628,
+          "p50Ms": 6.89,
+          "p95Ms": 14.6,
+          "p99Ms": 19.49
+        },
+        "/api/team-social": {
+          "requests": 445,
+          "p50Ms": 9.04,
+          "p95Ms": 16.27,
+          "p99Ms": 20.37
+        },
+        "/api/game": {
+          "requests": 37,
+          "p50Ms": 5.24,
+          "p95Ms": 15.94,
+          "p99Ms": 16.27
+        },
+        "/api/admin/chats": {
+          "requests": 2,
+          "p50Ms": 9.38,
+          "p95Ms": 14.04,
+          "p99Ms": 14.04
+        }
+      },
+      "sampleErrors": []
+    },
+    {
+      "users": 250,
+      "durationSeconds": 20,
+      "elapsedSeconds": 20.07,
+      "chatRatio": 1,
+      "requests": 2853,
+      "requestsPerSecond": 142.16,
+      "errors": 0,
+      "statuses": {
+        "200": 2853
+      },
+      "server": {
+        "cpuPercent": 75.856,
+        "eventLoopUtilization": 0.701,
+        "eventLoopP95Ms": 21.004,
+        "eventLoopMaxMs": 36.307,
+        "rssMiB": 305.781
+      },
+      "endpoints": {
+        "/api/presence": {
+          "requests": 1579,
+          "p50Ms": 8.34,
+          "p95Ms": 26.85,
+          "p99Ms": 44.77
+        },
+        "/api/team-social": {
+          "requests": 1139,
+          "p50Ms": 9.66,
+          "p95Ms": 27.9,
+          "p99Ms": 39.52
+        },
+        "/api/game": {
+          "requests": 133,
+          "p50Ms": 7.02,
+          "p95Ms": 40.94,
+          "p99Ms": 59.6
+        },
+        "/api/admin/chats": {
+          "requests": 2,
+          "p50Ms": 7.64,
+          "p95Ms": 11.91,
+          "p99Ms": 11.91
+        }
+      },
+      "sampleErrors": []
+    }
+  ]
+}

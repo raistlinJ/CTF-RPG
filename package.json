@@ -19,7 +19,8 @@
     "prebuild": "npm run build:selfhost",
     "restore": "node server/restore.mjs",
     "themes:build": "node scripts/build-theme-packs.mjs",
-    "prebuild:selfhost": "npm run themes:build"
+    "prebuild:selfhost": "npm run themes:build",
+    "load-test": "node scripts/load-test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

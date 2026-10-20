@@ -1,4 +1,5 @@
-import { THEME_UPLOAD_LIMIT, PACK_IMPORT_REQUEST_LIMIT, CTFD_IMPORT_REQUEST_LIMIT } from "../lib/pack-limits.mjs";
+import {createAuthRateLimiter} from './auth-rate-limit.mjs';
+import { THEME_UPLOAD_LIMIT, PACK_IMPORT_REQUEST_LIMIT, CTFD_IMPORT_REQUEST_LIMIT, CHALLENGE_FILE_LIMIT } from "../lib/pack-limits.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
@@ -126,17 +127,10 @@ const types = {
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
 };
-const limiters = new Map();
-function rateLimited(ip) {
-  const now = Date.now(),
-    entry = limiters.get(ip);
-  if (limiters.size > 10000)
-    for (const [key, e] of limiters) if (e.until < now) limiters.delete(key);
-  if (!entry || entry.until < now) {
-    limiters.set(ip, { count: 1, until: now + 60000 });
-    return false;
-  }
-  return ++entry.count > 20;
+const authLimits = createAuthRateLimiter();
+function rejectSignIn(res) {
+  res.writeHead(429, {"Content-Type":"application/json","Retry-After":"60"});
+  res.end(JSON.stringify({error:"Too many sign-in attempts. Try again in a minute."}));
 }
 const server = createServer(async (req, res) => {
   try {
@@ -148,22 +142,15 @@ const server = createServer(async (req, res) => {
       if (
         url.pathname === "/api/auth" &&
         req.method === "POST" &&
-        rateLimited(req.socket.remoteAddress)
+        authLimits.address(req.socket.remoteAddress)
       ) {
-        res.writeHead(429, {
-          "Content-Type": "application/json",
-          "Retry-After": "60",
-        });
-        return res.end(
-          JSON.stringify({
-            error: "Too many sign-in attempts. Try again in a minute.",
-          }),
-        );
+        req.resume();
+        return rejectSignIn(res);
       }
       const chunks = [];
       let length = 0;
       const bodyLimit =
-        url.pathname === "/api/admin/ctfd-import" ? CTFD_IMPORT_REQUEST_LIMIT : url.pathname === "/api/admin/packs" ? PACK_IMPORT_REQUEST_LIMIT : ["/api/admin/theme-audio", "/api/admin/theme-media", "/api/admin/theme-sounds"].includes(url.pathname) ? THEME_UPLOAD_LIMIT : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : 524288;
+        url.pathname === "/api/admin/ctfd-import" ? CTFD_IMPORT_REQUEST_LIMIT : url.pathname === "/api/admin/packs" ? PACK_IMPORT_REQUEST_LIMIT : ["/api/admin/theme-audio", "/api/admin/theme-media", "/api/admin/theme-sounds"].includes(url.pathname) ? THEME_UPLOAD_LIMIT : url.pathname === "/api/admin/challenge-videos" ? 4 * 1024 * 1024 : url.pathname === "/api/admin/challenge-files" ? CHALLENGE_FILE_LIMIT : 524288;
       const rejectUpload = () => {
         req.resume(); // Drain without retaining the rejected upload or closing before the response flushes.
         res.writeHead(413, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -178,6 +165,11 @@ const server = createServer(async (req, res) => {
         chunks.push(chunk);
       }
       const body = Buffer.concat(chunks);
+      if (url.pathname === "/api/auth" && req.method === "POST") {
+        let username;
+        try { username = JSON.parse(body.toString("utf8"))?.username; } catch {}
+        if (authLimits.account(req.socket.remoteAddress,username)) return rejectSignIn(res);
+      }
       const headers = new Headers();
       for (const [key, value] of Object.entries(req.headers))
         if (value)
@@ -231,6 +223,12 @@ const server = createServer(async (req, res) => {
         "/admin/challenges/submissions/",
         "/admin/notifications",
         "/admin/notifications/",
+        "/admin/social",
+        "/admin/social/",
+        "/admin/social/notifications",
+        "/admin/social/notifications/",
+        "/admin/social/chats",
+        "/admin/social/chats/",
         "/admin/data",
         "/admin/data/",
         "/admin/data/ctfd",

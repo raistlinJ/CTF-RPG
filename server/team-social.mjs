@@ -1,3 +1,4 @@
+import { sharedAggregate } from './shared-cache.mjs';
 import { chatClearedThrough } from './chat-history.mjs';
 import { personalMuteContext, personalizeMessages } from './personal-mutes.mjs';
 import { registrationSettings } from "./registration-settings.mjs";
@@ -48,15 +49,20 @@ export async function teamInbox(db, features, team, userId, admin, config) {
 
 export async function messageStats(db, features, team, userId, admin, config = {accounts:{users:[]}}) {
   const clearedThrough = await chatClearedThrough(db,userId);
-  const received = team ? (await db.prepare(
-    `SELECT sender_user,sender_team,COUNT(*) AS count,MAX(created_at) AS latest FROM team_messages WHERE created_at>? AND recipient_team=? AND sender_user IS NOT ? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) GROUP BY sender_user,sender_team`
-  ).bind(clearedThrough,team,userId || null,+features.messaging,+features.everyone.messaging).all()).results : [];
-  const instructors = admin && features.messaging ? (await db.prepare(
+  const loadReceived = () => team ? db.prepare(
+    `SELECT sender_user,sender_team,COUNT(*) AS count,MAX(created_at) AS latest FROM team_messages WHERE created_at>? AND recipient_team=? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) GROUP BY sender_user,sender_team`
+  ).bind(clearedThrough,team,+features.messaging,+features.everyone.messaging).all().then(r=>r.results) : Promise.resolve([]);
+  const received = clearedThrough ? await loadReceived() : await sharedAggregate(db,JSON.stringify(["chat-received",team,features.messaging,features.everyone.messaging]),loadReceived);
+  const loadInstructors = () => admin && features.messaging ? db.prepare(
     'SELECT sender_user,COUNT(*) AS count,MAX(created_at) AS latest FROM instructor_messages WHERE created_at>? GROUP BY sender_user'
-  ).bind(clearedThrough).all()).results : [];
+  ).bind(clearedThrough).all().then(r=>r.results) : Promise.resolve([]);
+  const instructors = !admin || !features.messaging ? [] : clearedThrough ? await loadInstructors() : await sharedAggregate(db,"chat-instructors",loadInstructors);
   const context = userId ? await personalMuteContext(db,config,userId,[...received,...instructors].map(m=>m.sender_user)) : null;
-  const allowed = [...received.filter(m=>m.sender_team === null || !context?.isMuted(m.sender_user)),...instructors.filter(m=>!context?.isMuted(m.sender_user))];
+  const allowed = [...received.filter(m=>m.sender_user !== (userId || null) && (m.sender_team === null || !context?.isMuted(m.sender_user))),...instructors.filter(m=>!context?.isMuted(m.sender_user))];
   return {receivedCount:allowed.reduce((sum,m)=>sum+m.count,0),latestMessageAt:Math.max(0,...allowed.map(m=>m.latest || 0))};
+}
+export function sharedTeamScores(db, config) {
+  return sharedAggregate(db,"team-scores",()=>teamScores(db,config));
 }
 export async function teamScores(db, config, includeDisabled = false) {
   const scores = new Map();

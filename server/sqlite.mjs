@@ -97,7 +97,12 @@ CREATE INDEX IF NOT EXISTS idx_answer_attempts_submitted ON answer_attempts(subm
 CREATE INDEX IF NOT EXISTS idx_answer_attempts_correct_submitted ON answer_attempts(correct,submitted_at);
 CREATE TABLE IF NOT EXISTS written_responses(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,answer TEXT NOT NULL,question TEXT NOT NULL,object TEXT NOT NULL,max_points INTEGER NOT NULL,hint_cost INTEGER NOT NULL,submitted_at INTEGER NOT NULL,submitted_team TEXT,revision INTEGER NOT NULL DEFAULT 1,grade INTEGER,feedback TEXT NOT NULL DEFAULT '',reviewer TEXT,graded_at INTEGER,PRIMARY KEY(user,challenge));
 CREATE TABLE IF NOT EXISTS theme_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);`);
+CREATE TABLE IF NOT EXISTS challenge_catalog(id TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_team_messages_created_id ON team_messages(created_at,id);
+CREATE INDEX IF NOT EXISTS idx_instructor_messages_created_id ON instructor_messages(created_at,id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_expires ON sessions(user,expires);
+CREATE INDEX IF NOT EXISTS idx_solved_challenge ON solved(challenge);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_id ON notifications(created_at,id);`);
   if (!sqlite.prepare("PRAGMA table_info(written_responses)").all().some(c=>c.name==="submitted_team")) sqlite.exec("ALTER TABLE written_responses ADD COLUMN submitted_team TEXT");
   if (!sqlite.prepare("PRAGMA table_info(written_responses)").all().some(c=>c.name==="rewards_payload")) sqlite.exec(`ALTER TABLE written_responses ADD COLUMN rewards_payload TEXT NOT NULL DEFAULT '{"keys":[],"incantations":[]}'`);
   if (!sqlite.prepare("PRAGMA table_info(purchased_hints)").all().some(c=>c.name==="reward_cost")) sqlite.exec(`ALTER TABLE purchased_hints ADD COLUMN reward_cost TEXT NOT NULL DEFAULT '{"keys":[],"incantations":[]}'`);

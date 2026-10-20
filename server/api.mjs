@@ -1,3 +1,4 @@
+import { invalidateSharedCache } from './shared-cache.mjs';
 import { bulkChallengeVisibility } from "./challenge-bulk.mjs";
 import { playerMilestones } from "./progression.mjs";
 import { entityOutputReference, entityReference, entityUnlocked, validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
@@ -11,6 +12,7 @@ import { handleThemeAudio } from "./theme-audio.mjs";
 import { handleThemeSounds } from "./theme-sounds.mjs";
 import { handleThemeMedia } from "./theme-media.mjs";
 import { handleChallengeVideoUpload } from "./challenge-videos.mjs";
+import { handleChallengeFileUpload } from "./challenge-files.mjs";
 import { byteRange } from "./byte-range.mjs";
 import { inventoryState, accessibleMaps, unlockTransport } from "./inventory.mjs";
 import { publicTheme, emptyInventory, rewardsAfterHints, normalizeIncantation } from "../lib/inventory.mjs";
@@ -266,6 +268,7 @@ function createRequestApi({
     if (path === "/api/admin/challenge-dependencies") return handleChallengeDependencies(req, {db, user, platformAdmin, catalog, theme, themeRevision});
     if (path === "/api/admin/challenge-visibility") return handleChallengeSettings(req, {db, user, platformAdmin});
     if (path === "/api/admin/challenge-videos") return handleChallengeVideoUpload(req, {user, platformAdmin, assetStore});
+    if (path === "/api/admin/challenge-files") return handleChallengeFileUpload(req, {user, platformAdmin, assetStore});
     if (["/api/admin/mute", "/api/admin/scoreboard"].includes(path))
       return handleSocialControls(req, { db, user, platformAdmin });
     if (["/api/presence", "/api/admin/presence"].includes(path))
@@ -1256,6 +1259,11 @@ function createRequestApi({
 
 export function createApi(options) {
   return async (req) => {
+    // Presence POST/DELETE only update ephemeral positions. All other writes may
+    // affect shared totals; invalidate before and after, even on partial failure.
+    const url = new URL(req.url);
+    const mutating = !['GET','HEAD'].includes(req.method) && url.pathname !== '/api/presence' && req.headers.get('origin') === url.origin;
+    if (mutating) invalidateSharedCache(options.db);
     try {
       const current = await activeTheme(options.db, options.config);
       return await createRequestApi({
@@ -1274,6 +1282,8 @@ export function createApi(options) {
         { error: "The game is temporarily unavailable. Please retry." },
         503,
       );
+    } finally {
+      if (mutating) invalidateSharedCache(options.db);
     }
   };
 }

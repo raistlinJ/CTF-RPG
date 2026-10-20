@@ -1,4 +1,5 @@
 "use client";
+import { startPolling } from "@/lib/adaptive-poll.mjs";
 import type { TeamFeatures } from "./team-panel";
 import { useEffect, useRef, useState } from "react";
 import { emptyMessageInbox, receiveMessages, readMessages } from "@/lib/message-inbox.mjs";
@@ -22,6 +23,7 @@ export function usePlayerPresence(
   themeRevision: number | undefined,
   readMessagesAt = 0,
 ) {
+  const [notifications, setNotifications] = useState<{unread:number;latestAt:number}|null>(null);
   const [gameRevision, setGameRevision] = useState<string>();
   const [challengeSolves, setChallengeSolves] = useState<ChallengeSolve[]>([]);
   const [solveShines, setSolveShines] = useState<SolveShine[]>([]);
@@ -54,107 +56,94 @@ export function usePlayerPresence(
     setSelf({ teammate: false, crowned: false });
     setInbox(emptyMessageInbox());
     setLatestMessageAt(0);
+    setNotifications(null);
     if (!username || !enabled || themeRevision === undefined) return;
     let previousSolves: Map<string, number> | undefined;
     let shineTimer: ReturnType<typeof setTimeout> | undefined;
     setSolveShines([]);
     setChallengeSolves([]);
-    let live = true,
-      timer: ReturnType<typeof setInterval> | undefined,
-      inFlight = false,
-      controller: AbortController | undefined;
+    let live = true;
     function leave() {
       void fetch("/api/presence", { method: "DELETE", keepalive: true }).catch(
         () => {},
       );
     }
-    async function update() {
-      if (!live || document.hidden || inFlight) return;
-      inFlight = true;
+    async function update(signal: AbortSignal) {
       const sent = current.current;
-      controller = new AbortController();
-      const timeout = setTimeout(() => controller?.abort(), 12000);
-      try {
-        const r = await fetch("/api/presence", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            map: sent.map,
-            x: sent.pos.x,
-            y: sent.pos.y,
-            themeRevision: sent.themeRevision,
-          }),
-          signal: controller.signal,
-        });
-        const d = (await r.json()) as {
-          themeRevision?: number;
-          gameRevision: string;
-          challengeSolves: ChallengeSolve[];
-          players: NearbyPlayer[];
-          visibility: string;
-          truncated: boolean;
-          teamFeatures: TeamFeatures;
-          latestMessageAt: number;
-          receivedCount: number;
-          scoreboard: { visibility: "admins" | "all"; mode: string };
-          self: { teammate: boolean; crowned: boolean };
-        };
-        if (r.status === 409 && d.themeRevision !== undefined && d.themeRevision !== sent.themeRevision) { window.location.reload(); return; }
-        if (!r.ok) throw Error();
-        if (live && !document.hidden && current.current.map === sent.map) {
-          const counts = d.challengeSolves || [];
-          setChallengeSolves(counts);
-          setGameRevision(d.gameRevision);
-          const fresh = counts.filter((c) => previousSolves && previousSolves.has(c.id) && c.count > previousSolves.get(c.id)! && c.map === sent.map);
-          previousSolves = new Map(counts.map((c) => [c.id, c.count]));
-          if (fresh.length) {
-            setSolveShines((old) => [...old, ...fresh.map((c) => ({ ...c, key: `${c.id}:${c.count}` }))]);
-            clearTimeout(shineTimer);
-            shineTimer = setTimeout(() => { if (live) setSolveShines([]); }, 2400);
-          }
-          setSnapshot({ map: sent.map, players: d.players });
-          setVisibility(d.visibility);
-          setSelf(d.self);
-          setFeatures(d.teamFeatures);
-          setLatestMessageAt(d.latestMessageAt);
-          setScoreboard(d.scoreboard);
-          setInbox(state => receiveMessages(state, d, current.current.readMessagesAt));
-          setStatus(
-            d.truncated ? "Showing the 100 most recently active players." : "",
-          );
+      const r = await fetch("/api/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          map: sent.map,
+          x: sent.pos.x,
+          y: sent.pos.y,
+          themeRevision: sent.themeRevision,
+        }),
+        signal,
+      });
+      const d = (await r.json()) as {
+        themeRevision?: number;
+        gameRevision: string;
+        challengeSolves: ChallengeSolve[];
+        players: NearbyPlayer[];
+        visibility: string;
+        truncated: boolean;
+        teamFeatures: TeamFeatures;
+        latestMessageAt: number;
+        receivedCount: number;
+        notifications: {unread:number;latestAt:number};
+        scoreboard: { visibility: "admins" | "all"; mode: string };
+        self: { teammate: boolean; crowned: boolean };
+      };
+      if (r.status === 409 && d.themeRevision !== undefined && d.themeRevision !== sent.themeRevision) { window.location.reload(); return; }
+      if (!r.ok) throw Error();
+      if (live && !signal.aborted && !document.hidden && current.current.map === sent.map) {
+        const counts = d.challengeSolves || [];
+        setChallengeSolves(counts);
+        setGameRevision(d.gameRevision);
+        const fresh = counts.filter((c) => previousSolves && previousSolves.has(c.id) && c.count > previousSolves.get(c.id)! && c.map === sent.map);
+        previousSolves = new Map(counts.map((c) => [c.id, c.count]));
+        if (fresh.length) {
+          setSolveShines((old) => [...old, ...fresh.map((c) => ({ ...c, key: `${c.id}:${c.count}` }))]);
+          clearTimeout(shineTimer);
+          shineTimer = setTimeout(() => { if (live) setSolveShines([]); }, 2400);
         }
-      } catch {
-        if (live && !document.hidden) {
-          setSnapshot({ map: current.current.map, players: [] });
-          setSelf((previous) => ({ ...previous, crowned: false }));
-          setStatus("Player visibility is reconnecting…");
-        }
-      } finally {
-        clearTimeout(timeout);
-        inFlight = false;
+        setSnapshot({ map: sent.map, players: d.players });
+        setVisibility(d.visibility);
+        setSelf(d.self);
+        setFeatures(d.teamFeatures);
+        setLatestMessageAt(d.latestMessageAt);
+        setNotifications(d.notifications);
+        setScoreboard(d.scoreboard);
+        setInbox(state => receiveMessages(state, d, current.current.readMessagesAt));
+        setStatus(
+          d.truncated ? "Showing the 100 most recently active players." : "",
+        );
       }
     }
-    function visibilityChanged() {
-      controller?.abort();
-      setSnapshot({ map: current.current.map, players: [] });
-      if (document.hidden) leave();
-      else void update();
-    }
-    document.addEventListener("visibilitychange", visibilityChanged);
+    const poller = startPolling(update, {
+      interval: 3000,
+      onHidden: leave,
+      onError: () => {
+        if (live && !document.hidden) {
+          setSnapshot({ map: current.current.map, players: [] });
+          setSelf(previous => ({ ...previous, crowned: false }));
+          setStatus("Player visibility is reconnecting…");
+        }
+      },
+    });
     window.addEventListener("pagehide", leave);
-    timer = setInterval(update, 3000);
-    void update();
     return () => {
       live = false;
-      clearInterval(timer);
+      poller.stop();
       clearTimeout(shineTimer);
-      controller?.abort();
-      document.removeEventListener("visibilitychange", visibilityChanged);
       window.removeEventListener("pagehide", leave);
       leave();
     };
   }, [username, enabled, themeRevision]);
   return {
+    polling: !!username && enabled && themeRevision !== undefined,
+    notifications,
     players: snapshot.map === map ? snapshot.players : [],
     visibility,
     self,

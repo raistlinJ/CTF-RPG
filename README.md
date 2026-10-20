@@ -47,6 +47,7 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0027_remove_api_tokens.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0028_personal_chat_mutes.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0029_chat_history.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0030_social_performance.sql
 npm run dev
 ```
 
@@ -93,6 +94,10 @@ Team mute prevents all current and future members from sending team or instructo
 Use **Gift points** on a team to award 1–10,000 whole points with a required comment. Gifts count once toward the team total and remain separate from individual earned points. Members see **+N pts added** on the game screen; hover, focus, or tap to read the comment. Manage shows gift history. Full backups preserve gifts and comments. Disbanding a team removes its gifts; members retain individual progress.
 
 Full backups include teams, team password hashes, memberships, and the saved size limit. Older backups without teams still restore successfully.
+
+## Scaling and load testing
+
+Player polling combines presence and notification summaries, pauses in hidden tabs, and backs off after failures. Shared aggregates have a bounded two-second cache; personal visibility and mute rules remain per request. Admin chat history uses cursor pagination and indexed ordering. Native sign-in limits allow a larger shared-network budget while retaining per-account throttling. See [SCALING.md](SCALING.md) for details, database migration, and a repeatable load test using an isolated server and disposable database.
 
 ## Theme and content packs
 

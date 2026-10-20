@@ -125,3 +125,54 @@ test('personal clear settings migrate, survive full restore, validate safely, an
     const migrated=new DatabaseSync(':memory:');try {migrated.exec('CREATE TABLE students(id TEXT PRIMARY KEY)');migrated.exec(readFileSync('drizzle/0029_chat_history.sql','utf8'));assert.ok(migrated.prepare("SELECT name FROM sqlite_master WHERE name='chat_history_settings'").get());}finally{migrated.close();}
   } finally {s.sqlite.close();if(folder)rmSync(folder,{recursive:true,force:true});}
 });
+
+test('presence shares only raw aggregates while keeping notification audiences, mutes, clears, and sender exclusions personal',async()=>{
+  const s=await fixture();try {
+    const {alice,annika,bobby,teacher}=s.clients;
+    await s.send(bobby,s.alpha,'other team');await s.send(alice,s.alpha,'own team');
+    await teacher('/api/admin/notifications',{id:crypto.randomUUID(),title:'Alice only',body:'Private notice',scope:'users',targets:['alice']});
+    const queries=[],prepare=s.db.prepare.bind(s.db);s.db.prepare=sql=>{queries.push(sql);return prepare(sql);};
+    const poll=call=>call('/api/presence',{map:'town',x:18,y:20,themeRevision:0});
+    const first=await poll(alice),second=await poll(annika);
+    assert.equal(first.data.receivedCount,1);assert.equal(second.data.receivedCount,2);
+    assert.equal(first.data.notifications.unread,1);assert.equal(second.data.notifications.unread,0);
+    assert.equal(queries.filter(sql=>sql.includes('SUM(solved.points)')).length,1);
+    assert.equal(queries.filter(sql=>sql.includes('FROM solved GROUP BY challenge')).length,1);
+    assert.equal(queries.filter(sql=>sql.includes('FROM team_messages WHERE created_at>?')).length,1);
+    await alice('/api/chat-mutes',{action:'mute-all',revision:0});
+    assert.equal((await poll(alice)).data.receivedCount,0);assert.equal((await poll(annika)).data.receivedCount,2);
+    await alice('/api/chat-history',{action:'clear-all'});
+    assert.equal((await poll(alice)).data.receivedCount,0);assert.equal((await poll(annika)).data.receivedCount,2);
+    await alice('/api/notifications',{action:'readAll'});assert.equal((await poll(alice)).data.notifications.unread,0);
+    await s.send(bobby,s.alpha,'new team message');assert.equal((await poll(annika)).data.receivedCount,3);
+  }finally{s.sqlite.close();}
+});
+
+test('chat cursors page tied timestamps across both streams without duplicates or new-message page shifts',async()=>{
+  const s=await fixture();try {
+    const sender=s.sqlite.prepare("SELECT id FROM students WHERE username='alice'").get().id,at=Date.now()-1000;
+    for(let i=0;i<123;i++){
+      const id='tied-'+String(i).padStart(4,'0');
+      if(i%2)s.sqlite.prepare('INSERT INTO instructor_messages VALUES(?,?,?,?,?,?)').run(id,sender,s.alpha,'alice','question '+i,at);
+      else s.sqlite.prepare('INSERT INTO team_messages VALUES(?,?,?,?,?,?,?)').run(id,sender,s.alpha,s.beta,'alice','message '+i,at);
+    }
+    const get=async(cursor,filter='')=>s.clients.teacher('/api/admin/chats?'+new URLSearchParams({...cursor?{cursor}:{},...filter?{to:filter}:{}}));
+    let page=(await get()).data;const seen=new Set(page.messages.map(m=>m.kind+':'+m.id));assert.equal(page.messages.length,50);assert.ok(page.nextCursor);
+    // Removing a previous-page row must not shift a subsequent cursor page.
+    const removed=page.messages[0];await s.clients.teacher('/api/admin/chats',{action:'delete',kind:removed.kind,id:removed.id});
+    const fresh=await s.send(s.clients.bobby,s.alpha,'new after snapshot');s.sqlite.prepare('UPDATE team_messages SET created_at=? WHERE id=?').run(page.through+1,fresh);
+    while(page.nextCursor){const response=await get(page.nextCursor);assert.equal(response.status,200);page=response.data;for(const message of page.messages){assert.ok(!seen.has(message.kind+':'+message.id));seen.add(message.kind+':'+message.id);assert.notEqual(message.id,fresh);}}
+    assert.equal(seen.size,123);
+    let filtered=(await get(null,'instructors')).data;const ids=new Set(filtered.messages.map(m=>m.id));while(filtered.nextCursor){filtered=(await get(filtered.nextCursor,'instructors')).data;filtered.messages.forEach(m=>{assert.equal(m.to_name,'Instructors');assert.ok(!ids.has(m.id));ids.add(m.id);});}assert.equal(ids.size,61);
+    for(const cursor of ['garbage','{}',JSON.stringify({at:at,kind:'team',id:'id',through:at-1})])assert.equal((await get(cursor)).status,400);
+  }finally{s.sqlite.close();}
+});
+
+test('hosted performance migration adds the native ordering, session and aggregate indexes',()=>{
+  const sqlite=new DatabaseSync(':memory:');try{
+    sqlite.exec('CREATE TABLE team_messages(created_at INTEGER,id TEXT);CREATE TABLE instructor_messages(created_at INTEGER,id TEXT);CREATE TABLE sessions(user TEXT,expires INTEGER);CREATE TABLE solved(challenge TEXT);CREATE TABLE notifications(created_at INTEGER,id TEXT);');
+    sqlite.exec(readFileSync('drizzle/0030_social_performance.sql','utf8'));
+    for(const index of ['idx_team_messages_created_id','idx_instructor_messages_created_id','idx_sessions_user_expires','idx_solved_challenge','idx_notifications_created_id'])assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name=?").get(index));
+    assert.match(sqlite.prepare('EXPLAIN QUERY PLAN SELECT 1 FROM sessions WHERE user=? AND expires>?').get('user',0).detail,/idx_sessions_user_expires/);
+  }finally{sqlite.close();}
+});

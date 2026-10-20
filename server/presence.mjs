@@ -1,9 +1,11 @@
+import { sharedAggregate } from './shared-cache.mjs';
+import { notificationStats } from './notifications.mjs';
 import { playerMilestones } from "./progression.mjs";
 import { challengeSettings, visibleChallenges } from "./challenge-visibility.mjs";
 import {
   teamFeatures,
   messageStats,
-  teamScores,
+  sharedTeamScores as teamScores,
   teamPolicy,
 } from "./team-social.mjs";
 import { scoreboardSettings } from "./social-controls.mjs";
@@ -99,16 +101,18 @@ export async function handlePresence(
     best > 0 &&
     scores.get(team) === best &&
     teamPolicy(features, admin || own).scores;
-  const counts = (await db.prepare("SELECT challenge,COUNT(*) AS count FROM solved GROUP BY challenge").bind().all()).results;
+  const counts = await sharedAggregate(db,"challenge-solve-counts",async () => (await db.prepare("SELECT challenge,COUNT(*) AS count FROM solved GROUP BY challenge").bind().all()).results);
+  const countByChallenge = new Map(counts.map(r=>[r.challenge,r.count]));
   const currentCatalog = catalog ? await catalog() : {challenges:[],revision:0};
   const settings = await challengeSettings(db);
   const completions = (await db.prepare("SELECT challenge,points FROM solved WHERE user=? ORDER BY challenge").bind(u.id).all()).results;
   const milestones = await playerMilestones(db, u.id, completions.map(r => r.challenge));
   const challengeSolves = visibleChallenges(currentCatalog.challenges, settings, admin, milestones).map((c) => ({
     id: c.id, map: c.map, x: c.location.x, y: c.location.y,
-    count: counts.find((r) => r.challenge === c.id)?.count || 0,
+    count: countByChallenge.get(c.id) || 0,
   }));
   const social = {
+    notifications: await notificationStats(db,u),
     challengeSolves,
     gameRevision: `${themeRevision}:${currentCatalog.revision}:${settings.revision}:${[...milestones].join(",")}:${completions.map((r) => `${r.challenge}=${r.points}`).join(",")}`,
     self: { teammate: !!member, crowned: crowned(member?.team, true) },

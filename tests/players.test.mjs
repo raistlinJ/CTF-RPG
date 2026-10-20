@@ -357,9 +357,10 @@ test("team crowns use global net team scores, share positive ties, update after 
     state = (await other("/api/presence", pos)).data;
     assert.ok(state.players.every((p) => !p.crowned));
     // The leader's offline members still contribute; disabled accounts do not.
-    sqlite
-      .prepare("UPDATE students SET disabled=1 WHERE username='alice'")
-      .run();
+    // Use the admin action so this also verifies immediate score-cache invalidation.
+    const roster = (await admin("/api/admin/users")).data;
+    const alice = roster.users.find(user => user.username === "alice");
+    assert.equal((await admin("/api/admin/users", {action:"disable",users:[{username:alice.username,revision:alice.revision}]})).status,200);
     state = (await mate("/api/presence", pos)).data;
     assert.equal(state.self.crowned, false);
     assert.equal(

@@ -28,7 +28,7 @@ export const sessions = sqliteTable("sessions", {
     .notNull()
     .references(() => students.id),
   expires: integer("expires").notNull(),
-});
+}, t => [index("idx_sessions_user_expires").on(t.user,t.expires)]);
 export const solved = sqliteTable(
   "solved",
   {
@@ -38,7 +38,7 @@ export const solved = sqliteTable(
     challenge: text("challenge").notNull(),
     points: integer("points").notNull(),
   },
-  (t) => [primaryKey({ columns: [t.user, t.challenge] })],
+  (t) => [primaryKey({ columns: [t.user, t.challenge] }),index("idx_solved_challenge").on(t.challenge)],
 );
 
 export const purchasedHints = sqliteTable(
@@ -194,6 +194,7 @@ export const teamMessages = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (t) => [
+    index("idx_team_messages_created_id").on(t.createdAt,t.id),
     index("idx_team_messages_recipient_created").on(
       t.recipientTeam,
       t.createdAt,
@@ -246,6 +247,7 @@ export const instructorMessages = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (t) => [
+    index("idx_instructor_messages_created_id").on(t.createdAt,t.id),
     index("idx_instructor_messages_team_created").on(t.team, t.createdAt),
     index("idx_instructor_messages_sender_created").on(
       t.senderUser,
@@ -273,7 +275,7 @@ export const answerAttempts = sqliteTable("answer_attempts", {
  id:text("id").primaryKey(), user:text("user").notNull().references(()=>students.id), challenge:text("challenge").notNull(), answer:text("answer").notNull(), question:text("question").notNull(), object:text("object").notNull(), correct:integer("correct").notNull(), submittedTeam:text("submitted_team").notNull(), submittedAt:integer("submitted_at").notNull(),
 }, t=>[index("idx_answer_attempts_submitted").on(t.submittedAt),index("idx_answer_attempts_correct_submitted").on(t.correct,t.submittedAt)]);
 
-export const notifications = sqliteTable("notifications", {id:text("id").primaryKey(),title:text("title").notNull(),body:text("body").notNull(),author:text("author").notNull(),scope:text("scope").notNull(),targets:text("targets").notNull(),createdAt:integer("created_at").notNull()});
+export const notifications = sqliteTable("notifications", {id:text("id").primaryKey(),title:text("title").notNull(),body:text("body").notNull(),author:text("author").notNull(),scope:text("scope").notNull(),targets:text("targets").notNull(),createdAt:integer("created_at").notNull()},t=>[index("idx_notifications_created_id").on(t.createdAt,t.id)]);
 export const notificationRecipients = sqliteTable("notification_recipients", {notification:text("notification").notNull().references(()=>notifications.id),username:text("username").notNull()},t=>[primaryKey({columns:[t.notification,t.username]}),index("idx_notification_recipient_username").on(t.username)]);
 export const notificationReads = sqliteTable("notification_reads", {notification:text("notification").notNull().references(()=>notifications.id),user:text("user").notNull().references(()=>students.id),readAt:integer("read_at").notNull()},t=>[primaryKey({columns:[t.notification,t.user]})]);
 export const ctfdImports = sqliteTable("ctfd_imports", {id:text("id").primaryKey(),digest:text("digest").notNull().unique(),createdAt:integer("created_at").notNull(),report:text("report").notNull()});

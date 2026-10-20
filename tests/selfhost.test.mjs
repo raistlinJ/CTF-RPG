@@ -40,8 +40,10 @@ test('standalone reads root .env without game.yaml; UI users select once, roles 
  const admin=client(),student=client(),guest=client();
  try{
   assert.equal((await guest('/')).status,200);
-  for(const route of ['/admin','/admin/data','/admin/theme/media','/admin/theme/sounds','/admin/theme/appearances','/admin/theme/maps','/admin/challenges/submissions','/admin/teams/players','/admin/users'])assert.equal((await guest(route)).status,200,route);
-  for(const path of ['/.env','/content/game.yaml','/content/challenges.yaml','/data/quest.sqlite','/server/selfhost.mjs','/package.json','/%2e%2e/.env'])assert.equal((await guest(path)).status,404,path);
+  for(const route of ['/admin','/admin/data','/admin/theme/media','/admin/theme/sounds','/admin/theme/appearances','/admin/theme/maps','/admin/challenges/submissions','/admin/teams/players','/admin/users','/admin/notifications','/admin/notifications/','/admin/social','/admin/social/','/admin/social/notifications','/admin/social/notifications/','/admin/social/chats','/admin/social/chats/']){
+   const page=await guest(route);assert.equal(page.status,200,route);assert.match(page.headers.get('content-type'),/text\/html/,route);assert.match(page.data,/<div id="root"><\/div>/,route);
+  }
+  for(const path of ['/.env','/content/game.yaml','/content/challenges.yaml','/data/quest.sqlite','/server/selfhost.mjs','/package.json','/%2e%2e/.env','/admin/social/missing'])assert.equal((await guest(path)).status,404,path);
   const config=(await guest('/api/config')).data;assert.ok(config.characters.length>=3);assert.ok(config.characters.every(c=>c.appearanceFor!=='entity'));assert.ok(!JSON.stringify(config).includes('initial-pass'));
   assert.equal((await guest('/api/auth')).data.admin,false);assert.equal((await guest('/api/admin/users')).status,401);
   assert.equal((await admin('/api/auth',{mode:'login',username:'Teacher01',password:'initial-pass#with$dollar',hero:'shield'})).data.admin,true);
@@ -73,5 +75,15 @@ test('oversized CTFd and streamed API requests return JSON 413 errors before dis
   const body=new ReadableStream({start(c){c.enqueue(new Uint8Array(600000));c.close();}});
   const streamed=await fetch(`http://127.0.0.1:${p}/api/auth`,{method:'POST',duplex:'half',body});assert.equal(streamed.status,413);assert.match((await streamed.json()).error,/request limit/);
   assert.equal((await fetch(`http://127.0.0.1:${p}/api/config`)).status,200);
+ }finally{await stop(child);rmSync(dir,{recursive:true,force:true});}
+});
+
+test('shared-network sign-in limits isolate repeated account failures from other students and instructors',async()=>{
+ const dir=fixture(),p=await port(),child=await start(dir,p),base=`http://127.0.0.1:${p}`;
+ try {
+  async function login(username,password){return fetch(base+'/api/auth',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({mode:'login',username,password,hero:'web'})});}
+  for(let i=0;i<20;i++)assert.equal((await login('unknownstudent','wrong-password')).status,401);
+  const denied=await login('UNKNOWNSTUDENT','wrong-password');assert.equal(denied.status,429);assert.equal(denied.headers.get('retry-after'),'60');
+  assert.equal((await login('teacher01','initial-pass#with$dollar')).status,200);
  }finally{await stop(child);rmSync(dir,{recursive:true,force:true});}
 });

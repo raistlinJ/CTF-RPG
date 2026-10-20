@@ -68,6 +68,7 @@ for (const name of [
   "README.md",
   "ADMIN_GUIDE.md",
   "SELF_HOSTING.md",
+  "SCALING.md",
   "MAP_GUIDE.md",
   "CHALLENGES.md",
   "BACKUPS.md",

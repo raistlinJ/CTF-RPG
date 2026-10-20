@@ -1,5 +1,6 @@
 "use client";
 import AdminHeader from "./admin-header";
+import {CHALLENGE_FILE_LIMIT} from "@/lib/pack-limits.mjs";
 import { useEffect, useState } from "react";
 import {
   Plus,
@@ -148,6 +149,8 @@ export default function Admin() {
   const [listMap, setListMap] = useState("all");
   const [studioView, setStudioView] = useState<"list" | "editor">("list");
   const [uploadingVideo, setUploadingVideo] = useState<"discoveryVideo" | "solveVideo" | null>(null);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const uploading = !!uploadingVideo || uploadingFiles;
   const placementWorld = createWorld(activeWorld);
   let filterError = "";
   let pattern: RegExp | null = null;
@@ -271,11 +274,11 @@ export default function Admin() {
     setMessage("");
   }
   function canDiscard() {
-    if (busy || uploadingVideo) return false;
+    if (busy || uploading) return false;
     return !dirty || window.confirm("Discard your unsaved edits?");
   }
   async function uploadVideo(field: "discoveryVideo" | "solveVideo", file: File) {
-    if (!draft || uploadingVideo) return;
+    if (!draft || uploading) return;
     const draftId = draft.id;
     setUploadingVideo(field);
     setError("");
@@ -295,6 +298,35 @@ export default function Admin() {
       setUploadingVideo(null);
     }
   }
+  async function uploadFiles(files: File[], replaceIndex?: number) {
+    if (!draft || busy || uploading || !files.length) return;
+    if (files.length > (replaceIndex === undefined ? 20-draft.downloads.length : 1)) {
+      setError("A challenge can have at most 20 files. Choose fewer files.");return;
+    }
+    if (files.some(file=>!file.size || file.size>CHALLENGE_FILE_LIMIT)) {
+      setError("Choose nonempty files up to 4 MB each, or add a hosted file link.");return;
+    }
+    const draftId=draft.id, uploaded: FileLink[]=[];
+    setUploadingFiles(true);setError("");setMessage("");
+    try {
+      for (const file of files) {
+        const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),60000);
+        try {
+          const r=await fetch("/api/admin/challenge-files?"+new URLSearchParams({name:file.name}),{method:"POST",body:file,signal:controller.signal});
+          const result=await r.json() as FileLink & {error?:string};
+          if(!r.ok)throw Error(result.error||`Could not upload ${file.name}.`);
+          uploaded.push({name:result.name,url:result.url,filename:result.filename});
+        } finally {clearTimeout(timeout);}
+      }
+    } catch(e) {setError((e as Error).name === "AbortError" ? "The upload timed out. Please retry the remaining files." : (e as Error).message);}
+    finally {
+      if(uploaded.length){
+        setDraft(current=>current?.id!==draftId?current:{...current,downloads:replaceIndex===undefined?[...current.downloads,...uploaded]:current.downloads.map((file,index)=>index===replaceIndex?{...uploaded[0],name:file.name||uploaded[0].name}:file)});
+        setMessage(`${uploaded.length} ${uploaded.length===1?"file uploaded":"files uploaded"}. Save the challenge to use ${uploaded.length===1?"it":"them"}.`);
+      }
+      setUploadingFiles(false);
+    }
+  }
   function newChallenge() {
     if (canDiscard()) {
       choose(fresh(draft?.map, draft?.location.x, draft?.location.y));
@@ -302,7 +334,7 @@ export default function Admin() {
     }
   }
   function selectTile(x: number, y: number) {
-    if (!draft || busy || uploadingVideo) return;
+    if (!draft || busy || uploading) return;
     if (challengeTiles(draft).some(p => p.x === x && p.y === y)) return;
     const existing = catalog.find(
       (c) => c.map === draft.map && challengeTiles(c).some(p => p.x === x && p.y === y),
@@ -317,7 +349,7 @@ export default function Admin() {
     setStudioView("editor");
   }
   async function moveChallenge(map: string, location?: { x: number; y: number }) {
-    if (!draft || !editingId || busy || uploadingVideo) return;
+    if (!draft || !editingId || busy || uploading) return;
     if (location && !challengeLocationAvailable(placementWorld, catalog, map, location.x, location.y, editingId)) {
       setMoveFeedback({ text: "That location is unavailable. Drop on unoccupied, reachable ground away from doors and transport.", error: true });
       return;
@@ -373,7 +405,7 @@ export default function Admin() {
   }
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft || uploadingVideo) return;
+    if (!draft || uploading) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -452,7 +484,7 @@ export default function Admin() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </label>
-            <button className="primary" disabled={busy}>
+            <button className="primary" disabled={busy || uploading}>
               {busy ? "Signing in…" : "Sign in to manage challenges"}
             </button>
           </form>
@@ -498,13 +530,13 @@ export default function Admin() {
               </div>
             </div>
             <nav className="challenge-view-nav" aria-label="Challenge studio views">
-              <button type="button" className="secondary-button" aria-pressed={studioView === "list"} disabled={busy || !!uploadingVideo} onClick={() => {
+              <button type="button" className="secondary-button" aria-pressed={studioView === "list"} disabled={busy || uploading} onClick={() => {
                 if (!canDiscard()) return;
                 const saved = catalog.find(c => c.id === editingId);
                 if (saved) choose(toDraft(saved), saved.id); else choose(fresh(draft.map, draft.location.x, draft.location.y));
                 setStudioView("list");
               }}>All challenges</button>
-              <button type="button" className="secondary-button" aria-pressed={studioView === "editor"} disabled={busy || !!uploadingVideo} onClick={() => setStudioView("editor")}>Edit discovery</button>
+              <button type="button" className="secondary-button" aria-pressed={studioView === "editor"} disabled={busy || uploading} onClick={() => setStudioView("editor")}>Edit discovery</button>
             </nav>
             {studioView === "list" ? <section className="challenge-collection-view">
                   <div className="admin-list-heading">
@@ -531,19 +563,19 @@ export default function Admin() {
                     <span>{selectedChallenges.length} selected</span>
                     <button type="button" className="secondary-button" disabled={busy || !selectedChallenges.length} onClick={()=>void setSelectedVisibility("visible")}>Enable selected</button>
                     <button type="button" className="secondary-button" disabled={busy || !selectedChallenges.length} onClick={()=>void setSelectedVisibility("hidden")}>Disable selected</button>
-                    <button type="button" className="text-button" disabled={busy} onClick={()=>void load(true).catch(e=>setError(e.message))}>Reload collection</button>
+                    <button type="button" className="text-button" disabled={busy || uploading} onClick={()=>void load(true).catch(e=>setError(e.message))}>Reload collection</button>
                   </div>
                   <small>Enabled = visible; disabled = hidden. Global availability and prerequisites still apply. Hover or focus a row to preview its text and accepted flags.</small>
                   {error && <p className="error" role="alert">{error}</p>}{message && <p className="success" role="status">{message}</p>}
                   <TooltipProvider delayDuration={250}><div className="admin-challenge-list">
                     {matchingChallenges.map((c) => (
                         <div key={c.id} className="challenge-select-row">
-                        <input type="checkbox" aria-label={`Select challenge ${c.object}`} checked={checkedChallenges.includes(c.id)} disabled={busy} onChange={e=>setCheckedChallenges(ids=>e.target.checked?[...ids,c.id]:ids.filter(id=>id!==c.id))} />
+                        <input type="checkbox" aria-label={`Select challenge ${c.object}`} checked={checkedChallenges.includes(c.id)} disabled={busy || uploading} onChange={e=>setCheckedChallenges(ids=>e.target.checked?[...ids,c.id]:ids.filter(id=>id!==c.id))} />
                         <Tooltip><TooltipTrigger asChild>
                         <button
                           className={c.id === editingId ? "active" : ""}
                           aria-label={`Edit challenge ${c.object}`}
-                          disabled={busy}
+                          disabled={busy || uploading}
                           onClick={() => selectExisting(c)}
                         >
                           <span className="challenge-row-identity"><span className="challenge-row-icon" aria-hidden="true">{c.icon === "boss" ? "◆" : "✦"}</span><span><b>{c.object}</b><small>{c.grading === "manual" ? "Instructor graded" : "Automatic"}{c.icon === "boss" ? ` · Boss ${challengeSize(c)} × ${challengeSize(c)}` : ""}</small></span></span>
@@ -631,13 +663,13 @@ export default function Admin() {
                     onSelect={selectTile}
                     selectionAllowed={(map, x, y) => challengeLocationAvailable(placementWorld, catalog, map, x, y, editingId, draft)}
                     selectedChallengeId={draft.id}
-                    onChallengeDrop={!busy && !uploadingVideo && editingId ? (id, x, y) => {
+                    onChallengeDrop={!busy && !uploading && editingId ? (id, x, y) => {
                       if (id === editingId) void moveChallenge(draft.map, { x, y });
                     } : undefined}
                   />
                   {editingId && <div className="challenge-move-controls">
                     <span>Selected: <b>{draft.object || editingId}</b></span>
-                    <Select value="" onValueChange={map => void moveChallenge(map)} disabled={busy || !!uploadingVideo}>
+                    <Select value="" onValueChange={map => void moveChallenge(map)} disabled={busy || uploading}>
                       <SelectTrigger aria-label="Move challenge to another map"><SelectValue placeholder="Move to…" /></SelectTrigger>
                       <SelectContent>
                         {MAP_IDS.filter(map => map !== draft.map).map(map => {
@@ -662,6 +694,7 @@ export default function Admin() {
                 setError(field.validationMessage || "Complete the highlighted field before saving.");
                 requestAnimationFrame(() => field.focus());
               }}>
+                <fieldset disabled={uploadingFiles}>
                 <div className="admin-editor-title">
                   <h2>{editingId ? "Edit discovery" : "New discovery"}</h2>
                   <span>
@@ -887,12 +920,12 @@ export default function Admin() {
                     <div className="admin-repeater" key={field}>
                       <label>
                         {field === "discoveryVideo" ? "Discovery video URL" : "Solve video URL"}
-                        <input value={draft[field] || ""} disabled={!!uploadingVideo} onChange={e => patch({ [field]: e.target.value.trim() || null })} placeholder="/videos/intro.mp4 or https://…/video.mp4" />
+                        <input value={draft[field] || ""} disabled={uploading} onChange={e => patch({ [field]: e.target.value.trim() || null })} placeholder="/videos/intro.mp4 or https://…/video.mp4" />
                       </label>
                       <small>Use a direct MP4 or WebM link, or upload a video up to 4 MB.</small>
                       <label>
                         {uploadingVideo === field ? "Uploading video…" : "Upload video"}
-                        <input type="file" accept=".mp4,.webm,video/mp4,video/webm" disabled={!!uploadingVideo || busy} onChange={e => {
+                        <input type="file" accept=".mp4,.webm,video/mp4,video/webm" disabled={uploading || busy} onChange={e => {
                           const file = e.target.files?.[0];
                           e.target.value = "";
                           if (file) void uploadVideo(field, file);
@@ -900,7 +933,7 @@ export default function Admin() {
                       </label>
                       {draft[field] && <>
                         <video key={draft[field]} src={draft[field]} controls preload="metadata" playsInline aria-label={field === "discoveryVideo" ? "Discovery video preview" : "Solve video preview"} />
-                        <button type="button" className="text-button" disabled={!!uploadingVideo} onClick={() => patch({ [field]: null })}>Remove video</button>
+                        <button type="button" className="text-button" disabled={uploading} onClick={() => patch({ [field]: null })}>Remove video</button>
                       </>}
                     </div>
                   ))}
@@ -1042,9 +1075,16 @@ export default function Admin() {
                     </button>
                   </div>
                   <p>
-                    Link to a hosted file or a file in your server’s downloads
-                    folder.
+                    Upload files directly (up to 4 MB each), or add a file link. Save the challenge to make uploaded files available to students.
                   </p>
+                  <label>
+                    {uploadingFiles ? "Uploading files…" : "Upload files"}
+                    <input type="file" multiple disabled={busy || uploading || draft.downloads.length>=20} onChange={e=>{
+                      const files=Array.from(e.currentTarget.files||[]);e.currentTarget.value="";
+                      void uploadFiles(files);
+                    }}/>
+                  </label>
+                  {uploadingFiles && <p role="status">Uploading challenge files…</p>}
                   {draft.downloads.map((file, i) => (
                     <div className="admin-repeater" key={i}>
                       <div className="admin-repeater-top">
@@ -1077,6 +1117,13 @@ export default function Admin() {
                           Remove
                         </button>
                       </div>
+                      <label>
+                        Upload or replace this file
+                        <input type="file" disabled={busy || uploading} onChange={e=>{
+                          const file=e.currentTarget.files?.[0];e.currentTarget.value="";
+                          if(file)void uploadFiles([file],i);
+                        }}/>
+                      </label>
                       <label>
                         File URL
                         <input
@@ -1134,7 +1181,7 @@ export default function Admin() {
                     className="primary"
                     disabled={
                       busy ||
-                      !!uploadingVideo ||
+                      uploading ||
                       !validLocation ||
                       invalidHintRewards ||
                       draft.hints.reduce((s, h) => s + h.cost, 0) > draft.points
@@ -1146,7 +1193,7 @@ export default function Admin() {
                   <button
                     className="text-button"
                     type="button"
-                    disabled={busy}
+                    disabled={busy || uploading}
                     onClick={() => {
                       if (canDiscard())
                         void load(true).catch((e) => setError(e.message));
@@ -1156,6 +1203,7 @@ export default function Admin() {
                   </button>
                   <small>Saving keeps previously earned student points.</small>
                 </div>
+                </fieldset>
               </form>
             </div>}
           </section>

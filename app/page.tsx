@@ -1274,7 +1274,7 @@ export default function Game() {
           </span>
         </a>
         <div className="header-right">
-          {user && <NotificationsInbox key={user.username} username={user.username}/>}
+          {user && <NotificationsInbox key={user.username} username={user.username} summary={presence.notifications} summaryPolling={presence.polling}/>}
           {user && (canAdmin || team) && (
             <button
               type="button"

@@ -1,13 +1,22 @@
 "use client";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
+import {startPolling} from '@/lib/adaptive-poll.mjs';
 import {useEffect,useRef,useState} from 'react';
 import {Bell} from 'lucide-react';
 import {Dialog,DialogContent,DialogTitle} from '@/components/ui/dialog';
 type Notice={id:string;title:string;body:string;author:string;created_at:number;read_at:number|null};
-export default function NotificationsInbox({username}:{username:string}){
+type Summary={unread:number;latestAt:number};
+export default function NotificationsInbox({username,summary,summaryPolling=false}:{username:string;summary?:Summary|null;summaryPolling?:boolean}){
  const [open,setOpen]=useState(false),[unread,setUnread]=useState(0),[rows,setRows]=useState<Notice[]>([]),[offset,setOffset]=useState(0),[error,setError]=useState(''),[fresh,setFresh]=useState(false);
  const last=useRef<number|undefined>(undefined);
- useEffect(()=>{let live=true;let timer:ReturnType<typeof setTimeout>|undefined;const controller=new AbortController();async function poll(){try{const r=await fetch('/api/notifications?summary=true',{signal:controller.signal});if(!r.ok)return;const d=await r.json() as {unread:number;latestAt:number};if(!live)return;setUnread(d.unread);if(last.current!==undefined&&d.latestAt>last.current){setFresh(true);clearTimeout(timer);timer=setTimeout(()=>setFresh(false),5000);}last.current=d.latestAt;}catch{}}void poll();const interval=setInterval(poll,5000);return()=>{live=false;controller.abort();clearInterval(interval);clearTimeout(timer);};},[username]);
+ function applySummary(d:Summary){setUnread(d.unread);if(last.current!==undefined&&d.latestAt>last.current)setFresh(true);last.current=d.latestAt;}
+ useEffect(()=>{if(summary)applySummary(summary);},[summary]);
+ useEffect(()=>{if(!fresh)return;const timer=setTimeout(()=>setFresh(false),5000);return()=>clearTimeout(timer);},[fresh]);
+ useEffect(()=>{
+  if(summaryPolling)return;
+  const poller=startPolling(async(signal:AbortSignal)=>{const r=await fetch('/api/notifications?summary=true',{signal});if(!r.ok)throw Error('Could not refresh notifications.');const d=await r.json() as Summary;if(!signal.aborted)applySummary(d);},{interval:5000});
+  return()=>poller.stop();
+ },[username,summaryPolling]);
  async function load(){try{const r=await fetch('/api/notifications?offset='+offset);const d=await r.json() as {notifications:Notice[];unread:number;error?:string};if(!r.ok)throw Error(d.error);setRows(d.notifications);setUnread(d.unread);setError('');}catch(e){setError((e as Error).message);}}
  useEffect(()=>{if(open)void load();},[open,offset,unread]);
  async function read(id?:string){try{const r=await fetch('/api/notifications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(id?{action:'read',id}:{action:'readAll'})});if(!r.ok)throw Error('Could not mark notifications read.');await load();}catch(e){setError((e as Error).message);}}
