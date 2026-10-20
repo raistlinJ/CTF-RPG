@@ -23,7 +23,7 @@ export function usePlayerPresence(
   themeRevision: number | undefined,
   readMessagesAt = 0,
 ) {
-  const [notifications, setNotifications] = useState<{unread:number;latestAt:number}|null>(null);
+  const [notifications, setNotifications] = useState<{unread:number;latestAt:number;historyVersion?:string}|null>(null);
   const [gameRevision, setGameRevision] = useState<string>();
   const [challengeSolves, setChallengeSolves] = useState<ChallengeSolve[]>([]);
   const [solveShines, setSolveShines] = useState<SolveShine[]>([]);
@@ -91,7 +91,7 @@ export function usePlayerPresence(
         teamFeatures: TeamFeatures;
         latestMessageAt: number;
         receivedCount: number;
-        notifications: {unread:number;latestAt:number};
+        notifications: {unread:number;latestAt:number;historyVersion?:string};
         scoreboard: { visibility: "admins" | "all"; mode: string };
         self: { teammate: boolean; crowned: boolean };
       };

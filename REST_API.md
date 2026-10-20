@@ -43,7 +43,7 @@ Use a valid player `hero` ID from `GET /api/config` if supplying a character on 
 | GET, POST | `/api/admin/theme-sounds` | Manage sound clips and assign them to maps and events. |
 | GET, POST | `/api/admin/submissions` | Read submissions and apply selected deletion. |
 | GET, POST | `/api/admin/review` | Read and grade instructor-graded answers. |
-| GET, POST | `/api/admin/notifications` | Read or send notifications. |
+| GET, POST | `/api/admin/notifications` | Read/send notifications, delete one, or clear notification history. |
 | GET | `/api/admin/backup` | Download the complete recreation ZIP. |
 | GET | `/api/scoreboard` | Read rankings with the account's configured permissions. |
 | GET, POST | `/api/chat-mutes` | Read/update the signed-in account's personal chat mutes. |
@@ -88,3 +88,9 @@ curl -b ctf-cookies.txt -X DELETE -H "Origin: $BASE_URL" "$BASE_URL/api/auth"
 ```
 
 CTFd source ZIPs up to 512 MB can be prepared through the web importer. Direct REST uploads are limited to 64 MB ZIP / 65 MB multipart requests. When a preview lists `omittedAttachments`, applying requires `allowMissingAttachments: "true"` in the form; affected challenges remain hidden for review.
+
+## Deleting notifications
+
+Administrators can post `{"action":"delete","id":"NOTIFICATION_ID"}` to `/api/admin/notifications`. To clear history, first GET the admin list and use its `through` timestamp in `{"action":"clear-all","through":TIMESTAMP}`. This deletes all notifications through that timestamp across all pages and audiences, preserving newer announcements. Both actions return `{deleted:COUNT}` and atomically remove associated recipient/read records. Deletion is permanent for all recipients and does not affect chats. The admin UI requires confirmation.
+
+The admin GET includes `total`, `through`, and up to 50 notifications, with `offset` pagination. Recipient summaries include `historyVersion` so open inboxes can refresh after deletion even when their unread count remains zero.

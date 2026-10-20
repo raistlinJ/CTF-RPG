@@ -1,4 +1,5 @@
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
+import {PAGE_ROUTES,pageRoute} from "../lib/page-routes.mjs";
 import AppFooter from "../components/app-footer";
 import React from "react";
 import { createRoot } from "react-dom/client";
@@ -21,54 +22,24 @@ import TeamsConfiguration from "../app/admin/teams/configuration/page";
 import PlayersSettings from "../app/admin/teams/players/page";
 import ScoreboardSettings from "../app/admin/teams/scoreboard/page";
 import UsersPage from "../app/admin/users/page";
+import UserDetailsPage from "../app/admin/users/details/page";
 import Scoreboard from "../app/scoreboard/page";
 import Admin from "../app/admin/editor";
 import "../app/globals.css";
+const pages: Record<(typeof PAGE_ROUTES)[keyof typeof PAGE_ROUTES],React.ComponentType> = {
+  game:Game, scoreboard:Scoreboard, admin:Admin,
+  dependencies:Dependencies, submissions:Submissions, review:Review,
+  data:PacksAdmin, ctfd:ChallengeImport, maps:MapsAdmin, dialogue:EntityDialoguePage,
+  appearances:AppearancesAdmin, media:MediaLibraryAdmin, sounds:SoundsAdmin, library:ThemeLibrary,
+  teams:TeamsAdmin, "team-configuration":TeamsConfiguration, players:PlayersSettings,
+  "scoreboard-settings":ScoreboardSettings, users:UsersPage, "user-details":UserDetailsPage,
+  notifications:NotificationsAdmin, chats:ChatsAdmin,
+};
+const route = pageRoute(window.location.pathname);
+const Page = route ? pages[route] : null;
 createRoot(document.getElementById("root")!).render(
   <>
-    {window.location.pathname.startsWith("/admin/social/chats") ? (
-      <ChatsAdmin/>
-    ) : window.location.pathname.startsWith("/admin/social") || window.location.pathname.startsWith("/admin/notifications") ? (
-      <NotificationsAdmin/>
-    ) : window.location.pathname.startsWith("/admin/challenges/dependencies") ? (
-      <Dependencies />
-    ) : window.location.pathname.startsWith("/admin/challenges/submissions") ? (
-      <Submissions />
-    ) : window.location.pathname.startsWith("/admin/data/ctfd") ? (
-      <ChallengeImport />
-    ) : window.location.pathname.startsWith("/admin/challenges/review") ? (
-      <Review />
-    ) : window.location.pathname.startsWith("/admin/theme/appearances") ? (
-      <AppearancesAdmin />
-    ) : window.location.pathname.startsWith("/admin/theme/media") ? (
-      <MediaLibraryAdmin />
-    ) : window.location.pathname.startsWith("/admin/theme/sounds") ? (
-      <SoundsAdmin />
-    ) : window.location.pathname.startsWith("/admin/theme/library") ? (
-      <ThemeLibrary />
-    ) : window.location.pathname.startsWith("/admin/theme/maps/dialogue") ? (
-      <EntityDialoguePage />
-    ) : window.location.pathname === "/admin/theme" || window.location.pathname === "/admin/theme/" || window.location.pathname.startsWith("/admin/theme/maps") ? (
-      <MapsAdmin />
-    ) : window.location.pathname === "/admin/data" || window.location.pathname === "/admin/data/" ? (
-      <PacksAdmin />
-    ) : window.location.pathname.startsWith("/admin/teams/configuration") ? (
-      <TeamsConfiguration />
-    ) : window.location.pathname.startsWith("/admin/teams/players") ? (
-      <PlayersSettings />
-    ) : window.location.pathname.startsWith("/admin/teams/scoreboard") ? (
-      <ScoreboardSettings />
-    ) : window.location.pathname.startsWith("/admin/teams") ? (
-      <TeamsAdmin />
-    ) : window.location.pathname.startsWith("/admin/users") ? (
-      <UsersPage />
-    ) : window.location.pathname.startsWith("/admin") ? (
-      <Admin />
-    ) : window.location.pathname.startsWith("/scoreboard") ? (
-      <Scoreboard />
-    ) : (
-      <Game />
-    )}
+    {Page ? <Page/> : <main className="admin-studio"><h1>Not found</h1><a href="/">Return to the game</a></main>}
     <AppFooter />
   </>,
 );

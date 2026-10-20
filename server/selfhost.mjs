@@ -1,3 +1,4 @@
+import {pageRoute} from '../lib/page-routes.mjs';
 import {createAuthRateLimiter} from './auth-rate-limit.mjs';
 import { THEME_UPLOAD_LIMIT, PACK_IMPORT_REQUEST_LIMIT, CTFD_IMPORT_REQUEST_LIMIT, CHALLENGE_FILE_LIMIT } from "../lib/pack-limits.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
@@ -209,58 +210,7 @@ const server = createServer(async (req, res) => {
         }
       }
     }
-    if (
-      !file &&
-      [
-        "/",
-        "/admin",
-        "/admin/",
-        "/admin/challenges/dependencies",
-        "/admin/challenges/dependencies/",
-        "/admin/challenges/review",
-        "/admin/challenges/review/",
-        "/admin/challenges/submissions",
-        "/admin/challenges/submissions/",
-        "/admin/notifications",
-        "/admin/notifications/",
-        "/admin/social",
-        "/admin/social/",
-        "/admin/social/notifications",
-        "/admin/social/notifications/",
-        "/admin/social/chats",
-        "/admin/social/chats/",
-        "/admin/data",
-        "/admin/data/",
-        "/admin/data/ctfd",
-        "/admin/data/ctfd/",
-        "/admin/theme",
-        "/admin/theme/",
-        "/admin/theme/appearances",
-        "/admin/theme/appearances/",
-        "/admin/theme/media",
-        "/admin/theme/media/",
-        "/admin/theme/sounds",
-        "/admin/theme/sounds/",
-        "/admin/theme/maps/dialogue",
-        "/admin/theme/maps/dialogue/",
-        "/admin/theme/maps",
-        "/admin/theme/maps/",
-        "/admin/theme/library",
-        "/admin/theme/library/",
-        "/admin/teams",
-        "/admin/teams/",
-        "/admin/teams/configuration",
-        "/admin/teams/configuration/",
-        "/admin/teams/players",
-        "/admin/teams/players/",
-        "/admin/teams/scoreboard",
-        "/admin/teams/scoreboard/",
-        "/admin/users",
-        "/admin/users/",
-        "/scoreboard",
-        "/scoreboard/",
-      ].includes(path)
-    )
+    if (!file && pageRoute(path))
       file = resolve(output, "index.html");
     if (!file) {
       res.writeHead(404);

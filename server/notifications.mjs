@@ -2,7 +2,8 @@
 const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 const visible="(n.scope='all' OR EXISTS(SELECT 1 FROM notification_recipients p WHERE p.notification=n.id AND p.username=?))";
 export async function notificationStats(db,u){
- const row=await db.prepare(`SELECT COUNT(*) AS unread,COALESCE(MAX(n.created_at),0) AS latestAt FROM notifications n LEFT JOIN notification_reads r ON r.notification=n.id AND r.user=? WHERE ${visible} AND r.notification IS NULL`).bind(u.id,u.username).first();return row;
+ const row=await db.prepare(`SELECT COUNT(CASE WHEN r.notification IS NULL THEN 1 END) AS unread,COALESCE(MAX(CASE WHEN r.notification IS NULL THEN n.created_at END),0) AS latestAt,COUNT(*) AS total,COALESCE(MAX(n.created_at),0) AS latestSentAt FROM notifications n LEFT JOIN notification_reads r ON r.notification=n.id AND r.user=? WHERE ${visible}`).bind(u.id,u.username).first();
+ return {unread:row.unread,latestAt:row.latestAt,historyVersion:`${row.total}:${row.latestSentAt}`};
 }
 export async function handleNotifications(req,{db,config,user,platformAdmin}){
  const u=await user(req),admin=platformAdmin||u?.role==='admin',url=new URL(req.url),manage=url.pathname.startsWith('/api/admin/');
@@ -10,18 +11,34 @@ export async function handleNotifications(req,{db,config,user,platformAdmin}){
  if(!manage&&!u)return reply({error:'Sign in to read notifications.'},401);
  if(req.method==='GET'){
   const offset=Number(url.searchParams.get('offset')||0);if(!Number.isInteger(offset)||offset<0||offset>1000000)return reply({error:'Invalid notification page.'},400);
-  if(manage){const users=(await db.prepare('SELECT username FROM students WHERE disabled=0 ORDER BY username').bind().all()).results.map(r=>r.username);for(const c of config.accounts.users)if(!users.includes(c.username))users.push(c.username);return reply({notifications:(await db.prepare('SELECT * FROM notifications ORDER BY created_at DESC,id DESC LIMIT 50 OFFSET ?').bind(offset).all()).results.map(r=>({...r,targets:JSON.parse(r.targets)})),users:users.sort(),teams:(await db.prepare('SELECT id,name FROM teams ORDER BY name').bind().all()).results});}
+  if(manage){const through=Date.now(),users=(await db.prepare('SELECT username FROM students WHERE disabled=0 ORDER BY username').bind().all()).results.map(r=>r.username);for(const c of config.accounts.users)if(!users.includes(c.username))users.push(c.username);return reply({through,total:(await db.prepare('SELECT COUNT(*) AS total FROM notifications WHERE created_at<=?').bind(through).first()).total,notifications:(await db.prepare('SELECT * FROM notifications WHERE created_at<=? ORDER BY created_at DESC,id DESC LIMIT 50 OFFSET ?').bind(through,offset).all()).results.map(r=>({...r,targets:JSON.parse(r.targets)})),users:users.sort(),teams:(await db.prepare('SELECT id,name FROM teams ORDER BY name').bind().all()).results});}
   if(url.searchParams.get('summary')==='true')return reply(await notificationStats(db,u));
   const rows=(await db.prepare(`SELECT n.id,n.title,n.body,n.author,n.created_at,r.read_at FROM notifications n LEFT JOIN notification_reads r ON r.notification=n.id AND r.user=? WHERE ${visible} ORDER BY n.created_at DESC,n.id DESC LIMIT 50 OFFSET ?`).bind(u.id,u.username,offset).all()).results;
   return reply({notifications:rows,...await notificationStats(db,u),offset,limit:50});
  }
  if(req.method!=='POST')return reply({error:'Method not allowed.'},405);
  const b=await req.json();
+ if(!b||typeof b!=='object'||Array.isArray(b))return reply({error:'Provide a notification action or announcement.'},400);
  if(!manage){
   if(b.action!=='read'&&b.action!=='readAll')return reply({error:'Choose a valid read action.'},400);
   if(b.action==='read'&&typeof b.id!=='string')return reply({error:'Choose a notification.'},400);
   const sql=`INSERT OR IGNORE INTO notification_reads(notification,user,read_at) SELECT n.id,?,? FROM notifications n WHERE ${visible}`+(b.action==='read'?' AND n.id=?':'');
   await db.prepare(sql).bind(u.id,Date.now(),u.username,...(b.action==='read'?[b.id]:[])).run();return reply(await notificationStats(db,u));
+ }
+ if(b.action==='delete'||b.action==='clear-all'){
+  const single=b.action==='delete';
+  if(single&&(typeof b.id!=='string'||!b.id||b.id.length>200))return reply({error:'Choose a notification to delete.'},400);
+  if(!single&&(!Number.isSafeInteger(b.through)||b.through<0||b.through>Date.now()))return reply({error:'Refresh notifications before clearing them.'},400);
+  const predicate=single?'id=?':'created_at<=?',args=[single?b.id:b.through];
+  // Both native SQLite and D1 batch these statements atomically. The child
+  // records must be removed before their notification's foreign-key target.
+  const results=await db.batch([
+   db.prepare(`DELETE FROM notification_reads WHERE notification IN (SELECT id FROM notifications WHERE ${predicate})`).bind(...args),
+   db.prepare(`DELETE FROM notification_recipients WHERE notification IN (SELECT id FROM notifications WHERE ${predicate})`).bind(...args),
+   db.prepare(`DELETE FROM notifications WHERE ${predicate}`).bind(...args),
+  ]);
+  const removed=results.at(-1);
+  return reply({deleted:removed.meta?.changes??removed.changes??0});
  }
  if(typeof b.id!=='string'||!/^[a-zA-Z0-9-]{8,128}$/.test(b.id)||typeof b.title!=='string'||!b.title.trim()||b.title.length>120||typeof b.body!=='string'||!b.body.trim()||b.body.length>5000||!['all','users','teams'].includes(b.scope)||!Array.isArray(b.targets)||b.targets.length>1000||b.targets.some(t=>typeof t!=='string'))return reply({error:'Provide a title, message and valid recipients.'},400);
  const targets=[...new Set(b.targets)].sort(),saved=await db.prepare('SELECT * FROM notifications WHERE id=?').bind(b.id).first();

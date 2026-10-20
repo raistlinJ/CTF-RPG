@@ -128,3 +128,63 @@ test('prepared imports retain flags, hints and original file details; omitted at
   assert.equal((await admin('/api/admin/ctfd-import',form(packed,report,{allowMissingAttachments:true}))).data.alreadyImported,true);
  }finally{s.sqlite.close();}
 });
+
+test('notification deletion removes delivery/read history, updates receiver summaries, and preserves other announcements',async()=>{
+ const s=setup();try{
+  const admin=s.client(),alice=s.client(),bob=s.client();await login(admin,'teacher');await login(alice,'alice');await login(bob,'bobby');
+  const targeted={id:crypto.randomUUID(),title:'Remove this notice',body:'For Alice',scope:'users',targets:['alice']},kept={id:crypto.randomUUID(),title:'Keep this notice',body:'For everyone',scope:'all',targets:[]};
+  await admin('/api/admin/notifications',targeted);await admin('/api/admin/notifications',kept);
+  await alice('/api/notifications',{action:'readAll'});
+  const before=(await alice('/api/notifications?summary=true')).data;assert.equal(before.unread,0);
+  const removed=await admin('/api/admin/notifications',{action:'delete',id:targeted.id});assert.equal(removed.status,200);assert.equal(removed.data.deleted,1);
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM notification_reads WHERE notification=?').get(targeted.id).n,0);assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM notification_recipients WHERE notification=?').get(targeted.id).n,0);
+  assert.deepEqual((await alice('/api/notifications')).data.notifications.map(n=>n.id),[kept.id]);assert.equal((await bob('/api/notifications')).data.unread,1);
+  const after=(await alice('/api/notifications?summary=true')).data;assert.equal(after.unread,0);assert.notEqual(after.historyVersion,before.historyVersion);
+  assert.equal((await admin('/api/admin/notifications',{action:'delete',id:targeted.id})).data.deleted,0);
+  const snapshot=validateSnapshot(await createSnapshot({db:s.db,config:s.config,challenges:s.challenges}));assert.equal(snapshot.notifications.length,1);
+ }finally{s.sqlite.close();}
+});
+
+test('clear all notifications spans every admin page and audience while retaining newer announcements and chats',async()=>{
+ const s=setup();try{
+  const admin=s.client(),alice=s.client();await login(admin,'teacher');await login(alice,'alice');const team=(await alice('/api/teams',{mode:'create',name:'Notification team',password:'team-password'})).data.team;
+  await admin('/api/team-social',{id:crypto.randomUUID(),team:team.id,text:'Keep this chat'});
+  for(let i=0;i<55;i++)assert.equal((await admin('/api/admin/notifications',{id:crypto.randomUUID(),title:'Old notice '+i,body:'Announcement',scope:i%3===0?'users':i%3===1?'teams':'all',targets:i%3===0?['alice']:i%3===1?[team.id]:[]})).status,200);
+  await alice('/api/notifications',{action:'readAll'});
+  const first=(await admin('/api/admin/notifications')).data;assert.equal(first.total,55);assert.equal(first.notifications.length,50);
+  const next=(await admin('/api/admin/notifications?offset=50')).data;assert.equal(next.total,55);assert.equal(next.notifications.length,5);
+  const fresh={id:crypto.randomUUID(),title:'New after preview',body:'Keep this',scope:'users',targets:['alice']};await admin('/api/admin/notifications',fresh);
+  s.sqlite.prepare('UPDATE notifications SET created_at=? WHERE id=?').run(first.through+1,fresh.id);await alice('/api/notifications',{action:'read',id:fresh.id});
+  const clear=await admin('/api/admin/notifications',{action:'clear-all',through:first.through});assert.equal(clear.status,200);assert.equal(clear.data.deleted,55);
+  assert.deepEqual(s.sqlite.prepare('SELECT id FROM notifications').all().map(n=>n.id),[fresh.id]);assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM notification_reads').get().n,1);assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM notification_recipients').get().n,1);
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM team_messages').get().n,1);assert.equal((await alice('/api/notifications')).data.notifications[0].id,fresh.id);
+  const final=await admin('/api/admin/notifications',{action:'clear-all',through:Date.now()});assert.equal(final.data.deleted,1);assert.equal((await alice('/api/notifications?summary=true')).data.unread,0);assert.deepEqual((await alice('/api/notifications')).data.notifications,[]);
+ }finally{s.sqlite.close();}
+});
+
+test('notification destructive actions require admin access, same origin, and valid deletion boundaries',async()=>{
+ const s=setup();try{
+  const admin=s.client(),alice=s.client(),anon=s.client();await login(admin,'teacher');await login(alice,'alice');const id=crypto.randomUUID();await admin('/api/admin/notifications',{id,title:'Protected notice',body:'Announcement',scope:'all',targets:[]});
+  for(const body of [{action:'delete',id},{action:'clear-all',through:Date.now()}]){
+   assert.equal((await anon('/api/admin/notifications',body)).status,401);assert.equal((await alice('/api/admin/notifications',body)).status,403);assert.equal((await alice('/api/notifications',body)).status,400);
+   const response=await admin('/api/admin/notifications',body);assert.equal(response.status,200);
+   // Recreate it for the next authorization checks.
+   await admin('/api/admin/notifications',{id,title:'Protected notice',body:'Announcement',scope:'all',targets:[]});
+  }
+  for(const body of [{action:'delete'},{action:'delete',id:''},{action:'clear-all'},{action:'clear-all',through:-1},{action:'clear-all',through:Date.now()+100000}])assert.equal((await admin('/api/admin/notifications',body)).status,400);
+  // A separate client keeps its session while overriding only the request origin.
+  const loginResponse=await s.client()('/api/auth',{username:'teacher',password:'teacher-password',hero:'web',mode:'login'});const cookie=loginResponse.r.headers.get('set-cookie').split(';')[0];
+  const api=createApi({db:s.db,config:s.config,challenges:s.challenges});const denied=await api(new Request('http://quest.test/api/admin/notifications',{method:'POST',headers:{Cookie:cookie,Origin:'https://elsewhere.test','Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})}));assert.equal(denied.status,403);
+  assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM notifications').get().n,1);
+ }finally{s.sqlite.close();}
+});
+
+test('a failed notification deletion rolls back delivery and read cleanup atomically',async()=>{
+ const s=setup();try{
+  const admin=s.client(),alice=s.client();await login(admin,'teacher');await login(alice,'alice');const id=crypto.randomUUID();await admin('/api/admin/notifications',{id,title:'Atomic deletion',body:'Announcement',scope:'users',targets:['alice']});await alice('/api/notifications',{action:'read',id});
+  s.sqlite.exec("CREATE TRIGGER block_notification_delete BEFORE DELETE ON notifications BEGIN SELECT RAISE(ABORT,'test deletion failure'); END;");
+  assert.equal((await admin('/api/admin/notifications',{action:'delete',id})).status,503);
+  for(const table of ['notifications','notification_recipients','notification_reads'])assert.equal(s.sqlite.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n,1);
+  assert.equal((await alice('/api/notifications?summary=true')).data.unread,0);
+ }finally{s.sqlite.close();}
+});

@@ -12,6 +12,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {runtimeConfig,defaultGameConfig} from '../lib/runtime-config.mjs';
 import {publicConfig} from '../lib/config-schema.mjs';
 import {initializeSchema,createSQLiteAdapter} from '../server/sqlite.mjs';
+import {PAGE_ROUTES} from '../lib/page-routes.mjs';
 import {ensureStartupAdmin} from '../server/protected-admin.mjs';
 async function port(){const s=createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const p=s.address().port;await new Promise(r=>s.close(r));return p;}
 function fixture(){const dir=mkdtempSync(resolve(tmpdir(),'ctf-rpg-env-'));cpSync('server',resolve(dir,'server'),{recursive:true});for(const p of ['lib','themes','public','selfhost','node_modules'])symlinkSync(resolve(p),resolve(dir,p),'dir');mkdirSync(resolve(dir,'content'));writeFileSync(resolve(dir,'content/challenges.yaml'),readFileSync('content/challenges.yaml'));writeFileSync(resolve(dir,'.env'),"ADMIN_USERNAME=teacher01\nADMIN_PASSWORD='initial-pass#with$dollar'\n");return dir;}
@@ -40,10 +41,10 @@ test('standalone reads root .env without game.yaml; UI users select once, roles 
  const admin=client(),student=client(),guest=client();
  try{
   assert.equal((await guest('/')).status,200);
-  for(const route of ['/admin','/admin/data','/admin/theme/media','/admin/theme/sounds','/admin/theme/appearances','/admin/theme/maps','/admin/challenges/submissions','/admin/teams/players','/admin/users','/admin/notifications','/admin/notifications/','/admin/social','/admin/social/','/admin/social/notifications','/admin/social/notifications/','/admin/social/chats','/admin/social/chats/']){
+  for(const route of [...Object.keys(PAGE_ROUTES).flatMap(path=>path==='/'?[path]:[path,path+'/']),'/admin/users/details?user=student01','/admin/users/details/?user=student01']){
    const page=await guest(route);assert.equal(page.status,200,route);assert.match(page.headers.get('content-type'),/text\/html/,route);assert.match(page.data,/<div id="root"><\/div>/,route);
   }
-  for(const path of ['/.env','/content/game.yaml','/content/challenges.yaml','/data/quest.sqlite','/server/selfhost.mjs','/package.json','/%2e%2e/.env','/admin/social/missing'])assert.equal((await guest(path)).status,404,path);
+  for(const path of ['/.env','/content/game.yaml','/content/challenges.yaml','/data/quest.sqlite','/server/selfhost.mjs','/package.json','/%2e%2e/.env','/admin/social/missing','/admin/users/details/missing','/admin/users/detailsXYZ'])assert.equal((await guest(path)).status,404,path);
   const config=(await guest('/api/config')).data;assert.ok(config.characters.length>=3);assert.ok(config.characters.every(c=>c.appearanceFor!=='entity'));assert.ok(!JSON.stringify(config).includes('initial-pass'));
   assert.equal((await guest('/api/auth')).data.admin,false);assert.equal((await guest('/api/admin/users')).status,401);
   assert.equal((await admin('/api/auth',{mode:'login',username:'Teacher01',password:'initial-pass#with$dollar',hero:'shield'})).data.admin,true);
