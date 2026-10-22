@@ -330,7 +330,7 @@ test("team crowns use global net team scores, share positive ties, update after 
     await mate("/api/game", { id: "lantern", answer: "24" });
     await a("/api/presence", undefined, "DELETE");
     state = (await other("/api/presence", pos)).data;
-    assert.equal(state.self.crowned, false);
+    assert.equal(state.self.crowned, true); // repeated teammate solves keep the teams tied
     assert.ok(
       state.players.filter((p) => p.teammate === false).every((p) => p.crowned),
     );

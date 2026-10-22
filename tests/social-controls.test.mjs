@@ -305,7 +305,7 @@ test("scoreboard access and mode are admin-controlled, private APIs deny student
     assert.equal((await a("/api/scoreboard")).status, 403);
     let scores = (await admin("/api/scoreboard")).data;
     assert.equal(scores.mode, "team");
-    assert.equal(scores.players[0].score, 50);
+    assert.equal(scores.players[0].score, 30);
     assert.equal(
       (
         await admin("/api/admin/scoreboard", {
@@ -320,7 +320,7 @@ test("scoreboard access and mode are admin-controlled, private APIs deny student
       await admin("/api/admin/scoreboard", { ...settings, visibility: "all" })
     ).data;
     scores = (await a("/api/scoreboard")).data;
-    assert.equal(scores.players[0].score, 50);
+    assert.equal(scores.players[0].score, 30);
     assert.equal(scores.players[0].isYou, true);
     sqlite
       .prepare("UPDATE students SET disabled=1 WHERE username='bobby'")

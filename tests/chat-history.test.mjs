@@ -136,7 +136,7 @@ test('presence shares only raw aggregates while keeping notification audiences, 
     const first=await poll(alice),second=await poll(annika);
     assert.equal(first.data.receivedCount,1);assert.equal(second.data.receivedCount,2);
     assert.equal(first.data.notifications.unread,1);assert.equal(second.data.notifications.unread,0);
-    assert.equal(queries.filter(sql=>sql.includes('SUM(solved.points)')).length,1);
+    assert.equal(queries.filter(sql=>sql.includes('COALESCE(solved.points,0) AS score')).length,1);
     assert.equal(queries.filter(sql=>sql.includes('FROM solved GROUP BY challenge')).length,1);
     assert.equal(queries.filter(sql=>sql.includes('FROM team_messages WHERE created_at>?')).length,1);
     await alice('/api/chat-mutes',{action:'mute-all',revision:0});

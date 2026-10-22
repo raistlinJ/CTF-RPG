@@ -1,3 +1,4 @@
+import { unsolvedForTeamSQL } from "./team-progress.mjs";
 const reply = (body, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 export async function gradingCompatible(db, current, next) {
@@ -155,9 +156,9 @@ export async function handleReview(req, { db, user, platformAdmin }) {
       ),
     db
       .prepare(
-        "INSERT INTO solved(user,challenge,points) SELECT user,challenge,MAX(0,grade-hint_cost) FROM written_responses WHERE user=? AND challenge=? AND revision=? AND changes()=1 ON CONFLICT(user,challenge) DO UPDATE SET points=excluded.points",
+        `INSERT INTO solved(user,challenge,points) SELECT user,challenge,MAX(0,grade-hint_cost) FROM written_responses WHERE user=? AND challenge=? AND revision=? AND changes()=1 AND (${unsolvedForTeamSQL} OR EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?)) ON CONFLICT(user,challenge) DO UPDATE SET points=excluded.points`,
       )
-      .bind(owner, challenge, revision + 1),
+      .bind(owner, challenge, revision + 1, owner, challenge, owner, challenge),
     db.prepare("INSERT OR IGNORE INTO earned_rewards(user,challenge,payload) SELECT user,challenge,rewards_payload FROM written_responses WHERE user=? AND challenge=? AND revision=? AND changes()=1").bind(owner,challenge,revision+1),
   ]);
   if (!(results[0].meta?.changes ?? results[0].changes))

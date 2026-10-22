@@ -48,6 +48,8 @@ Use a valid player `hero` ID from `GET /api/config` if supplying a character on 
 | GET | `/api/scoreboard` | Read rankings with the account's configured permissions. |
 | GET, POST | `/api/chat-mutes` | Read/update the signed-in account's personal chat mutes. |
 
+Game state shares challenge completions, earned scores, challenge prerequisites, and earned rewards across current teammates. Each challenge awards points once per team; repeated correct answers return `correct:true` and `awardedPoints:0`. The challenge’s `awardedPoints` in game state remains the saved shared award. Instructor grading creates one award per team/challenge; regrading its original response updates that award. Team rankings and user progress count legacy duplicates once using the highest saved award. Hint purchases unlock for every current teammate, charge once per team/hint, and reduce the team’s eventual challenge award regardless of the solver. Point and item costs are shared, including for manual grading. A written submission locks new team hints for that challenge; previously purchased hints remain readable. Shared hint changes reach active games through the presence revision.
+
 These are the same endpoints used by the admin UI. JSON writes use `Content-Type: application/json`; map, media/audio/sound, and pack uploads use the endpoint's multipart form format. Editing uses the current `revision` and, where required, `themeRevision` / `contentRevision` returned by the corresponding reads. A stale save returns 409; refresh before applying changes again.
 
 ## Personal chat mutes

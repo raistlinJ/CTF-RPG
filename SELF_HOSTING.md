@@ -41,7 +41,7 @@ Sound starts enabled. Background music starts immediately when the browser permi
 
 ## Challenges
 
-Use the `/admin` challenge studio or edit the initial `content/challenges.yaml`. After the first admin save, the database-backed set becomes authoritative; export YAML from the studio for a portable copy. The [challenge guide](CHALLENGES.md) documents text, accepted flags, case sensitivity, hints with point costs, and downloadable files; the [README](README.md) documents map locations. Restart the standalone server after edits. Hint costs reduce their own challenge’s reward and are recorded once per student. Locked hint text and accepted flags stay private. Existing completed IDs cannot earn a second reward; changing a reward does not retroactively change stored scores. The hint-purchase table is added automatically when an existing self-hosted installation starts.
+Use the `/admin` challenge studio or edit the initial `content/challenges.yaml`. After the first admin save, the database-backed set becomes authoritative; export YAML from the studio for a portable copy. The [challenge guide](CHALLENGES.md) documents text, accepted flags, case sensitivity, hints with point costs, and downloadable files; the [README](README.md) documents map locations. Restart the standalone server after edits. Hints unlock for every current teammate. Hint costs reduce the team’s reward for that challenge and are charged once per team, regardless of who solves it. Locked hint text and accepted flags stay private. Existing completed IDs cannot earn a second reward; changing a reward does not retroactively change stored scores. The hint-purchase table is added automatically when an existing self-hosted installation starts.
 
 ## Server settings
 

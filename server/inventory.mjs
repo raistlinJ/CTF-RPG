@@ -1,10 +1,11 @@
+import { sharedCompletionsSQL } from "./team-progress.mjs";
 import { createWorld } from "../lib/world-data.mjs";
 import { rewardsSchema, normalizeIncantation, lockSignature } from "../lib/inventory.mjs";
 
 export const worldLinks = theme => [...createWorld(theme.world).portals, ...(theme.world.transports || [])];
 export async function inventoryState(db, user, theme) {
   const [earned, unlocked] = await Promise.all([
-    db.prepare("SELECT challenge,payload FROM earned_rewards WHERE user=?").bind(user).all(),
+    db.prepare(`SELECT e.challenge,e.payload FROM (${sharedCompletionsSQL()}) completion JOIN earned_rewards e ON e.user=completion.user AND e.challenge=completion.challenge`).bind(user).all(),
     db.prepare("SELECT transport,signature FROM unlocked_transports WHERE user=?").bind(user).all(),
   ]);
   const rewards = earned.results.map(r => rewardsSchema.parse(JSON.parse(r.payload)));

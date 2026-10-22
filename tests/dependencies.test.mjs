@@ -62,7 +62,7 @@ test("YAML validates prerequisite IDs, self-links, duplicates and long cycles, w
   assert.deepEqual(parse({branch:["root-a","root-b"],leaf:["branch"]})[2].dependsOn,["root-a","root-b"]);
   for (const deps of [{branch:["missing"]},{branch:["branch"]},{branch:["root-a","root-a"]},{"root-a":["leaf"],branch:["root-a"],leaf:["branch"]}]) assert.throws(()=>parse(deps));
 });
-test("all prerequisites gate private questions, map feeds, discovery, hints and answers per player; admin previews bypass locks", async () => {
+test("all prerequisites gate private questions, map feeds, discovery, hints and answers per team; admin previews bypass locks", async () => {
   const {sqlite,client}=setup({branch:["root-a","root-b"],leaf:["branch"]});
   try {
     const admin=client(),a=client(),b=client(); await login(admin); await login(a,"alice"); await login(b,"bobby");
@@ -77,7 +77,7 @@ test("all prerequisites gate private questions, map feeds, discovery, hints and 
     assert.ok(!visibleIds(await a("/api/game")).includes("branch"));
     game=await a("/api/game",{id:"root-a",answer:"FLAG_root-a"}); assert.ok(!visibleIds(game).includes("branch"));
     game=await a("/api/game",{id:"root-b",answer:"FLAG_root-b"}); assert.ok(visibleIds(game).includes("branch")); assert.ok(!visibleIds(game).includes("leaf"));
-    assert.ok(!visibleIds(await b("/api/game")).includes("branch"),"a teammate's progress does not bypass prerequisites");
+    assert.ok(visibleIds(await b("/api/game")).includes("branch"),"a teammate's completion unlocks shared prerequisites");
     assert.equal((await a("/api/game",{id:"branch",action:"discover"})).status,200);
     assert.equal((await a("/api/game",{id:"branch",action:"hint",hintId:"clue"})).data.challenges.find((c)=>c.id==="branch").hints[0].text,"PRIVATE HINT branch");
     game=await a("/api/game",{id:"branch",answer:"FLAG_branch"}); assert.ok(visibleIds(game).includes("leaf"));

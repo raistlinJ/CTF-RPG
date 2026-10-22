@@ -107,7 +107,7 @@ test("team cards aggregate net scores; each admin switch is enforced in student 
     await mate("/api/game", { id: "lantern", answer: "24" });
     let cards = await a("/api/team-social");
     assert.equal(cards.status, 200);
-    assert.equal(cards.data.teams.find((t) => t.id === ta.id).score, 190);
+    assert.equal(cards.data.teams.find((t) => t.id === ta.id).score, 90);
     assert.equal(cards.data.teams.find((t) => t.id === tb.id).score, 0);
     assert.equal((await a("/api/admin/team-social")).status, 403);
     assert.equal((await s.client()("/api/team-social")).status, 401);
@@ -269,9 +269,10 @@ test("team messages deliver to all members, isolate other conversations, dedupli
       ).status,
       200,
     );
-    assert.equal(
-      (await a("/api/team-social?team=" + ta.id)).data.messages.at(-1).sender,
-      "Instructor",
+    assert.ok(
+      (await a("/api/team-social?team=" + ta.id)).data.messages.some(
+        m => m.sender === "Instructor" && m.text === "Instructor note",
+      ),
     );
     let features = (await admin("/api/admin/team-social")).data;
     await admin("/api/admin/team-social", {

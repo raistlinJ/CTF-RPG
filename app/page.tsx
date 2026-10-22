@@ -115,6 +115,7 @@ type Challenge = {
   remainingPoints: number;
   awardedPoints: number | null;
   hintCost: number;
+  hintsLocked?: boolean;
   hints: {
     id: string;
     label: string;
@@ -721,6 +722,7 @@ export default function Game() {
     map: string;
     x: number;
     y: number;
+    players: NearbyPlayer[];
   } | null>(null);
   const [teamPanelOpen, setTeamPanelOpen] = useState(false),
     [selectedTeam, setSelectedTeam] = useState<string | null>(null),
@@ -1187,7 +1189,7 @@ export default function Game() {
       if (h?.unlocked && !active.hints.some(previous => previous.id === hintId && previous.unlocked)) playEventSound("hintUnlocked");
       setHintMessage(
         h && hintCostLabel(h.cost, h.rewardCost) !== "Free"
-          ? `Hint unlocked. Cost: ${hintCostLabel(h.cost, h.rewardCost)}, deducted once from this challenge’s completion rewards.`
+          ? `Hint unlocked. Cost: ${hintCostLabel(h.cost, h.rewardCost)}, deducted once from your team’s completion rewards for this challenge.`
           : "Free hint unlocked.",
       );
     } catch (e) {
@@ -1364,13 +1366,7 @@ export default function Game() {
       <PlayerPopup
         tile={playerTile}
         onClose={() => setPlayerTile(null)}
-        players={
-          playerTile?.map === map
-            ? [...presence.players, ...(selfPlayer ? [selfPlayer] : [])].filter(
-                (p) => p.x === playerTile.x && p.y === playerTile.y,
-              )
-            : []
-        }
+        players={playerTile?.players || []}
         characters={heroes}
         adminSprite={config?.theme.adminSprite}
         canAdmin={canAdmin}
@@ -1536,7 +1532,15 @@ export default function Game() {
               onOpenMessages={openMessages}
               solveShines={presence.solveShines}
               selfPlayer={selfPlayer}
-              onPlayerSelect={(x, y) => setPlayerTile({ map, x, y })}
+              onPlayerSelect={(x, y) => {
+                // Keep the selected players available until the popup is closed.
+                setPlayerTile({
+                  map, x, y,
+                  players: [...presence.players, ...(selfPlayer ? [selfPlayer] : [])].filter(
+                    (p) => p.x === x && p.y === y,
+                  ),
+                });
+              }}
               characters={config?.theme.characters || heroes}
               bossSpritePaths={config?.theme.bossSprites}
               adminSprite={config?.theme.adminSprite}
@@ -1809,8 +1813,9 @@ export default function Game() {
           {!!active?.hints.length && (
             <section className="challenge-hints" aria-label="Challenge hints">
               <h3>
-                Hints <small>Point costs reduce your completion points. Selected rewards are withheld when you complete this challenge.</small>
+                Hints <small>Hints unlock for your whole team. Costs reduce your team’s completion points and rewards once per hint.</small>
               </h3>
+              {active.hintsLocked && !active.submission && !solved.includes(active.id) && <p>Hints are locked because a teammate has submitted an answer.</p>}
               {active.hints.map((h) => (
                 <div className="challenge-hint" key={h.id}>
                   <div className="hint-title">
@@ -1826,6 +1831,7 @@ export default function Game() {
                           busy ||
                           solved.includes(active.id) ||
                           !!active.submission ||
+                          active.hintsLocked ||
                           !h.available
                         }
                         onClick={() => unlockHint(h.id)}
@@ -1979,7 +1985,6 @@ function PlayerPopup({
         {error && <p role="alert">{error}</p>}
         <PersonalMuteControls controls={personalMutes} />
         <div className="player-card-list">
-          {!players.length && <p>These players have moved or left the map.</p>}
           {players.map((p) => {
             const t = teams?.find(
               (t) => t.id === (p.role === "admin" ? "instructors" : p.team),

@@ -91,7 +91,7 @@ Admins edit these connections in **Challenges → Dependencies**, with zoom, fit
 
 Each hint has a unique `id` within its challenge, required `text`, and optional nonnegative integer `cost` (default `0`). `label` is optional and defaults to `Hint 1`, `Hint 2`, etc. Hint text supports line breaks. The total configured hint cost cannot exceed the challenge's points.
 
-Optional `rewardCost` selects keys and incantations from this challenge's `rewards` to withhold when the student completes it. Combine it with `cost` or use it alone. The management editor provides checkboxes under **Hints & files → Rewards to forfeit**. A hint with zero point cost and no selected rewards is free.
+Optional `rewardCost` selects keys and incantations from this challenge's `rewards` to withhold when the team completes it. Combine it with `cost` or use it alone. The management editor provides checkboxes under **Hints & files → Rewards to forfeit**. A hint with zero point cost and no selected rewards is free.
 
 ```yaml
 rewards:
@@ -106,13 +106,15 @@ hints:
       incantations: [open sesame]
 ```
 
-Taking this hint leaves the blue key and deducts 10 completion points. Keys or incantations earned from other challenges stay in Inventory. Each reward can pay for one hint: if two hints cost the same reward, purchasing either makes the other unavailable. Incantation prices show a count to students, keeping unearned phrases private. Manual answers save the remaining rewards at first submission and award them on first grading.
+Taking this hint leaves the blue key and deducts 10 completion points. Keys or incantations earned from other challenges stay in Inventory. Each reward can pay for one hint across the whole team: if two hints cost the same reward, purchasing either makes the other unavailable. Incantation prices show a count to students, keeping unearned phrases private. Manual answers save the team’s remaining rewards and hint costs at submission and award them on first grading. Once a teammate submits, new hints for that challenge are locked for everyone so the saved costs remain consistent.
 
-Students see hint labels and prices before choosing **Unlock**. Locked hint text is withheld from the browser. Unlocking a hint stores its cost and reveals its text to that student; subsequent requests and page reloads do not charge again. Hints can be purchased in any order, including before the student earns any expedition points.
+Students see hint labels and prices before choosing **Unlock**. Locked hint text is withheld from the browser. Unlocking a hint stores its cost and reveals its text to every current teammate; subsequent requests, teammate purchases, and page reloads do not charge again. Hints can be purchased in any order, including before the student earns any expedition points.
 
-**Hints reduce the reward for their own challenge.** They do not spend points already earned from other challenges. For a 100-point challenge, unlocking 10-point and 20-point hints leaves a 70-point reward. The journal and challenge window show that remaining reward. Solving the challenge adds those 70 points to the expedition total. An incorrect answer has no cost. Free hints have no effect on the reward.
+**Hints reduce the reward for their own challenge.** They do not spend points already earned from other challenges. For a 100-point challenge, unlocking 10-point and 20-point hints leaves a 70-point team reward, even when different teammates buy the hints. The journal and challenge window show that remaining reward. Any teammate solving the challenge adds those 70 points to the shared team total once. An incorrect answer has no cost. Free hints have no effect on the reward.
 
-New hint purchases are blocked after completion. Previously unlocked hints remain available through the API; the map's existing interaction hides collected objects. The server uses atomic inserts to prevent double charges, duplicate rewards, or inconsistent scores when a solve and purchase happen at the same time.
+New hint purchases are blocked after completion. Previously unlocked hints remain available through the API; the map's existing interaction hides collected objects. The server uses atomic inserts to prevent double charges, shared reward double spending, duplicate rewards, or inconsistent scores when teammates solve and purchase at the same time.
+
+Older duplicate purchases count the highest saved point cost once per team/hint and retain all recorded reward forfeitures.
 
 Keep hint IDs stable. Changing a hint's text updates what its purchaser sees; changing its point or item costs does not reprice past purchases. If you remove a purchased hint, its recorded costs still count toward the challenge's reward. Completion stores the final awarded points and items, so later edits do not alter earned rewards. If older stored point costs exceed a newly reduced reward, the remaining points are clamped to zero. Existing hints without `rewardCost` retain their point-only pricing.
 

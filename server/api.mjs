@@ -1,3 +1,4 @@
+import { playerCompletions, sharedCompletionsSQL, unsolvedForTeamSQL, completionUsersSQL } from "./team-progress.mjs";
 import { invalidateSharedCache } from './shared-cache.mjs';
 import { bulkChallengeVisibility } from "./challenge-bulk.mjs";
 import { playerMilestones } from "./progression.mjs";
@@ -16,7 +17,7 @@ import { handleChallengeFileUpload } from "./challenge-files.mjs";
 import { byteRange } from "./byte-range.mjs";
 import { inventoryState, accessibleMaps, unlockTransport } from "./inventory.mjs";
 import { publicTheme, emptyInventory, rewardsAfterHints, normalizeIncantation } from "../lib/inventory.mjs";
-import { hintAdjustedRewardsSQL, hintAdjustedRewardsBindings, hintRewardAvailabilitySQL, normalizedHintRewardCost } from "./hint-rewards.mjs";
+import { hintAdjustedRewardsSQL, hintAdjustedRewardsBindings, hintRewardAvailabilitySQL, normalizedHintRewardCost, sharedHintCostSQL, playerHints } from "./hint-rewards.mjs";
 import { challengeSettings, visibleChallenges, handleChallengeSettings } from "./challenge-visibility.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import {
@@ -118,7 +119,7 @@ function createRequestApi({
     const rows = (
       await db
         .prepare(
-          `SELECT students.*,teams.id AS team_id,teams.name AS team_name,COALESCE(stats.score,0) AS score,COALESCE(stats.completed,0) AS completed FROM students LEFT JOIN team_members ON team_members.user=students.id LEFT JOIN teams ON teams.id=team_members.team LEFT JOIN (SELECT user,SUM(points) AS score,COUNT(*) AS completed FROM solved GROUP BY user) stats ON students.id=stats.user ORDER BY username`,
+          `SELECT students.*,teams.id AS team_id,teams.name AS team_name,(SELECT COALESCE(SUM(points),0) FROM (${sharedCompletionsSQL("students.id")})) AS score,(SELECT COUNT(*) FROM (${sharedCompletionsSQL("students.id")})) AS completed FROM students LEFT JOIN team_members ON team_members.user=students.id LEFT JOIN teams ON teams.id=team_members.team ORDER BY username`,
         )
         .bind()
         .all()
@@ -159,24 +160,18 @@ function createRequestApi({
   async function gameState(userId, admin = false, startMap = theme.world.startMap) {
     const current = await catalog();
     const settings = await challengeSettings(db);
-    const completions = await db
-      .prepare("SELECT challenge,points FROM solved WHERE user=?")
-      .bind(userId)
-      .all();
+    const completions = await playerCompletions(db, userId);
     const { rewardsByChallenge, ...items } = await inventoryState(db, userId, theme);
     const maps = accessibleMaps(theme, items.unlockedTransports, startMap);
-    const solvedIds = new Set(completions.results.map(r => r.challenge));
+    const solvedIds = new Set(completions.map(r => r.challenge));
     const milestones = await playerMilestones(db, userId, [...solvedIds]);
     const expedition = admin ? current.challenges : settings.visibility === "admins" ? [] : current.challenges.filter(c => c.visibility !== "hidden");
     const challenges = visibleChallenges(current.challenges, settings, admin, milestones).filter(c => admin || maps.has(c.map) || solvedIds.has(c.id));
     const solveCounts = (await db.prepare("SELECT challenge,COUNT(*) AS count FROM solved GROUP BY challenge").bind().all()).results;
-    const purchases = await db
-      .prepare("SELECT challenge,hint,cost,reward_cost FROM purchased_hints WHERE user=?")
-      .bind(userId)
-      .all();
+    const purchases = await playerHints(db, userId);
     const responses = (
       await db
-        .prepare("SELECT * FROM written_responses WHERE user=?")
+        .prepare(`SELECT * FROM written_responses WHERE user IN (${completionUsersSQL()})`)
         .bind(userId)
         .all()
     ).results;
@@ -187,10 +182,10 @@ function createRequestApi({
       activatedEntities: [...milestones].filter(id => id.startsWith("npe:") && !id.includes(":", 4)).map(id => id.slice(4)),
       expeditionComplete: expedition.length > 0 && expedition.every(c => solvedIds.has(c.id)),
       challenges: challenges.map((c) => {
-        const bought = purchases.results.filter((p) => p.challenge === c.id);
+        const bought = purchases.filter((p) => p.challenge === c.id);
         const hintCost = bought.reduce((sum, p) => sum + p.cost, 0);
-        const award = completions.results.find((r) => r.challenge === c.id);
-        const response = responses.find((r) => r.challenge === c.id);
+        const award = completions.find((r) => r.challenge === c.id);
+        const response = responses.find((r) => r.challenge === c.id && r.user === (award?.user || userId));
         const rewards = rewardsByChallenge[c.id] || (response ? JSON.parse(response.rewards_payload) : rewardsAfterHints(c.rewards || emptyInventory(), bought.map(p => JSON.parse(p.reward_cost))));
         return {
           id: c.id,
@@ -225,6 +220,7 @@ function createRequestApi({
           ),
           awardedPoints: award?.points ?? null,
           hintCost: response?.hint_cost ?? hintCost,
+          hintsLocked: !!award || responses.some(r => r.challenge === c.id),
           hints: c.hints.map((h) => {
             const purchased = bought.find((p) => p.hint === h.id);
             const rewardCost = purchased ? JSON.parse(purchased.reward_cost) : h.rewardCost || emptyInventory();
@@ -253,8 +249,8 @@ function createRequestApi({
           .bind(userId)
           .all()
       ).results.map((r) => r.challenge),
-      solved: completions.results.map((r) => r.challenge),
-      score: completions.results.reduce((sum, r) => sum + r.points, 0),
+      solved: completions.map((r) => r.challenge),
+      score: completions.reduce((sum, r) => sum + r.points, 0),
     };
   }
   async function dispatch(req) {
@@ -1051,7 +1047,7 @@ function createRequestApi({
           if (!Array.isArray(choices) || choices.length > 100 || choices.some(c => typeof c !== "string" || c.length > 80))
             return json({ error: "Restart this conversation to continue." }, 400);
           const current = await catalog();
-          const solved = (await db.prepare("SELECT challenge FROM solved WHERE user=?").bind(u.id).all()).results;
+          const solved = await playerCompletions(db, u.id);
           const milestones = await playerMilestones(db, u.id, solved.map(r => r.challenge));
           if (!admin && !entityUnlocked(entity, milestones)) return json({ error: "This character is unavailable." }, 404);
           const restartable = entity.restartable !== false;
@@ -1098,17 +1094,17 @@ function createRequestApi({
         const current = await catalog();
         const { challenges } = current;
         const settings = await challengeSettings(db);
-        const completions = (await db.prepare("SELECT challenge FROM solved WHERE user=?").bind(u.id).all()).results;
+        const completions = await playerCompletions(db, u.id);
         const c = visibleChallenges(challenges, settings, admin, await playerMilestones(db, u.id, completions.map((r) => r.challenge))).find((c) => c.id === id);
         if (!c) return json({ error: "Unknown challenge." }, 400);
         const items = await inventoryState(db,u.id,theme);
         if (!admin && !accessibleMaps(theme,items.unlockedTransports,u.spawn.map).has(c.map) && !completions.some(r => r.challenge === c.id)) return json({error:"Unlock a route to this map before opening its challenges."},403);
         if (action === "review-answer") {
-          // Read only this player's recorded answer, never accepted flags or a teammate's submission.
+          // Reveal the recorded answer for this team completion, never accepted flags.
           const review = await db.prepare(`SELECT COALESCE(
             (SELECT answer FROM written_responses WHERE user=solved.user AND challenge=solved.challenge AND grade IS NOT NULL),
             (SELECT answer FROM answer_attempts WHERE user=solved.user AND challenge=solved.challenge AND correct=1 ORDER BY submitted_at,id LIMIT 1)
-          ) AS answer FROM solved WHERE user=? AND challenge=?`).bind(u.id,c.id).first();
+          ) AS answer FROM (${sharedCompletionsSQL()}) solved WHERE challenge=?`).bind(u.id,c.id).first();
           if (!review) return json({error:"Solve this challenge before reviewing your answer."},403);
           return json({answer:review.answer});
         }
@@ -1144,14 +1140,14 @@ function createRequestApi({
           await db
             .prepare(
               `INSERT OR IGNORE INTO purchased_hints(user,challenge,hint,cost,reward_cost)
-            SELECT ?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND NOT EXISTS(SELECT 1 FROM written_responses WHERE user=? AND challenge=?) AND ${hintRewardAvailabilitySQL} AND ${gate}`,
+            SELECT ?,?,?,?,? WHERE ${unsolvedForTeamSQL} AND NOT EXISTS(SELECT 1 FROM written_responses WHERE user IN (${completionUsersSQL()}) AND challenge=?) AND NOT EXISTS(SELECT 1 FROM purchased_hints WHERE user IN (${completionUsersSQL()}) AND challenge=? AND hint=?) AND ${hintRewardAvailabilitySQL} AND ${gate}`,
             )
-            .bind(u.id, c.id, hint.id, hint.cost, rewardCost, u.id, c.id, u.id, c.id, u.id, c.id, rewardCost, u.id, c.id, rewardCost, ...versions)
+            .bind(u.id, c.id, hint.id, hint.cost, rewardCost, u.id, c.id, u.id, c.id, u.id, c.id, hint.id, u.id, c.id, rewardCost, u.id, c.id, rewardCost, ...versions)
             .run();
           if (!(await db.prepare(`SELECT ${gate} AS valid`).bind(...versions).first())?.valid) return changed();
           const purchase = await db
             .prepare(
-              "SELECT cost FROM purchased_hints WHERE user=? AND challenge=? AND hint=?",
+              `SELECT cost FROM purchased_hints WHERE user IN (${completionUsersSQL()}) AND challenge=? AND hint=?`,
             )
             .bind(u.id, c.id, hint.id)
             .first();
@@ -1182,7 +1178,7 @@ function createRequestApi({
           const r = await db
             .prepare(
               `INSERT INTO written_responses(user,challenge,answer,question,object,max_points,rewards_payload,hint_cost,submitted_at,submitted_team,revision)
-            SELECT ?,?,?,?,?,?,${hintAdjustedRewardsSQL},COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0),?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),1 WHERE NOT EXISTS(SELECT 1 FROM solved WHERE user=? AND challenge=?) AND COALESCE((SELECT revision FROM written_responses WHERE user=? AND challenge=?),0)=? AND ${gate}
+            SELECT ?,?,?,?,?,?,${hintAdjustedRewardsSQL},${sharedHintCostSQL},?,COALESCE((SELECT t.name FROM team_members m JOIN teams t ON t.id=m.team WHERE m.user=?),''),1 WHERE ${unsolvedForTeamSQL} AND COALESCE((SELECT revision FROM written_responses WHERE user=? AND challenge=?),0)=? AND ${gate}
             ON CONFLICT(user,challenge) DO UPDATE SET answer=excluded.answer,submitted_at=excluded.submitted_at,submitted_team=excluded.submitted_team,revision=written_responses.revision+1 WHERE written_responses.grade IS NULL AND written_responses.revision=?`,
             )
             .bind(
@@ -1225,17 +1221,14 @@ function createRequestApi({
         if (!correct) { const result = await attempt.run(); if (!(result.meta?.changes ?? result.changes)) return changed(); return json({correct:false}); }
         // Record the attempt and award points together; duplicate solves still award once.
         const results = await db.batch([attempt, db.prepare(`INSERT OR IGNORE INTO solved(user,challenge,points)
-          SELECT ?,?,MAX(0,?-COALESCE((SELECT SUM(cost) FROM purchased_hints WHERE user=? AND challenge=?),0)) WHERE ${gate}`)
-          .bind(u.id,c.id,c.points,u.id,c.id,...versions),
+          SELECT ?,?,MAX(0,?-${sharedHintCostSQL}) WHERE ${unsolvedForTeamSQL} AND ${gate}`)
+          .bind(u.id,c.id,c.points,u.id,c.id,u.id,c.id,...versions),
           db.prepare(`INSERT OR IGNORE INTO earned_rewards(user,challenge,payload) SELECT user,challenge,${hintAdjustedRewardsSQL} FROM solved WHERE user=? AND challenge=? AND ${gate}`).bind(...hintAdjustedRewardsBindings(c.rewards,u.id,c.id),u.id,c.id,...versions)]);
         if (!(results[0].meta?.changes ?? results[0].changes)) return changed();
-        const award = await db
-          .prepare("SELECT points FROM solved WHERE user=? AND challenge=?")
-          .bind(u.id, c.id)
-          .first();
+        const award = (await playerCompletions(db, u.id)).find(r => r.challenge === c.id);
         return json({
           correct: true,
-          awardedPoints: award.points,
+          awardedPoints: (results[1].meta?.changes ?? results[1].changes) ? award.points : 0,
           ...(await gameState(u.id, admin, u.spawn.map)),
         });
       }

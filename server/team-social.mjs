@@ -70,18 +70,23 @@ export async function teamScores(db, config, includeDisabled = false) {
   const rows = (
     await db
       .prepare(
-        `SELECT m.team,s.username,s.role,s.managed,s.provisioned,COALESCE(SUM(solved.points),0) AS score FROM team_members m JOIN students s ON s.id=m.user LEFT JOIN solved ON solved.user=s.id WHERE s.disabled=0 ${includeDisabled ? '' : 'AND EXISTS(SELECT 1 FROM teams t WHERE t.id=m.team AND t.disabled=0)'} GROUP BY s.id,m.team`,
+        `SELECT m.team,s.username,s.role,s.managed,s.provisioned,solved.challenge,COALESCE(solved.points,0) AS score FROM team_members m JOIN students s ON s.id=m.user LEFT JOIN solved ON solved.user=s.id WHERE s.disabled=0 ${includeDisabled ? '' : 'AND EXISTS(SELECT 1 FROM teams t WHERE t.id=m.team AND t.disabled=0)'}`,
       )
       .bind()
       .all()
   ).results;
+  const awards = new Map();
   for (const r of rows) {
     const cfg = config.accounts.users.find((a) => a.username === r.username);
     if (
       (r.managed ? r.role : cfg?.role || "student") === "student" &&
       (registrationOpen || cfg || r.provisioned)
-    )
-      scores.set(r.team, (scores.get(r.team) || 0) + r.score);
+    ) {
+      const key = JSON.stringify([r.team, r.challenge]);
+      const previous = awards.get(key) || 0;
+      scores.set(r.team, (scores.get(r.team) || 0) + Math.max(0, r.score - previous));
+      awards.set(key, Math.max(previous, r.score));
+    }
   }
   const gifts = (await db.prepare(`SELECT team,SUM(points) AS points FROM team_point_awards ${includeDisabled ? '' : 'WHERE EXISTS(SELECT 1 FROM teams t WHERE t.id=team_point_awards.team AND t.disabled=0)'} GROUP BY team`).bind().all()).results;
   for (const gift of gifts) scores.set(gift.team, (scores.get(gift.team) || 0) + gift.points);

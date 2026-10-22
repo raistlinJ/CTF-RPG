@@ -1,3 +1,5 @@
+import { playerHints } from "./hint-rewards.mjs";
+import { playerCompletions, completionUsersSQL } from "./team-progress.mjs";
 import { sharedAggregate } from './shared-cache.mjs';
 import { notificationStats } from './notifications.mjs';
 import { playerMilestones } from "./progression.mjs";
@@ -105,7 +107,9 @@ export async function handlePresence(
   const countByChallenge = new Map(counts.map(r=>[r.challenge,r.count]));
   const currentCatalog = catalog ? await catalog() : {challenges:[],revision:0};
   const settings = await challengeSettings(db);
-  const completions = (await db.prepare("SELECT challenge,points FROM solved WHERE user=? ORDER BY challenge").bind(u.id).all()).results;
+  const completions = await playerCompletions(db, u.id);
+  const hints = await playerHints(db, u.id);
+  const submitted = (await db.prepare(`SELECT DISTINCT challenge FROM written_responses WHERE user IN (${completionUsersSQL()}) ORDER BY challenge`).bind(u.id).all()).results.map(r => r.challenge);
   const milestones = await playerMilestones(db, u.id, completions.map(r => r.challenge));
   const challengeSolves = visibleChallenges(currentCatalog.challenges, settings, admin, milestones).map((c) => ({
     id: c.id, map: c.map, x: c.location.x, y: c.location.y,
@@ -114,7 +118,7 @@ export async function handlePresence(
   const social = {
     notifications: await notificationStats(db,u),
     challengeSolves,
-    gameRevision: `${themeRevision}:${currentCatalog.revision}:${settings.revision}:${[...milestones].join(",")}:${completions.map((r) => `${r.challenge}=${r.points}`).join(",")}`,
+    gameRevision: `${themeRevision}:${currentCatalog.revision}:${settings.revision}:${[...milestones].join(",")}:${completions.map((r) => `${r.challenge}=${r.points}@${r.user}`).join(",")}:${JSON.stringify(hints.map(h => [h.challenge, h.hint, h.cost]))}:${JSON.stringify(submitted)}`,
     self: { teammate: !!member, crowned: crowned(member?.team, true) },
     teamFeatures: features,
     ...(await messageStats(db, features, member?.team, u.id, admin, config)),
