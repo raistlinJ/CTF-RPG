@@ -6,6 +6,8 @@ Each theme has a reusable theme ZIP and a paired demo adventure:
 
 Environment Development adds an assignment-specific pack: `environment-development.zip` is the orbital commissioning deck; `environment-development-demo-theme.zip` and `environment-development-demo-content.zip` load its ten sequential CTFd-export challenges and original exercise PDF. The library action is **Load assignment**. See [the assignment guide](../themes/environment-development/README.md) for progression and conversion details, including two regex alternatives retained as metadata. Content contains instructor answers.
 
+Dynamic SRE Part 1 adds **Breakpoint Rebellion**: `dynamic-sre-part1.zip` contains a four-floor reverse-engineering tower with binary artwork and a congratulations room at the top; `dynamic-sre-part1-demo-theme.zip` and `dynamic-sre-part1-demo-content.zip` load nine sequential CTFd-export challenges, 37 points, five free hints, and the original exercise PDF. Use **Load assignment** in Theme library. See [the Dynamic SRE guide](../themes/dynamic-sre-part1/README.md) for source preservation, answer case rules, and progression. Content contains instructor answers.
+
 - `north-pole.zip` and `agentic-circuit.zip` contain the theme manifest, maps, sprites, MIDI music, sound effects, and default sound assignments. They contain no challenges or student progress.
 - `halloween.zip` contains the Halloween Hollow world, three heroes, a guide and boss appearance, MIDI music, and sound effects. Like the other reusable theme ZIPs, it has no demo content.
 - `solstice-vanguard.zip` contains the original Solstice Vanguard holiday superhero world, three heroes, a guide and boss appearance, MIDI music, and sound effects. It has no demo content.

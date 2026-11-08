@@ -1,0 +1,78 @@
+{
+  "durationSeconds": 6.4,
+  "width": 960,
+  "height": 540,
+  "fps": 24,
+  "silent": true,
+  "scenes": [
+    {
+      "challengeId": "dsre1-2026-ctfd-18",
+      "name": "00 / MISSION BRIEFING",
+      "stem": "mission-briefing",
+      "background": "floor-1-source.webp",
+      "diagram": "mission",
+      "pre": {
+        "title": "ENTER THE BINARY TOWER",
+        "subtitle": "Read the exercise. Prepare your analysis.",
+        "next": "SOURCE CODE  >  EXECUTION  >  EVIDENCE"
+      },
+      "post": {
+        "title": "ANALYSIS CREW READY",
+        "subtitle": "Your first checkpoint is complete.",
+        "next": "NEXT: MAP THE C CODE"
+      }
+    },
+    {
+      "challengeId": "dsre1-2026-ctfd-42",
+      "name": "04 / PREDICT THE BRANCH",
+      "stem": "predict-the-branch",
+      "background": "floor-2-debugging.webp",
+      "diagram": "branch",
+      "pre": {
+        "title": "PAUSE AT THE FORK",
+        "subtitle": "Observe the input. Inspect the condition.",
+        "next": "CHOOSE THE PATH FROM THE EVIDENCE"
+      },
+      "post": {
+        "title": "CONTROL FLOW TRACED",
+        "subtitle": "You followed the program one step at a time.",
+        "next": "NEXT: INSPECT THE INPUT REGISTER"
+      }
+    },
+    {
+      "challengeId": "dsre1-2026-ctfd-45",
+      "name": "07 / APPLY THE BINARY PATCH",
+      "stem": "apply-the-binary-patch",
+      "background": "floor-3-patching.webp",
+      "diagram": "patch",
+      "pre": {
+        "title": "CHANGE THE BYTES",
+        "subtitle": "Patch the program. Run it again.",
+        "next": "VERIFY THE BEHAVIOR OUTSIDE THE DEBUGGER"
+      },
+      "post": {
+        "title": "PATCH CHECKPOINT COMPLETE",
+        "subtitle": "Careful edits need careful verification.",
+        "next": "NEXT: YOUR INDIVIDUAL DEBRIEF"
+      }
+    },
+    {
+      "challengeId": "dsre1-2026-ctfd-24",
+      "name": "08 / INDIVIDUAL DEBRIEF",
+      "stem": "individual-debrief",
+      "background": "floor-3-patching.webp",
+      "diagram": "debrief",
+      "pre": {
+        "title": "MAKE THE WORK YOUR OWN",
+        "subtitle": "Purpose. Obstacles. What you learned.",
+        "next": "SUBMIT YOUR WRITE-UP THROUGH COURSE EMAIL"
+      },
+      "post": {
+        "background": "floor-4-congratulations.webp",
+        "title": "MISSION COMPLETE",
+        "subtitle": "Congratulations on completing the assignment.",
+        "next": "FLOOR 4: THE CREW IS WAITING"
+      }
+    }
+  ]
+}

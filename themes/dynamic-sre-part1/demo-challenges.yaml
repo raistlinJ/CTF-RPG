@@ -1,0 +1,730 @@
+challenges:
+  - id: dsre1-2026-ctfd-18
+    map: analysis-bunker
+    object: 00 · Mission Briefing
+    region: Mission Intake
+    location: &a1
+      x: 6
+      y: 22
+    text: >-
+      Work individually through Dynamic Reversing Part 1. Download the exercise PDF below and keep
+      it open while using the assigned lab environment. Follow Steps 1–4 across three analysis
+      floors: complete and compile verify.c, inspect it in IDA, trace execution with breakpoints,
+      inspect registers and stack arguments, and apply the binary patch. The nine scored checkpoints
+      unlock in exercise order. The fourth floor is the congratulations room.
+
+
+      Enter OK to acknowledge that you have the exercise and are ready to begin.
+    points: 1
+    grading: automatic
+    visibility: visible
+    flags:
+      - OK
+    flagRules:
+      - value: OK
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn: []
+    hints: []
+    downloads:
+      - name: Dynamic Reversing Part 1 exercise PDF
+        url: /downloads/dynamic-sre-part1/07_assignment_dynamicSRE.pdf
+        filename: 07_assignment_dynamicSRE.pdf
+    ctfd:
+      challenge:
+        id: 18
+        name: Exercise PDF
+        description: "Download Exercise Here or on the Course Web Page\r
+
+          \r
+
+          Enter OK to get a point."
+        max_attempts: 0
+        value: 1
+        category: Download Exercise Here
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 22
+          challenge_id: 18
+          type: static
+          content: OK
+          data: case_insensitive
+      hints: []
+      files:
+        - id: 29
+          type: challenge
+          location: cfdac8cac7606e1ac37e0a39045fc1e8/07_assignment_dynamicSRE.pdf
+          challenge_id: 18
+          page_id: null
+          sha1sum: null
+          solution_id: null
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no requirements.
+        - Displayed checkpoint names and exercise references clarify the original questions; source
+          definitions and answer rules are retained.
+    discoveryVideo: /videos/dynamic-sre-part1/mission-briefing-pre.mp4
+    solveVideo: /videos/dynamic-sre-part1/mission-briefing-post.mp4
+  - id: dsre1-2026-ctfd-39
+    map: analysis-bunker
+    object: 01 · Map the C Code
+    region: Source Code Bench
+    location: &a2
+      x: 31
+      y: 22
+    text: |-
+      Exercise reference: Step 1, #3 · Table 1.
+
+      Enter the ordering of the letters in the table from top to bottom, separated by a spaces.
+
+      (E.g., A B C D E G F)
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - B E D F A G C
+    flagRules:
+      - value: B E D F A G C
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - dsre1-2026-ctfd-18
+    hints:
+      - id: ctfd-hint-16
+        label: Hint
+        text: |-
+          The first 4 are: 
+          B E D F
+        cost: 0
+    downloads: []
+    ctfd:
+      challenge:
+        id: 39
+        name: "#3"
+        description: "Enter the ordering of the letters in the table from top to bottom, separated by a
+          spaces.\r
+
+          \r
+
+          (E.g., A B C D E G F)"
+        max_attempts: 0
+        value: 5
+        category: STEP 1
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 53
+          challenge_id: 39
+          type: static
+          content: B E D F A G C
+          data: case_insensitive
+      hints:
+        - id: 16
+          type: standard
+          challenge_id: 39
+          content: |-
+            The first 4 are: 
+            B E D F
+          cost: 0
+          requirements: null
+          title: null
+      files: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no requirements.
+        - Displayed checkpoint names and exercise references clarify the original questions; source
+          definitions and answer rules are retained.
+  - id: dsre1-2026-ctfd-40
+    map: analysis-bunker
+    object: 02 · Find the String Reference
+    region: Disassembly Station
+    location: &a3
+      x: 14
+      y: 7
+    text: >-
+      Exercise reference: Step 2, #6.
+
+
+      What is the "Address" in the text section that contains the reference to the string? (Include
+      the .text: in front of the numeric value - as displayed by IDA in the search results window).
+
+
+      E.g., 
+
+      .text:12345678
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - .text:00401262
+    flagRules:
+      - value: .text:00401262
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - dsre1-2026-ctfd-39
+    hints:
+      - id: ctfd-hint-17
+        label: Hint
+        text: The answer is also embedded in the image of the document.
+        cost: 0
+    downloads: []
+    ctfd:
+      challenge:
+        id: 40
+        name: "#6"
+        description: "What is the \"Address\" in the text section that contains the reference to the string?
+          (Include the .text: in front of the numeric value - as displayed by IDA in the search
+          results window).\r
+
+          \r
+
+          E.g., \r
+
+          .text:12345678"
+        max_attempts: 0
+        value: 5
+        category: STEP 2
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 54
+          challenge_id: 40
+          type: static
+          content: .text:00401262
+          data: case_insensitive
+      hints:
+        - id: 17
+          type: standard
+          challenge_id: 40
+          content: The answer is also embedded in the image of the document.
+          cost: 0
+          requirements: null
+          title: null
+      files: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no requirements.
+        - Displayed checkpoint names and exercise references clarify the original questions; source
+          definitions and answer rules are retained.
+  - id: dsre1-2026-ctfd-41
+    map: debugging-floor
+    object: 03 · Trace the Print Call
+    region: Breakpoint Console
+    location: *a1
+    text: |-
+      Exercise reference: Step 3, #7.
+
+      Write the instruction that is executed for the text to appear in the terminal.
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - call puts
+    flagRules:
+      - value: call puts
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - dsre1-2026-ctfd-40
+    hints:
+      - id: ctfd-hint-13
+        label: Hint
+        text: two words
+        cost: 0
+      - id: ctfd-hint-14
+        label: Hint
+        text: starts with **call**
+        cost: 0
+    downloads: []
+    ctfd:
+      challenge:
+        id: 41
+        name: "#7"
+        description: Write the instruction that is executed for the text to appear in the terminal.
+        max_attempts: 0
+        value: 5
+        category: STEP 3
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 55
+          challenge_id: 41
+          type: static
+          content: call puts
+          data: case_insensitive
+      hints:
+        - id: 13
+          type: standard
+          challenge_id: 41
+          content: two words
+          cost: 0
+          requirements: null
+          title: null
+        - id: 14
+          type: standard
+          challenge_id: 41
+          content: starts with **call**
+          cost: 0
+          requirements: null
+          title: null
+      files: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no requirements.
+        - Displayed checkpoint names and exercise references clarify the original questions; source
+          definitions and answer rules are retained.
+  - id: dsre1-2026-ctfd-42
+    map: debugging-floor
+    object: 04 · Predict the Branch
+    region: Control Flow Junction
+    location: *a2
+    text: >-
+      Exercise reference: Step 3, #12. Use the incorrect input specified in the exercise and stop at
+      the highlighted jnz instruction.
+
+
+      Which path will the program take? 
+
+      left or right?
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - right
+    flagRules:
+      - value: right
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - dsre1-2026-ctfd-41
+    hints: []
+    downloads: []
+    ctfd:
+      challenge:
+        id: 42
+        name: "#12"
+        description: "Which path will the program take? \r
+
+          left or right?"
+        max_attempts: 0
+        value: 5
+        category: STEP 3
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 56
+          challenge_id: 42
+          type: static
+          content: right
+          data: case_insensitive
+      hints: []
+      files: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no requirements.
+        - Displayed checkpoint names and exercise references clarify the original questions; source
+          definitions and answer rules are retained.
+    discoveryVideo: /videos/dynamic-sre-part1/predict-the-branch-pre.mp4
+    solveVideo: /videos/dynamic-sre-part1/predict-the-branch-post.mp4
+  - id: dsre1-2026-ctfd-43
+    map: debugging-floor
+    object: 05 · Inspect the Input Register
+    region: Register Watch
+    location: *a3
+    text: |-
+      Exercise reference: Step 3, #21. Pause at the strcmp breakpoint as instructed.
+
+      Does eax contain user-input or stored password?
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - user-input
+      - user
+      - user input
+    flagRules:
+      - value: user-input
+        caseSensitive: false
+      - value: user
+        caseSensitive: false
+      - value: user input
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - dsre1-2026-ctfd-42
+    hints: []
+    downloads: []
+    ctfd:
+      challenge:
+        id: 43
+        name: "#21"
+        description: Does eax contain user-input or stored password?
+        max_attempts: 0
+        value: 5
+        category: STEP 3
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 57
+          challenge_id: 43
+          type: static
+          content: user-input
+          data: case_insensitive
+        - id: 58
+          challenge_id: 43
+          type: static
+          content: user
+          data: case_insensitive
+        - id: 59
+          challenge_id: 43
+          type: static
+          content: user input
+          data: case_insensitive
+      hints: []
+      files: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no requirements.
+        - Displayed checkpoint names and exercise references clarify the original questions; source
+          definitions and answer rules are retained.
+  - id: dsre1-2026-ctfd-44
+    map: patch-floor
+    object: 06 · Locate the Stack Argument
+    region: Stack Inspection Bench
+    location: *a1
+    text: |-
+      Exercise reference: Step 3, #22.
+
+      Where is the other text input for strcmp stored?
+
+      Sample answer format: 
+      ebp+8
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - esp+4
+      - esp + 4
+      - esp +4
+      - esp+ 4
+      - "[esp+4]"
+      - "[esp +4]"
+      - "[esp + 4]"
+      - "[esp+ 4]"
+      - esp+4h
+      - "[esp+4h]"
+    flagRules:
+      - value: esp+4
+        caseSensitive: false
+      - value: esp + 4
+        caseSensitive: false
+      - value: esp +4
+        caseSensitive: false
+      - value: esp+ 4
+        caseSensitive: false
+      - value: "[esp+4]"
+        caseSensitive: false
+      - value: "[esp +4]"
+        caseSensitive: false
+      - value: "[esp + 4]"
+        caseSensitive: false
+      - value: "[esp+ 4]"
+        caseSensitive: false
+      - value: esp+4h
+        caseSensitive: true
+      - value: "[esp+4h]"
+        caseSensitive: true
+    caseSensitive: false
+    dependsOn:
+      - dsre1-2026-ctfd-43
+    hints:
+      - id: ctfd-hint-15
+        label: Hint
+        text: esp+??
+        cost: 0
+    downloads: []
+    ctfd:
+      challenge:
+        id: 44
+        name: "#22"
+        description: "Where is the other text input for strcmp stored?\r
+
+          \r
+
+          Sample answer format: \r
+
+          ebp+8"
+        max_attempts: 0
+        value: 5
+        category: STEP 3
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 60
+          challenge_id: 44
+          type: static
+          content: esp+4
+          data: case_insensitive
+        - id: 62
+          challenge_id: 44
+          type: static
+          content: esp + 4
+          data: case_insensitive
+        - id: 63
+          challenge_id: 44
+          type: static
+          content: esp +4
+          data: case_insensitive
+        - id: 64
+          challenge_id: 44
+          type: static
+          content: esp+ 4
+          data: case_insensitive
+        - id: 66
+          challenge_id: 44
+          type: static
+          content: "[esp+4]"
+          data: case_insensitive
+        - id: 67
+          challenge_id: 44
+          type: static
+          content: "[esp +4]"
+          data: case_insensitive
+        - id: 68
+          challenge_id: 44
+          type: static
+          content: "[esp + 4]"
+          data: case_insensitive
+        - id: 69
+          challenge_id: 44
+          type: static
+          content: "[esp+ 4]"
+          data: case_insensitive
+        - id: 70
+          challenge_id: 44
+          type: static
+          content: esp+4h
+          data: ""
+        - id: 71
+          challenge_id: 44
+          type: static
+          content: "[esp+4h]"
+          data: ""
+      hints:
+        - id: 15
+          type: standard
+          challenge_id: 44
+          content: esp+??
+          cost: 0
+          requirements: null
+          title: null
+      files: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no requirements.
+        - Displayed checkpoint names and exercise references clarify the original questions; source
+          definitions and answer rules are retained.
+  - id: dsre1-2026-ctfd-45
+    map: patch-floor
+    object: 07 · Apply the Binary Patch
+    region: Patch Workshop
+    location: *a2
+    text: >-
+      Exercise reference: Step 4, #7. Complete the patching steps, apply the changes to the input
+      file, and run the patched program from Cygwin to verify its behavior.
+
+
+      Submit OK to indicate that you completed this question. This records your acknowledgment; it
+      does not automatically inspect your binary. The Uber Challenge remains optional, as in the
+      exercise.
+    points: 1
+    grading: automatic
+    visibility: visible
+    flags:
+      - OK
+    flagRules:
+      - value: OK
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - dsre1-2026-ctfd-44
+    hints: []
+    downloads: []
+    ctfd:
+      challenge:
+        id: 45
+        name: "#7"
+        description: Submit OK to indicate that you completed this question.
+        max_attempts: 0
+        value: 1
+        category: STEP 4
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 65
+          challenge_id: 45
+          type: static
+          content: OK
+          data: case_insensitive
+      hints: []
+      files: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no requirements.
+        - Displayed checkpoint names and exercise references clarify the original questions; source
+          definitions and answer rules are retained.
+    discoveryVideo: /videos/dynamic-sre-part1/apply-the-binary-patch-pre.mp4
+    solveVideo: /videos/dynamic-sre-part1/apply-the-binary-patch-post.mp4
+  - id: dsre1-2026-ctfd-24
+    map: patch-floor
+    object: 08 · Individual Debrief
+    region: Debrief Station
+    location: *a3
+    text: >-
+      To be done individually. Email a document with the subject Assignment-DynReverse1 to
+      svutep@gmail.com, as specified in the exercise. Include a one–two paragraph write-up
+      describing (1) the purpose of the exercise, (2) where you had trouble, if any, and (3)
+      highlights of what you learned.
+
+
+      Enter OK to acknowledge completion. Submit the document through the course email process;
+      entering OK does not send it.
+    points: 5
+    grading: automatic
+    visibility: visible
+    flags:
+      - OK
+    flagRules:
+      - value: OK
+        caseSensitive: false
+    caseSensitive: false
+    dependsOn:
+      - dsre1-2026-ctfd-45
+    hints: []
+    downloads: []
+    ctfd:
+      challenge:
+        id: 24
+        name: FINAL DELIVERABLE
+        description: "<center><h3>***To be done Individually***</h3></center>\r
+
+          <br>\r
+
+          Email a document file with the subject Assignment-DynReverse1 to <a
+          href=\"mailto:svutep@gmail.com\"> svutep@gmail.com </a>\r
+
+          <br><br>\r
+
+          The document must contain the following:\r
+
+          <br><br>\r
+
+          Describe (1) the purpose of the exercise, (2) where you had trouble (if any), (3)
+          highlights about what you learned.\r
+
+          <br><br>\r
+
+          <h5>Enter \"OK\" to get a point for this challenge</h5>"
+        max_attempts: 0
+        value: 5
+        category: Your Summary
+        type: standard
+        state: visible
+        requirements: null
+        connection_info: null
+        next_id: null
+        attribution: null
+        logic: ""
+        initial: null
+        minimum: null
+        decay: null
+        function: null
+        position: 0
+      flags:
+        - id: 28
+          challenge_id: 24
+          type: static
+          content: OK
+          data: case_insensitive
+      hints: []
+      files: []
+      notes:
+        - Sequential prerequisites added in exercise order; source export has no requirements.
+        - Displayed checkpoint names and exercise references clarify the original questions; source
+          definitions and answer rules are retained.
+    discoveryVideo: /videos/dynamic-sre-part1/individual-debrief-pre.mp4
+    solveVideo: /videos/dynamic-sre-part1/individual-debrief-post.mp4

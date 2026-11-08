@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react";
 import AdminHeader from "../../admin-header";
 import ThemeNav from "../theme-nav";
+import { soundVolume } from "@/lib/sound-volume.mjs";
 
 type Clip = { name: string; src: string; source: "theme" | "upload" };
+type VolumeGroup = "music" | "maps" | "events";
+type Volumes = Record<VolumeGroup, Record<string, number>>;
 type Settings = {
-  sounds: { clips: Clip[]; maps: Record<string, string | null>; events: Record<string, string | null> };
+  sounds: { clips: Clip[]; maps: Record<string, string | null>; events: Record<string, string | null>; volumes?: Volumes };
+  musicVolume: number;
   maps: { id: string; name: string; music: string | null }[];
   tracks: { name: string; midi: string }[];
   events: { id: string; label: string; description: string }[];
@@ -62,6 +66,15 @@ export default function SoundsAdmin() {
     setDirty(true);
     setMessage("");
   }
+  function updateVolume(group: VolumeGroup, key: string, volume: number) {
+    setSettings(current => {
+      if (!current) return current;
+      const volumes = current.sounds.volumes || { music: {}, maps: {}, events: {} };
+      return { ...current, sounds: { ...current.sounds, volumes: { ...volumes, [group]: { ...volumes[group], [key]: volume } } } };
+    });
+    setDirty(true);
+    setMessage("");
+  }
   async function request(body: object): Promise<Settings> {
     const response = await fetch("/api/admin/theme-sounds", {
       method: "POST",
@@ -73,7 +86,7 @@ export default function SoundsAdmin() {
     return data;
   }
   async function saveAssignments(current: Settings) {
-    const saved = await request({ action: "assign", revision: current.revision, maps: current.sounds.maps, events: current.sounds.events, mapMusic: Object.fromEntries(current.maps.map(map => [map.id, map.music])) });
+    const saved = await request({ action: "assign", revision: current.revision, maps: current.sounds.maps, events: current.sounds.events, volumes: current.sounds.volumes, mapMusic: Object.fromEntries(current.maps.map(map => [map.id, map.music])) });
     setDirty(false);
     return saved;
   }
@@ -90,6 +103,13 @@ export default function SoundsAdmin() {
         <option value="">None</option>
         {settings?.sounds.clips.map(clip => <option key={clip.src} value={clip.src}>{clip.name}</option>)}
       </select>
+    </label>;
+  }
+  function volumeSlider(label: string, group: VolumeGroup, key: string) {
+    const percent = Math.round(soundVolume(settings?.sounds, group, key, settings?.musicVolume) * 100);
+    return <label className="sound-volume-control">
+      <span>Volume <output>{percent}%</output></span>
+      <input type="range" min="0" max="100" step="1" value={percent} aria-label={`${label} volume`} aria-valuetext={`${percent}%`} disabled={busy} onChange={e => updateVolume(group, key, Number(e.target.value) / 100)} />
     </label>;
   }
   return <main className="admin-studio"><AdminHeader active="theme" /><section className="admin-workspace">
@@ -112,18 +132,18 @@ export default function SoundsAdmin() {
       </div>
       <section className="admin-editor theme-media-section" role="tabpanel" id="sound-panel-music" aria-labelledby="sound-tab-music" hidden={tab !== "music"}>
         <h2>Map music</h2><p>Choose a track from the theme playlist. None keeps whatever music is already playing. Moving between maps with the same track keeps it playing without restarting.</p>
-        <div className="theme-media-assignments">{settings.maps.map(map => <div className="theme-media-assignment sound-assignment" key={map.id}><strong>{map.name}</strong><label className="theme-media-picker"><span>Music for {map.name}</span><select disabled={busy} value={map.music || ""} onChange={e => updateMusic(map.id, e.target.value)}><option value="">None</option>{settings.tracks.map(track => <option value={track.midi} key={track.midi}>{track.name}</option>)}</select></label></div>)}</div>
+        <div className="theme-media-assignments">{settings.maps.map(map => <div className="theme-media-assignment sound-assignment" key={map.id}><strong>{map.name}</strong><label className="theme-media-picker"><span>Music for {map.name}</span><select disabled={busy} value={map.music || ""} onChange={e => updateMusic(map.id, e.target.value)}><option value="">None</option>{settings.tracks.map(track => <option value={track.midi} key={track.midi}>{track.name}</option>)}</select></label>{volumeSlider(`Music for ${map.name}`, "music", map.id)}</div>)}</div>
         {!settings.tracks.length && <p>There are no MIDI tracks yet. <a href="/admin/theme/media?tab=music">Add music in Media Library</a>.</p>}
       </section>
       <section className="admin-editor theme-media-section" role="tabpanel" id="sound-panel-maps" aria-labelledby="sound-tab-maps" hidden={tab !== "maps"}>
         <h2>Map sounds</h2><p>Play this effect when a player enters the map.</p>
-        <div className="theme-media-assignments">{settings.maps.map(map => <div className="theme-media-assignment sound-assignment" key={map.id}><strong>{map.name}</strong>{picker(`Sound for ${map.name}`, settings.sounds.maps[map.id], "maps", map.id)}</div>)}</div>
+        <div className="theme-media-assignments">{settings.maps.map(map => <div className="theme-media-assignment sound-assignment" key={map.id}><strong>{map.name}</strong>{picker(`Sound for ${map.name}`, settings.sounds.maps[map.id], "maps", map.id)}{volumeSlider(`Sound for ${map.name}`, "maps", map.id)}</div>)}</div>
       </section>
       <section className="admin-editor theme-media-section" role="tabpanel" id="sound-panel-events" aria-labelledby="sound-tab-events" hidden={tab !== "events"}>
         <h2>Events</h2><p>Choose a sound for each game event.</p>
-        <div className="theme-media-assignments">{settings.events.map(event => <div className="theme-media-assignment sound-assignment" key={event.id}><div><strong>{event.label}</strong><small>{event.description}</small></div>{picker(`Sound for ${event.label}`, settings.sounds.events[event.id], "events", event.id)}</div>)}</div>
+        <div className="theme-media-assignments">{settings.events.map(event => <div className="theme-media-assignment sound-assignment" key={event.id}><div><strong>{event.label}</strong><small>{event.description}</small></div>{picker(`Sound for ${event.label}`, settings.sounds.events[event.id], "events", event.id)}{volumeSlider(event.label, "events", event.id)}</div>)}</div>
       </section>
-      <div className="appearance-save"><button type="button" className="primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? "Saving…" : "Save music and sounds"}</button>{dirty && <small>Map music, map sounds, and event selections are saved together.</small>}</div>
+      <div className="appearance-save"><button type="button" className="primary" disabled={busy || !dirty} onClick={() => void save()}>{busy ? "Saving…" : "Save music and sounds"}</button>{dirty && <small>Music, sound selections, and row volumes are saved together.</small>}</div>
     </div>}
   </section></main>;
 }

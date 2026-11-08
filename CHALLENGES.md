@@ -51,7 +51,7 @@ The example URL and local scroll are illustrative: replace them with your own fi
 | `dependsOn` | Optional list of prerequisite challenge IDs or `npe:<entity-id>` references, default `[]`. Every prerequisite must be completed by the player before this challenge unlocks. |
 | `location` | Required `{x, y}` map tile coordinates, x 0–39 and y 0–27. See the [map guide](README.md#map-coordinates-and-locations). |
 | `region` | Required location clue shown in the treasure journal. |
-| `text` | Required challenge instructions, up to 20,000 characters. YAML `|` preserves paragraphs and line breaks. Text is displayed as plain text, not HTML or Markdown. |
+| `text` | Required challenge instructions, up to 20,000 characters. YAML `|` preserves paragraphs and line breaks. Supports Markdown: headings, emphasis, lists, links, images, tables, blockquotes, and fenced code blocks. Single line breaks are preserved; embedded HTML is disabled. |
 | `points` | Required reward before hints: an integer from 0 to 10,000. |
 | `flags` | Required list of accepted answers, each a nonempty string up to 500 characters. Any one correct flag solves the challenge. Quote numeric flags, such as `"24"`. |
 | `caseSensitive` | Optional boolean, default `false`. If `true`, capitalization must match. |
@@ -71,7 +71,7 @@ Local videos travel with content packs and full backups; packs retain the existi
 
 ## Inventory rewards
 
-Configure **Rewards → Inventory rewards** in New discovery / Edit discovery to grant any combination of red, orange, yellow, green, blue, purple, silver, or gold keys. You can also teach short incantations, one phrase per line (up to 80 characters each). In YAML:
+Configure **Rewards → Inventory rewards** in New challenge / Edit challenge to grant any combination of red, orange, yellow, green, blue, purple, silver, or gold keys. You can also teach short incantations, one phrase per line (up to 80 characters each). In YAML:
 
 ```yaml
 rewards:
@@ -139,6 +139,28 @@ public/downloads/puzzle.zip        →  /downloads/puzzle.zip
 The YAML only links to the file; it does not embed or upload its contents. Local links request a browser download with the suggested filename. External links open in a new tab; whether the external file downloads depends on that server's headers and browser behavior.
 
 Local downloads are public assets, accessible by URL without a game login. They are suitable for challenge materials, not private student data. Keep credential YAML, accepted flags, and teacher-only solutions outside `public/`. File replacements are picked up by the Node server immediately; deploying new hosted assets requires publication.
+
+## Markdown formatting
+
+Challenge instructions and hint text support Markdown. In Challenge studio, click **Preview challenge text** to open a modal showing your current draft, or expand **Preview hint text** to see a hint's formatting before saving. The source is kept unchanged in YAML, content packs, and backups.
+
+````yaml
+text: |
+  ## Inspect the binary
+  Find the **comparison** and record its `address`.
+
+  1. Open the program.
+  2. Set a breakpoint.
+
+  ```asm
+  cmp eax, 42
+  jne retry
+  ```
+
+  See the [worksheet](/downloads/worksheet.pdf).
+````
+
+Use fenced code blocks for literal code or text that includes Markdown symbols. Links open in a new tab. Raw HTML is disabled and unsafe URL schemes are blocked. Answers and accepted flags remain literal text.
 
 ## Compatibility and validation
 

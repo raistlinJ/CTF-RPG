@@ -14,8 +14,8 @@ new Function('require','module','exports',code)(createRequire(resolve('lib/midi-
 const {MidiPlayer}=module.exports;
 function fixture(initialState='suspended') {
   const originals={AudioContext:globalThis.AudioContext,fetch:globalThis.fetch,setInterval:globalThis.setInterval,clearInterval:globalThis.clearInterval};
-  const contexts=[],timers=new Map(),fetchPaths=[];let fetches=0,started=0;
-  const gain=()=>({gain:{value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}});
+  const contexts=[],gains=[],timers=new Map(),fetchPaths=[];let fetches=0,started=0;
+  const gain=()=>{const node={gain:{value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}};gains.push(node);return node;};
   class AudioContext {
     constructor(){this.state=initialState;this.currentTime=0;this.destination={};this.resumes=0;this.suspends=0;this.closes=0;contexts.push(this);}
     createGain(){return gain();}
@@ -29,9 +29,25 @@ function fixture(initialState='suspended') {
   globalThis.fetch=async(path)=>{fetches++;fetchPaths.push(path);return{ok:true,arrayBuffer:async()=>midi.toArray().buffer};};
   globalThis.setInterval=callback=>{const id={};timers.set(id,callback);return id;};
   globalThis.clearInterval=id=>timers.delete(id);
-  return {contexts,fetchPaths,get fetches(){return fetches;},get started(){return started;},tick(){for(const callback of timers.values())callback();},restore(){Object.assign(globalThis,originals);}};
+  return {contexts,gains,fetchPaths,get fetches(){return fetches;},get started(){return started;},tick(){for(const callback of timers.values())callback();},restore(){Object.assign(globalThis,originals);}};
 }
 const config={midi:'/audio/test.mid',loop:true,volume:.15};
+test('map volume changes reach the master gain without restarting the same music',async()=>{
+  const f=fixture('running');let player;
+  try {
+    player=new MidiPlayer(config);await player.playIfAllowed();
+    assert.equal(f.gains[0].gain.value,.15);
+    player.setVolume(.42);await player.selectTrack(config.midi);
+    assert.equal(f.gains[0].gain.value,.42);
+    assert.equal(f.fetches,1);
+    player.setVolume(0);
+    assert.equal(f.gains[0].gain.value,0);
+    await player.selectTrack('/audio/other.mid');
+    assert.equal(f.gains[0].gain.value,0,'a new track keeps the current map volume');
+    player.setVolume(.6);
+    assert.equal(f.gains[0].gain.value,.6);
+  } finally {player?.dispose();f.restore();}
+});
 test('blocked autoplay waits for interaction without requesting resume or loading a track; play unlocks audio',async()=>{
   const f=fixture();let player;
   try {

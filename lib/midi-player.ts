@@ -38,6 +38,10 @@ export class MidiPlayer {
     this.trackGain = this.context.createGain();
     this.trackGain.connect(this.master);
   }
+  setVolume(volume: number) {
+    if (this.closed || !Number.isFinite(volume)) return;
+    this.master.gain.value = Math.min(1, Math.max(0, volume));
+  }
   async selectTrack(midi: string) {
     if (this.closed) return;
     this.config = { ...this.config, midi, playlist: [{ name: midi, midi }] };

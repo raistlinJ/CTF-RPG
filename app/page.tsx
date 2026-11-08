@@ -2,12 +2,15 @@
 import { drawBossIcon, challengeSize, challengeDistance, challengeTiles, challengeBounds, drawChallengeFootprint } from "@/lib/challenge-icon.mjs";
 import { startPolling } from "@/lib/adaptive-poll.mjs";
 import { useBossSprites } from "./use-boss-sprites";
+import { useExplorerMotion } from "./use-explorer-motion";
+import { useHeldMovement } from "./use-held-movement";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
 import { usePersonalMutes, PersonalMuteButton, PersonalMuteControls, type PersonalMutes } from "./personal-mutes";
 import ChallengeCutscene, { type Cutscene } from "./challenge-cutscene";
 import { EntityConversation, EntityMarker } from "./entity-dialogue";
 import SolvedAnswer from "./solved-answer";
+import ChallengeMarkdown from "./challenge-markdown";
 import { drawCharacter, matchingSprite, type SpriteImage } from "@/lib/character-artwork";
 import type { EntitySummary } from "@/lib/non-player-entities";
 import { entityInInteractionRange } from "@/lib/non-player-entities.mjs";
@@ -23,6 +26,7 @@ import TeamPointGifts from "./team-point-gifts";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import NotificationsInbox from "./notifications-inbox";
 import { MidiPlayer, type MusicConfig } from "@/lib/midi-player";
+import { soundVolume } from "@/lib/sound-volume.mjs";
 import {
   Crown,
   Backpack,
@@ -54,7 +58,7 @@ import {
 type Place = {
   map: string;
   pos: { x: number; y: number };
-  travel?: { from: string; to: string }[];
+  travel?: { from: string; to: string; transportId?: string }[];
 };
 type Hero = string;
 type User = {
@@ -83,7 +87,7 @@ type GameConfig = {
     bossSprites: Record<string, string>;
     adminSprite: string | null;
     world: Omit<typeof activeWorld, "maps"> & { maps: ((typeof activeWorld.maps)[number] & { music?: string | null })[]; entities?: EntitySummary[] };
-    sounds?: { maps: Record<string, string | null>; events: Record<string, string | null> };
+    sounds?: { maps: Record<string, string | null>; events: Record<string, string | null>; volumes?: { music: Record<string, number>; maps: Record<string, number>; events: Record<string, number> } };
   };
   themeRevision: number;
   scoreboard: { visibility: "admins" | "all"; mode: string };
@@ -230,6 +234,8 @@ export function World({
   const [selectedSolvedId, setSelectedSolvedId] = useState<string | null>(null);
   const selectedSolved = challenges.find(q => q.id === selectedSolvedId && q.map === map && solved.includes(q.id));
   const ref = useRef<HTMLCanvasElement>(null);
+  const explorerRef = useRef<HTMLCanvasElement>(null);
+  const surfaceRef = useExplorerMotion(map, pos, !!onSelect);
   const drag = useRef<{ id: string; pointerId: number; startX: number; startY: number; offsetX: number; offsetY: number; active: boolean } | null>(null);
   const suppressClick = useRef(false);
   const [dragPreview, setDragPreview] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -245,6 +251,15 @@ export function World({
   const image = useSprite(hero.sprite);
   const bossSprites = useBossSprites(bossSpritePaths);
   const background = useSprite(mapInfo(map)?.background || null);
+  useLayoutEffect(() => {
+    const ctx = explorerRef.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, 960, 672);
+    drawCharacter(ctx, 480, 336, hero, image, 42);
+    ctx.fillStyle = "#264954";
+    ctx.fillRect(477, 358, 6, 3);
+  }, [hero, image, onSelect]);
   // Clear and redraw before paint so a changed appearance cannot flash the old frame.
   useLayoutEffect(() => {
     const c = ref.current!;
@@ -363,12 +378,12 @@ export function World({
         ctx.strokeStyle = valid ? "#4ade80" : "#f87171";
         drawChallengeFootprint(ctx, challenges.find(q => q.id === dragPreview.id), t, dragPreview);
       }
-    } else drawCharacter(ctx, pos.x * t + 12, pos.y * t + 12, hero, image, 42);
-    ctx.fillStyle = "#264954";
-    ctx.fillRect(pos.x * t + 9, pos.y * t + 34, 6, 3);
+    }
+    if (onSelect) {
+      ctx.fillStyle = "#264954";
+      ctx.fillRect(pos.x * t + 9, pos.y * t + 34, 6, 3);
+    }
   }, [
-    hero,
-    image,
     bossSprites,
     background,
     map,
@@ -383,7 +398,7 @@ export function World({
   ]);
   return (
     <div className={onSelect ? "world world-editor" : "world"}>
-      <div className="world-surface">
+      <div className="world-surface" ref={surfaceRef}>
         <canvas
           ref={ref}
           width={960}
@@ -470,6 +485,9 @@ export function World({
               : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
           }
         />
+        {!onSelect && <div className="explorer-sprite" aria-hidden="true">
+          <canvas ref={explorerRef} width={960} height={672} />
+        </div>}
         {!onSelect && <div className="solved-challenge-layer" aria-label="Solved challenges on this map">
           {challenges.filter(q => q.map === map && solved.includes(q.id)).map(q => (
             <button key={q.id} type="button" className="solved-challenge-marker"
@@ -483,6 +501,9 @@ export function World({
         {!onSelect && solveShines.map((shine) => (
           <div key={shine.key} className="challenge-solve-shine" role="status" aria-label="A challenge was solved" style={{ left: `${((shine.x + 0.5) / 40) * 100}%`, top: `${((shine.y + 0.5) / 28) * 100}%` }}>✦</div>
         ))}
+        {!onSelect && solveShines.length > 0 && (
+          <div key={`${map}:${solveShines.at(-1)!.key}`} className="map-solve-flash" aria-hidden="true" />
+        )}
         <div className="entity-map-layer">{entities.filter(e => e.map === map).map(e => <EntityMarker key={e.id} entity={e} character={characters.find(c => c.id === e.characterId)} showName={!!onSelect || entityInInteractionRange(e, map, pos.x, pos.y)} />)}</div>
         {!onSelect && selfPlayer && (
           <div className="nearby-player-layer" aria-label="Players on this map">
@@ -495,8 +516,8 @@ export function World({
                 title="Open your inbox. Use Messages in the header to reopen it anytime."
                 onClick={onOpenMessages}
                 style={{
-                  left: `${((pos.x + 0.5) / 40) * 100}%`,
-                  top: `${((pos.y + 0.5) / 28) * 100}%`,
+                  left: "var(--explorer-x)",
+                  top: "var(--explorer-y)",
                 }}
               >
                 <MessageCircle size={14} aria-hidden="true" /> {messageCount} · Open
@@ -507,8 +528,8 @@ export function World({
                 <div
                   className="self-player-markers"
                   style={{
-                    left: `${((pos.x + 0.5) / 40) * 100}%`,
-                    top: `${((pos.y + 0.5) / 28) * 100}%`,
+                    left: "var(--explorer-x)",
+                    top: "var(--explorer-y)",
                   }}
                   aria-label="Your explorer markers"
                 >
@@ -543,15 +564,15 @@ export function World({
               return (
                 <button
                   type="button"
-                  key={`${tile.x},${tile.y}`}
+                  key={own ? "self" : `${tile.x},${tile.y}`}
                   className={
                     "nearby-player " +
                     (p.teammate ? "teammate " : "") +
                     (p.crowned ? "crowned" : "")
                   }
                   style={{
-                    left: `${((tile.x + 0.5) / 40) * 100}%`,
-                    top: `${((tile.y + 0.5) / 28) * 100}%`,
+                    left: own ? "var(--explorer-x)" : `${((tile.x + 0.5) / 40) * 100}%`,
+                    top: own ? "var(--explorer-y)" : `${((tile.y + 0.5) / 28) * 100}%`,
                   }}
                   aria-label={`View players: ${occupants.map((p) => p.username).join(", ")}`}
                   onClick={() => onPlayerSelect?.(tile.x, tile.y)}
@@ -656,6 +677,7 @@ export default function Game() {
   const [audioError, setAudioError] = useState("");
   const [audioBusy, setAudioBusy] = useState(false);
   const mapMusic = config?.theme.world.maps.find(m => m.id === map)?.music;
+  const mapMusicVolume = soundVolume(config?.theme.sounds, "music", map, config?.audio.volume);
   const heroes = config?.characters || [];
   const [canAdmin, setCanAdmin] = useState(false);
   const [inventory, setInventory] = useState<Inventory>({keys:[],incantations:[]});
@@ -793,6 +815,7 @@ export default function Game() {
         music.current ??= new MidiPlayer(mapMusic
           ? { ...config.audio, midi: mapMusic, playlist: [{ name: mapMusic, midi: mapMusic }] }
           : config.audio, musicError);
+        music.current.setVolume(mapMusicVolume);
         if (mapMusic) void music.current.selectTrack(mapMusic).catch(failed);
       }
       // Some browsers allow immediate audio; others require a real interaction.
@@ -815,7 +838,7 @@ export default function Game() {
       return () => { live = false; stopListening(); };
     } catch (e) { failed(e as Error); }
     return () => { live = false; };
-  }, [config?.audio, cutsceneOpen, muted, mapMusic]);
+  }, [config?.audio, cutsceneOpen, muted, mapMusic, mapMusicVolume]);
   useEffect(() => {
     if (user && presence.gameRevision !== undefined) void loadGame().catch((e) => setNotice(e.message));
   }, [presence.gameRevision]);
@@ -904,6 +927,7 @@ export default function Game() {
           music.current ??= new MidiPlayer(mapMusic
             ? { ...config.audio, midi: mapMusic, playlist: [{ name: mapMusic, midi: mapMusic }] }
             : config.audio, musicError);
+          music.current.setVolume(mapMusicVolume);
           if (mapMusic) await music.current.selectTrack(mapMusic);
         }
         audio.current ??= new AudioContext();
@@ -919,8 +943,8 @@ export default function Game() {
       setAudioBusy(false);
     }
   }
-  function playSound(src: string | null | undefined, delaySeconds = 0, mapSpecific = false) {
-    if (!src || muted) return;
+  function playSound(src: string | null | undefined, delaySeconds = 0, mapSpecific = false, volume = 0.25) {
+    if (!src || muted || volume === 0) return;
     try {
       audio.current ??= new AudioContext();
       const context = audio.current;
@@ -939,7 +963,7 @@ export default function Game() {
         if (audio.current !== context || context.state === "closed" || generation !== soundGeneration.current || (mapSpecific && mapGeneration !== mapSoundGeneration.current)) return;
         const source = context.createBufferSource(), gain = context.createGain();
         source.buffer = decoded;
-        gain.gain.value = 0.25;
+        gain.gain.value = volume;
         source.connect(gain);
         gain.connect(context.destination);
         source.onended = () => { source.disconnect(); gain.disconnect(); };
@@ -948,20 +972,20 @@ export default function Game() {
     } catch { /* A sound effect must not interrupt the game. */ }
   }
   function playEventSound(event: string, delaySeconds = 0) {
-    playSound(config?.theme.sounds?.events[event], delaySeconds);
+    playSound(config?.theme.sounds?.events[event], delaySeconds, false, soundVolume(config?.theme.sounds, "events", event));
   }
   useEffect(() => {
     if (!user || !config) { previousSoundMap.current = null; soundGeneration.current++; mapSoundGeneration.current++; return; }
     if (previousSoundMap.current !== map) mapSoundGeneration.current++;
     if (previousSoundMap.current && previousSoundMap.current !== map) playEventSound("transport");
     if (!previousSoundMap.current) playEventSound("spawn");
-    if (previousSoundMap.current !== map) playSound(config.theme.sounds?.maps[map], 0.35, true);
+    if (previousSoundMap.current !== map) playSound(config.theme.sounds?.maps[map], 0.35, true, soundVolume(config.theme.sounds, "maps", map));
     previousSoundMap.current = map;
   }, [map, user?.username, config?.theme.sounds]);
   useEffect(() => {
     setNotice(
       place.travel?.at(-1)?.to === map
-        ? `Arrived in ${mapName(map)}. Step off the purple spawn tile, then back onto it to return to ${mapName(place.travel.at(-1)!.from)}.`
+        ? `Arrived in ${mapName(map)}. The purple return tile near this map’s entrance leads back to the stairway in ${mapName(place.travel.at(-1)!.from)}. Step away from a stair tile and back onto it to use it again.`
         : map === activeWorld.startMap
           ? "Follow the paths. Cyan doorways enter buildings; purple transport tiles change maps."
           : `Welcome to ${mapName(map)}. Search for clues, then use the exit to return.`,
@@ -980,6 +1004,8 @@ export default function Game() {
     setPlace(next);
     playEventSound("footsteps");
   }
+  useHeldMovement(move, !!user && (canAdmin || !!team) && !active && !cutscene &&
+    !inventoryOpen && !lockedTransport && !talkingTo && !nearbyOptions && !teamPanelOpen && !playerTile);
   async function unlockRoute(phrase: string) {
     if (!lockedTransport) return;
     const target = lockedTransport;
@@ -1044,21 +1070,6 @@ export default function Game() {
         playerTile
       )
         return;
-      const dirs: Record<string, number[]> = {
-        ArrowUp: [0, -1],
-        w: [0, -1],
-        ArrowDown: [0, 1],
-        s: [0, 1],
-        ArrowLeft: [-1, 0],
-        a: [-1, 0],
-        ArrowRight: [1, 0],
-        d: [1, 0],
-      };
-      const d = dirs[e.key];
-      if (d) {
-        e.preventDefault();
-        move(d[0], d[1]);
-      }
       if (e.key.toLowerCase() === "e") {
         e.preventDefault();
         search();
@@ -1720,7 +1731,7 @@ export default function Game() {
               +{active?.awardedPoints ?? active?.remainingPoints} points
             </span>
           </div>
-          <p className="question">{active?.text}</p>
+          <ChallengeMarkdown className="question">{active?.text}</ChallengeMarkdown>
           {active?.rewards && (active.rewards.keys.length > 0 || active.rewards.incantationCount > 0) && <p className="challenge-inventory-rewards">Inventory rewards: {[...active.rewards.keys.map(color => `${color} key`), ...(active.rewards.incantationCount ? [`${active.rewards.incantationCount} incantation${active.rewards.incantationCount === 1 ? "" : "s"}`] : [])].join(" · ")}</p>}
           {active && (active.discoveryVideo || active.solveVideo) && <div className="cutscene-replays" aria-label="Replay cutscenes">
             {active.discoveryVideo && <button type="button" className="text-button" onClick={() => void playCutscene(active, "discovery", true)}>Replay discovery cutscene</button>}
@@ -1841,7 +1852,7 @@ export default function Game() {
                     )}
                   </div>
                   {!h.unlocked && !h.available && !solved.includes(active.id) && !active.submission && <p>A reward required by this hint has already been used for another hint.</p>}
-                  {h.unlocked && <p>{h.text}</p>}
+                  {h.unlocked && <ChallengeMarkdown>{h.text}</ChallengeMarkdown>}
                 </div>
               ))}
             </section>

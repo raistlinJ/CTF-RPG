@@ -13,7 +13,7 @@ const MAX_CLIP_BYTES = 2 * 1024 * 1024;
 export async function handleThemeSounds(req, {db, user, platformAdmin, theme, themeRevision, assetStore, readBaseAsset}) {
   const account = await user(req);
   if (!platformAdmin && account?.role !== 'admin') return reply({error:'Administrator access required.'}, account ? 403 : 401);
-  const state = (value, revision) => ({sounds:value.sounds, maps:value.world.maps.map(({id,name,music})=>({id,name,music})), tracks:musicTracks(value.audio), events:SOUND_EVENTS, revision});
+  const state = (value, revision) => ({sounds:value.sounds, musicVolume:value.audio.volume, maps:value.world.maps.map(({id,name,music})=>({id,name,music})), tracks:musicTracks(value.audio), events:SOUND_EVENTS, revision});
   if (req.method === 'GET') return reply(state(theme, themeRevision));
   if (req.method !== 'POST') return reply({error:'Method not allowed.'}, 405);
   try {
@@ -51,7 +51,7 @@ export async function handleThemeSounds(req, {db, user, platformAdmin, theme, th
           throw Error('Choose a playlist track or None for each map.');
         next = parseTheme({...theme,
           world:selections === undefined ? theme.world : {...theme.world,maps:theme.world.maps.map(map => ({...map,music:Object.hasOwn(selections,map.id) ? selections[map.id] : map.music}))},
-          sounds:{...theme.sounds,maps:body.maps,events:body.events}});
+          sounds:{...theme.sounds,maps:body.maps,events:body.events,...(body.volumes !== undefined ? {volumes:body.volumes} : {})}});
       } else if (body.action === 'delete') {
         const item = theme.sounds.clips.find(clip => clip.src === body.src && clip.source === 'upload');
         if (!item) throw Error('Only sounds uploaded here can be deleted.');

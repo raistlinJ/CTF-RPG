@@ -77,8 +77,8 @@ for (const name of [
 ])
   if (existsSync(resolve(root, name))) add(resolve(root, name));
 const total = Object.values(entries).reduce((n, b) => n + b.length, 0);
-if (total > 24 * 1024 * 1024)
-  throw Error("Recreation source and assets exceed the 24 MB seed limit.");
+if (total > 32 * 1024 * 1024)
+  throw Error("Recreation source and assets exceed the 32 MB seed limit.");
 const bytes = zipSync(entries, { level: 6 });
 writeFileSync(
   resolve(root, "server/recreation-kit.mjs"),

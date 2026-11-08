@@ -1,5 +1,6 @@
 "use client";
 import AdminHeader from "./admin-header";
+import ChallengeMarkdown from "../challenge-markdown";
 import {CHALLENGE_FILE_LIMIT} from "@/lib/pack-limits.mjs";
 import { useEffect, useState } from "react";
 import {
@@ -33,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { KEY_COLORS, KEY_PALETTE, normalizeIncantation } from "@/lib/inventory-data.mjs";
 type Hint = { id: string; label: string; text: string; cost: number; rewardCost: { keys: string[]; incantations: string[] } };
@@ -501,9 +503,9 @@ export default function Admin() {
             <div className="admin-heading">
               <div>
                 <span className="eyebrow">BUILD THE TREASURE HUNT</span>
-                <h1>{studioView === "list" ? "All challenges" : "Discovery editor"}</h1>
+                <h1>{studioView === "list" ? "All challenges" : "Challenge editor"}</h1>
                 <p>
-                  {studioView === "list" ? "Browse and filter your challenge collection. Select a challenge to edit it." : "Choose a map, click a tile, and edit this discovery’s challenge."}
+                  {studioView === "list" ? "Browse and filter your challenge collection. Select a challenge to edit it." : "Choose a map, click a tile, and edit this challenge."}
                 </p>
               </div>
               <div className="admin-actions">
@@ -536,7 +538,7 @@ export default function Admin() {
                 if (saved) choose(toDraft(saved), saved.id); else choose(fresh(draft.map, draft.location.x, draft.location.y));
                 setStudioView("list");
               }}>All challenges</button>
-              <button type="button" className="secondary-button" aria-pressed={studioView === "editor"} disabled={busy || uploading} onClick={() => setStudioView("editor")}>Edit discovery</button>
+              <button type="button" className="secondary-button" aria-pressed={studioView === "editor"} disabled={busy || uploading} onClick={() => setStudioView("editor")}>Edit challenge</button>
             </nav>
             {studioView === "list" ? <section className="challenge-collection-view">
                   <div className="admin-list-heading">
@@ -696,12 +698,12 @@ export default function Admin() {
               }}>
                 <fieldset disabled={uploadingFiles}>
                 <div className="admin-editor-title">
-                  <h2>{editingId ? "Edit discovery" : "New discovery"}</h2>
+                  <h2>{editingId ? "Edit challenge" : "New challenge"}</h2>
                   <span>
                     {dirty ? "Unsaved edits" : editingId ? "Saved" : "Draft"}
                   </span>
                 </div>
-                <div className="challenge-editor-tabs" role="tablist" aria-label="Discovery sections" onKeyDown={e => {
+                <div className="challenge-editor-tabs" role="tablist" aria-label="Challenge sections" onKeyDown={e => {
                   const index = editorPanels.findIndex(p => p.id === editorPanel);
                   let next: number;
                   if (e.key === "ArrowRight") next = (index + 1) % editorPanels.length;
@@ -719,7 +721,7 @@ export default function Admin() {
                 </div>
                 <div className="challenge-editor-panel" data-editor-panel="challenge" role="tabpanel" id="editor-panel-challenge" aria-labelledby="editor-tab-challenge" hidden={editorPanel !== "challenge"}>
                 <label>
-                  Discovery name
+                  Challenge name
                   <input
                     required
                     maxLength={120}
@@ -819,6 +821,7 @@ export default function Admin() {
                   Challenge text
                   <textarea
                     aria-label="Challenge text"
+                    aria-describedby="challenge-markdown-help"
                     required
                     maxLength={20000}
                     rows={5}
@@ -826,7 +829,19 @@ export default function Admin() {
                     onChange={(e) => patch({ text: e.target.value })}
                     placeholder="What should students discover or solve?"
                   />
+                  <small id="challenge-markdown-help">Markdown supported: **bold**, *italic*, headings, lists, links, tables, and fenced code blocks. HTML is disabled.</small>
                 </label>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button type="button" className="secondary-button">Preview challenge text</button>
+                  </DialogTrigger>
+                  <DialogContent className={`challenge-modal${draft.icon === "boss" ? " boss-challenge-modal" : ""}`}>
+                    <span className="eyebrow">CHALLENGE PREVIEW</span>
+                    <DialogTitle>{draft.object || "Challenge preview"}</DialogTitle>
+                    <DialogDescription>Preview of your current challenge text, including unsaved edits.</DialogDescription>
+                    <ChallengeMarkdown className="question">{draft.text || "Your challenge preview will appear here."}</ChallengeMarkdown>
+                  </DialogContent>
+                </Dialog>
                 <label>
                   Challenge visibility
                   <select aria-label="Individual challenge visibility" value={draft.visibility} onChange={(e) => patch({visibility: e.target.value as "hidden" | "visible"})}>
@@ -915,11 +930,11 @@ export default function Admin() {
                 <div className="challenge-editor-panel" data-editor-panel="cutscenes" role="tabpanel" id="editor-panel-cutscenes" aria-labelledby="editor-tab-cutscenes" hidden={editorPanel !== "cutscenes"}>
                 <section className="admin-repeaters challenge-video-settings">
                   <h3>Cutscenes <small>Optional</small></h3>
-                  <p>Play a short video on first discovery or after solving. Players can replay it from the challenge.</p>
+                  <p>Play a short video when a player first opens a challenge or after solving it. Players can replay it from the challenge.</p>
                   {(["discoveryVideo", "solveVideo"] as const).map(field => (
                     <div className="admin-repeater" key={field}>
                       <label>
-                        {field === "discoveryVideo" ? "Discovery video URL" : "Solve video URL"}
+                        {field === "discoveryVideo" ? "Challenge video URL" : "Solve video URL"}
                         <input value={draft[field] || ""} disabled={uploading} onChange={e => patch({ [field]: e.target.value.trim() || null })} placeholder="/videos/intro.mp4 or https://…/video.mp4" />
                       </label>
                       <small>Use a direct MP4 or WebM link, or upload a video up to 4 MB.</small>
@@ -932,7 +947,7 @@ export default function Admin() {
                         }} />
                       </label>
                       {draft[field] && <>
-                        <video key={draft[field]} src={draft[field]} controls preload="metadata" playsInline aria-label={field === "discoveryVideo" ? "Discovery video preview" : "Solve video preview"} />
+                        <video key={draft[field]} src={draft[field]} controls preload="metadata" playsInline aria-label={field === "discoveryVideo" ? "Challenge video preview" : "Solve video preview"} />
                         <button type="button" className="text-button" disabled={uploading} onClick={() => patch({ [field]: null })}>Remove video</button>
                       </>}
                     </div>
@@ -1052,6 +1067,10 @@ export default function Admin() {
                           }
                         />
                       </label>
+                      <details className="markdown-preview">
+                        <summary>Preview hint text (Markdown supported)</summary>
+                        <ChallengeMarkdown>{h.text || "Your hint preview will appear here."}</ChallengeMarkdown>
+                      </details>
                     </div>
                   ); })}
                 </section>

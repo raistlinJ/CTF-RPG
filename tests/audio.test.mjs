@@ -13,6 +13,7 @@ import {defaultTheme,parseTheme,themeAssetPaths,mapThemeAssets} from '../lib/the
 import {defaultGameConfig} from '../lib/runtime-config.mjs';
 import {themePresets} from '../lib/theme-presets.mjs';
 import {SOUND_EVENTS} from '../lib/sound-events.mjs';
+import {soundVolume} from '../lib/sound-volume.mjs';
 import {musicTracks,shuffledTracks} from '../lib/midi-playlist.mjs';
 import {createSnapshot,validateSnapshot} from '../server/backup.mjs';
 import {activeTheme} from '../server/packs.mjs';
@@ -20,6 +21,59 @@ function midi(pitch=60){const m=new Midi();m.addTrack().addNote({midi:pitch,time
 function wav(){const bytes=new Uint8Array(844),view=new DataView(bytes.buffer);const word=(at,value)=>{for(let i=0;i<value.length;i++)bytes[at+i]=value.charCodeAt(i);};word(0,'RIFF');view.setUint32(4,836,true);word(8,'WAVE');word(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,8000,true);view.setUint32(28,8000,true);view.setUint16(32,1,true);view.setUint16(34,8,true);word(36,'data');view.setUint32(40,800,true);bytes.fill(128,44);return bytes;}
 function setup(){const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);const db=createSQLiteAdapter(sqlite);const config=parseGame('characters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web');const challenges=parseChallenges(readFileSync('content/challenges.yaml','utf8'));const files=new Map();const api=createApi({db,config,challenges,assetStore:{async get(k){return files.get(k)||null},async put(k,v){files.set(k,v)}},readBaseAsset:p=>new Uint8Array(readFileSync('public'+p))});function client(){let cookie='';return async(path,body)=>{const r=await api(new Request('http://quest.test'+path,{method:body?'POST':'GET',headers:{Origin:'http://quest.test',Cookie:cookie,...(body&&!(body instanceof FormData)?{'Content-Type':'application/json'}:{})},body:body instanceof FormData?body:body?JSON.stringify(body):undefined}));if(r.headers.has('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];return {status:r.status,data:r.headers.get('content-type')?.includes('json')?await r.json():null,r};};}return{sqlite,db,config,challenges,files,client};}
 function form(state,files=[],playlist=state.audio.playlist){const f=new FormData();f.set('revision',String(state.revision));f.set('playlist',JSON.stringify(playlist));f.set('volume','.2');f.set('loop','true');for(const [name,bytes] of files)f.append('files',new File([bytes],name));return f;}
+test('row volume defaults preserve old playback, and zero remains silence',()=>{
+  assert.equal(soundVolume(undefined,'music','town',.2),.2);
+  assert.equal(soundVolume(undefined,'maps','town'),.25);
+  assert.equal(soundVolume(undefined,'events','correct'),.25);
+  const sounds={volumes:{music:{town:0},maps:{town:.1},events:{correct:.8}}};
+  assert.equal(soundVolume(sounds,'music','town',.2),0);
+  assert.equal(soundVolume(sounds,'maps','town'),.1);
+  assert.equal(soundVolume(sounds,'events','correct'),.8);
+  assert.equal(soundVolume(sounds,'events','footsteps'),.25);
+});
+test('row volumes save independently, validate, and survive exports, imports, and backups',async()=>{
+  const s=setup();
+  try {
+    const admin=s.client(),student=s.client();
+    await admin('/api/auth',{username:'teacher',password:'teacher-password',mode:'login'});
+    await student('/api/auth',{username:'volume-student',password:'student-password',hero:'web',mode:'register'});
+    const initial=(await admin('/api/admin/theme-sounds')).data;
+    assert.equal(initial.musicVolume,s.config.audio.volume);
+    const [first,second]=initial.maps;
+    const volumes={music:{[first.id]:.08,[second.id]:.6},maps:{[first.id]:0},events:{correct:.7,footsteps:.03}};
+    const body={action:'assign',revision:initial.revision,maps:initial.sounds.maps,events:initial.sounds.events,volumes};
+    assert.equal((await student('/api/admin/theme-sounds',body)).status,403);
+    const saved=await admin('/api/admin/theme-sounds',body);
+    assert.equal(saved.status,200,JSON.stringify(saved.data));
+    assert.deepEqual(saved.data.sounds.volumes,volumes);
+    assert.deepEqual((await admin('/api/admin/theme-sounds')).data.sounds.volumes,volumes);
+    assert.deepEqual((await student('/api/config')).data.theme.sounds.volumes,volumes);
+    assert.equal((await admin('/api/admin/theme-sounds',body)).status,409);
+    for(const bad of [null,[],{events:{correct:1.01}},{events:{correct:-.01}},{events:{correct:'0.5'}},{events:{unknown:.2}},{music:{unknown:.2}},{maps:{unknown:0}}]) {
+      assert.equal((await admin('/api/admin/theme-sounds',{...body,revision:saved.data.revision,volumes:bad})).status,400,JSON.stringify(bad));
+    }
+    assert.deepEqual((await admin('/api/admin/theme-sounds')).data.sounds.volumes,volumes);
+    // A legacy assignment request must not erase volumes saved by the new UI.
+    const legacy={...body};delete legacy.volumes;
+    const legacySave=await admin('/api/admin/theme-sounds',{...legacy,revision:saved.data.revision});
+    assert.equal(legacySave.status,200);
+    assert.deepEqual(legacySave.data.sounds.volumes,volumes);
+    const snapshot=await createSnapshot({db:s.db,config:s.config,challenges:s.challenges});
+    assert.deepEqual(validateSnapshot(snapshot).theme.sounds.volumes,volumes);
+    const theme=(await admin('/api/admin/packs')).data.theme;
+    assert.deepEqual(mapThemeAssets(theme,path=>'/copied'+path).sounds.volumes,volumes);
+    const exported=await admin('/api/admin/packs?kind=theme');
+    const archive=new Uint8Array(await exported.r.arrayBuffer());
+    const revisions=(await admin('/api/admin/packs')).data;
+    const importedForm=new FormData();
+    importedForm.set('file',new Blob([archive],{type:'application/zip'}),'volumes.zip');
+    importedForm.set('themeRevision',String(revisions.themeRevision));
+    importedForm.set('contentRevision',String(revisions.contentRevision));
+    const imported=await admin('/api/admin/packs?kind=theme',importedForm);
+    assert.equal(imported.status,200,JSON.stringify(imported.data));
+    assert.deepEqual((await admin('/api/admin/theme-sounds')).data.sounds.volumes,volumes);
+  } finally {s.sqlite.close();}
+});
 test('shuffle visits each track once and avoids round-boundary repeats; single-file YAML remains compatible',()=>{const tracks=[{name:'A',midi:'/a.mid'},{name:'B',midi:'/b.mid'},{name:'C',midi:'/c.mid'}];const queue=shuffledTracks(tracks,'/b.mid',()=>.5);assert.equal(new Set(queue.map(t=>t.midi)).size,3);assert.notEqual(queue[0].midi,'/b.mid');assert.deepEqual(tracks.map(t=>t.name),['A','B','C']);assert.deepEqual(musicTracks({midi:'/single.mid'}),[{name:'single.mid',midi:'/single.mid'}]);assert.deepEqual(musicTracks({midi:'/single.mid',playlist:tracks}),tracks);const config=parseGame('characters:\n - id: web\n   name: Web\naudio:\n midi: null\n playlist:\n  - name: Example\n    midi: /example.mid');assert.equal(defaultTheme(config).audio.playlist.length,1);});
 test('map music defaults to none, requires a playlist track, and follows asset remapping',()=>{
   const config=parseGame('characters:\n - id: web\n   name: Web');

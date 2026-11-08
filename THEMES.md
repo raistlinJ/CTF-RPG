@@ -82,7 +82,7 @@ Maps share a **40×28 tile grid**. Coordinates are integers; x is 0–39, y is 0
 
 Each map can optionally set `music` to the MIDI path of a track in `audio.playlist` (or `audio.midi` for a single-file theme). Omit it or set `music: null` to keep whatever is already playing when the player enters that map. Moving between maps assigned the same track does not restart it.
 
-Themes can also include short WAV, MP3, or OGG sound effects under `sounds`. Each clip must appear in `sounds.clips`; `sounds.maps` maps a map ID to a clip path, while `sounds.events` maps event IDs to clip paths. Supported events are `spawn`, `transport`, `discovery`, `correct` (regular challenge), `bossSolved`, `keyObtained`, `incantationObtained`, `expeditionComplete`, `submitted`, `incorrect`, `interaction` (non-player entity), `hintUnlocked`, `lockedRoute`, `routeUnlocked`, and `searchEmpty`. Omitted or `null` assignments play no effect. Include each clip in the theme ZIP's `assets/` directory. The bundled North Pole and Agentic Circuit themes supply default effects for every map and event; administrators can change any assignment to **None**.
+Themes can also include short WAV, MP3, or OGG sound effects under `sounds`. Each clip must appear in `sounds.clips`; `sounds.maps` maps a map ID to a clip path, while `sounds.events` maps event IDs to clip paths. Supported events are `spawn`, `transport`, `discovery`, `correct` (regular challenge), `bossSolved`, `keyObtained`, `incantationObtained`, `expeditionComplete`, `submitted`, `incorrect`, `interaction` (non-player entity), `hintUnlocked`, `lockedRoute`, `routeUnlocked`, and `searchEmpty`. Omitted or `null` assignments play no effect. Optional `sounds.volumes` holds `music`, `maps`, and `events` objects mapping map/event IDs to volume numbers from 0 to 1. A value of 0 is silent. Missing music volumes fall back to `audio.volume`; missing effect volumes use 0.25. Each assignment has its own volume even when clips are shared. Map music volume applies on every map, including maps set to None that retain the current track. Include each clip in the theme ZIP's `assets/` directory. The bundled North Pole and Agentic Circuit themes supply default effects for every map and event; administrators can change any assignment to **None**.
 
 For each interior map, add exactly one `world.buildings` entry whose `id` matches that map. Its x/y/w/h locate the building on the starting world map. Its door must lie on the building's bottom edge. The tile immediately below the door must be reachable. Walking onto the door takes the player to that interior's `spawn`. Walking onto the interior's `exit` returns the player to the tile below the world-map door. Spawns and exits must be reachable and cannot be blocked. Buildings cannot overlap.
 
@@ -201,7 +201,7 @@ To unlock a later challenge when the player speaks to this guide, add `dependsOn
 
 Open **Theme → Maps & transport → Transport**, choose a different destination map, and click a free reachable tile. **Save map** activates the link; **Remove** deletes it, while **Reset** discards pending edits. Transport tiles appear purple with a double arrow in the editor and game.
 
-Touching a transport takes the player to the destination map's current spawn. That spawn becomes the return tile: step off it and back onto it to return to the source map's spawn. Arrival itself never triggers a return, so there is no immediate bounce. Several transports can share a destination; the player returns to the source they used. Nested trips remember up to 30 recent transport journeys during the current expedition. Travel history clears on login/reload or a normal building doorway transition.
+Touching a transport takes the player to the destination map's current spawn. That spawn becomes the return tile: step off it and back onto it to return to the exact source stairway used to arrive. Arrival itself never triggers another transport, so there is no immediate bounce; step away from a stair and back onto it to travel again. Several transports can share a destination, including multiple links from the same map, and the player returns to the specific stair they used. Nested trips remember up to 30 recent transport journeys during the current expedition. Travel history clears on login/reload or a normal building doorway transition. If the source stair is removed during a trip, the source map's spawn provides a fallback.
 
 Source tiles must be reachable and cannot replace spawns, entrances, exits, challenges, or other transports. Destination spawns need a free reachable neighboring tile so the player can step off before returning. Transport source tiles and destination spawns cannot hold challenges. The editor and server reject invalid placements; move affected challenges before saving. A return tile without an active incoming journey does not teleport the player.
 
@@ -216,7 +216,7 @@ world:
       to: castle
 ```
 
-The destination and return positions follow map spawn settings automatically. **Undo last save** restores the map and the transport links edited in that save.
+Upward arrivals follow the destination map's spawn setting; return arrivals follow the source stair's location. **Undo last save** restores the map and the transport links edited in that save.
 
 ### Admin-assigned starting positions
 

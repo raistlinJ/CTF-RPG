@@ -1,5 +1,6 @@
 "use client";
 import AdminHeader from "../../admin-header";
+import ChallengeMarkdown from "../../../challenge-markdown";
 import ChallengeNav from "../challenge-nav";
 import { useEffect, useState } from "react";
 import {
@@ -223,7 +224,7 @@ export default function Review() {
                   {selected.username} · {selected.object}
                 </h2>
                 <p>Team: {selected.team === null ? "Not recorded" : selected.team || "No team"}</p>
-                <p className="review-question">{selected.question}</p>
+                <ChallengeMarkdown className="review-question">{selected.question}</ChallengeMarkdown>
                 <section>
                   <h3>Written response</h3>
                   <div className="written-answer">{selected.answer}</div>

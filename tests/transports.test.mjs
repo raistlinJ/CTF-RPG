@@ -15,7 +15,7 @@ function theme() {
   ];
   return t;
 }
-test("transport touch arrives at destination spawn and re-entering its return tile restores the source spawn", () => {
+test("transport returns to the exact source stair without bouncing back on arrival", () => {
   const t = parseTheme(theme()),
     w = createWorld(t.world);
   const arrived = w.step({ map: "town", pos: { x: 18, y: 20 } }, 0, 1);
@@ -26,8 +26,12 @@ test("transport touch arrives at destination spawn and re-entering its return ti
   assert.equal(away.map, "castle");
   const back = w.step(away, 0, -1);
   assert.equal(back.map, "town");
-  assert.deepEqual(back.pos, t.world.maps[0].spawn);
+  assert.deepEqual(back.pos, t.world.transports[0].location);
   assert.deepEqual(back.travel, []);
+  assert.equal(w.step(back, 0, 0), back);
+  const offStair = w.step(back, 0, -1);
+  assert.equal(offStair.map, 'town');
+  assert.equal(w.step(offStair, 0, 1).map, 'castle');
   assert.equal(w.canPlaceChallenge("town", 18, 21), false);
   assert.equal(w.canPlaceChallenge("castle", 20, 23), false);
   assert.equal(w.reachable("castle", 20, 23), true);
@@ -52,13 +56,38 @@ test("shared destinations and nested transport trips return to the right source"
   let p = w.step({ map: "toy-workshop", pos: { x: 18, y: 21 } }, 0, 1);
   p = w.step(w.step(p, 0, 1), 0, -1);
   assert.equal(p.map, "toy-workshop");
+  assert.deepEqual(p.pos, { x: 18, y: 22 });
   p = w.step({ map: "town", pos: { x: 18, y: 20 } }, 0, 1);
   p = w.step(p, -1, 0);
   assert.equal(p.map, "cocoa-cottage");
   p = w.step(w.step(p, 0, 1), 0, -1);
   assert.equal(p.map, "castle");
-  p = w.step(w.step(p, 0, 1), 0, -1);
+  assert.deepEqual(p.pos, { x: 19, y: 23 });
+  p = w.step(p, 1, 0);
   assert.equal(p.map, "town");
+  assert.deepEqual(p.pos, { x: 18, y: 21 });
+});
+test('two stairs between the same maps return to the stair used for that journey', () => {
+  const t = theme();
+  t.world.transports.push({ id: 'second-core-stair', map: 'town', location: { x: 19, y: 21 }, to: 'castle' });
+  const w = createWorld(parseTheme(t).world);
+  for (const x of [18, 19]) {
+    const arrived = w.step({ map: 'town', pos: { x, y: 20 } }, 0, 1);
+    assert.equal(arrived.map, 'castle');
+    const returned = w.step(w.step(arrived, 0, 1), 0, -1);
+    assert.deepEqual(returned.pos, { x, y: 21 });
+  }
+});
+test('older journeys recover a unique source stair and removed stairs fall back safely', () => {
+  const t = parseTheme(theme());
+  const w = createWorld(t.world);
+  const oldJourney = { map: 'castle', pos: { x: 20, y: 24 }, travel: [{ from: 'town', to: 'castle' }] };
+  assert.deepEqual(w.step(oldJourney, 0, -1).pos, { x: 18, y: 21 });
+  const arrived = w.step({ map: 'town', pos: { x: 18, y: 20 } }, 0, 1);
+  const away = w.step(arrived, 0, 1);
+  t.world.transports = [];
+  const changed = createWorld(t.world);
+  assert.deepEqual(changed.step(away, 0, -1).pos, t.world.maps[0].spawn);
 });
 test("invalid destinations, duplicate tiles, blocked ground and existing door/spawn locations reject theme imports", () => {
   for (const patch of [

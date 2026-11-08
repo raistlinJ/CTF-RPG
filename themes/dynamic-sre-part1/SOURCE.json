@@ -1,0 +1,40 @@
+{
+  "export": "Dynamic SRE 1.2025-03-22_19_41_03-ctfd-3.8.7.zip",
+  "exportSha256": "9318a2c893be0e4889197f8e9bd6ad151e6146bcd636d0dd9713a3abc4526a8c",
+  "exerciseDocx": "07_assignment_dynamicSRE_v2.docx",
+  "exerciseAttachment": "07_assignment_dynamicSRE.pdf",
+  "exerciseSha256": "84a0de773ea6db2be1eb5da6d5f565e5b781377aa19a4d48d45e3a4abbdef228",
+  "challengeOrder": [
+    18,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    24
+  ],
+  "counts": {
+    "challenges": 9,
+    "points": 37,
+    "staticAnswers": 20,
+    "freeHints": 5,
+    "challengeAttachments": 1
+  },
+  "excluded": [
+    "accounts",
+    "passwords",
+    "teams",
+    "submissions",
+    "solve history",
+    "unrelated uploads",
+    "solution documents"
+  ],
+  "notes": [
+    "Original source export is unchanged.",
+    "The current exercise DOCX and linked PDF agree on the scored question sequence and final deliverable.",
+    "All original static answer alternatives retain their own case rules.",
+    "No extra scored requirements were added."
+  ]
+}

@@ -1248,8 +1248,8 @@ export default function MapSettings({
             </div>
             {transports.some((t) => t.to === mapId) && (
               <small>
-                The purple spawn tile returns students to the map they arrived
-                from. Incoming links are managed on their source map.
+                The purple spawn tile returns students to the stairway they
+                arrived from. Incoming links are managed on their source map.
               </small>
             )}
         </section>}

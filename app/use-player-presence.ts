@@ -106,7 +106,7 @@ export function usePlayerPresence(
         if (fresh.length) {
           setSolveShines((old) => [...old, ...fresh.map((c) => ({ ...c, key: `${c.id}:${c.count}` }))]);
           clearTimeout(shineTimer);
-          shineTimer = setTimeout(() => { if (live) setSolveShines([]); }, 2400);
+          shineTimer = setTimeout(() => { if (live) setSolveShines([]); }, 3000);
         }
         setSnapshot({ map: sent.map, players: d.players });
         setVisibility(d.visibility);

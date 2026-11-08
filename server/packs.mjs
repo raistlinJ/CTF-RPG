@@ -66,7 +66,7 @@ function withBundledSounds(theme) {
       events: Object.hasOwn(sounds.events || {}, "footsteps") ? sounds.events : {...sounds.events,footsteps:src},
     } };
   }
-  return { ...theme, sounds: defaultSoundConfig(base, theme.world.maps.map(map => map.id)) };
+  return { ...theme, sounds: { ...defaultSoundConfig(base, theme.world.maps.map(map => map.id)), ...(sounds?.volumes ? { volumes: sounds.volumes } : {}) } };
 }
 const parsedThemes = new WeakMap();
 export async function activeTheme(db, config) {
