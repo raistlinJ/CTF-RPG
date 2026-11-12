@@ -72,6 +72,7 @@ DROP TABLE IF EXISTS integration_tokens;
 CREATE TABLE IF NOT EXISTS presence_settings(id TEXT PRIMARY KEY,visibility TEXT NOT NULL,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS player_presence(user TEXT PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,map TEXT NOT NULL,x INTEGER NOT NULL,y INTEGER NOT NULL,theme_revision INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_player_presence_map_revision_updated ON player_presence(map,theme_revision,updated_at);
+CREATE TABLE IF NOT EXISTS player_emotes(user TEXT PRIMARY KEY REFERENCES player_presence(user) ON DELETE CASCADE,emoji TEXT NOT NULL,expires_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS team_social_settings(id TEXT PRIMARY KEY,names INTEGER NOT NULL,scores INTEGER NOT NULL,messaging INTEGER NOT NULL,everyone_names INTEGER,everyone_scores INTEGER,everyone_messaging INTEGER,revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS team_messages(id TEXT PRIMARY KEY,sender_user TEXT REFERENCES students(id),sender_team TEXT REFERENCES teams(id) ON DELETE CASCADE,recipient_team TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,sender TEXT NOT NULL,text TEXT NOT NULL,created_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_team_messages_recipient_created ON team_messages(recipient_team,created_at);

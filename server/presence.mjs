@@ -13,6 +13,8 @@ import {
 import { scoreboardSettings } from "./social-controls.mjs";
 import { registrationSettings } from "./registration-settings.mjs";
 import { createWorld } from "../lib/world-data.mjs";
+import { EMOTE_DURATION_MS, isPlayerEmote } from "../lib/player-emotes.mjs";
+import { teamEmojiEvents } from "./team-emojis.mjs";
 const modes = ["off", "team", "all"];
 const reply = (data, status = 200) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -76,6 +78,8 @@ export async function handlePresence(
     engine = createWorld(theme.world);
   if (body.themeRevision !== themeRevision)
     return reply({ error: "The map changed. Reload the game.", themeRevision }, 409);
+  if (body.emote !== undefined && !isPlayerEmote(body.emote))
+    return reply({ error: "Choose a valid emoji reaction." }, 400);
   if (
     typeof body.map !== "string" ||
     !Number.isInteger(body.x) ||
@@ -116,6 +120,7 @@ export async function handlePresence(
     count: countByChallenge.get(c.id) || 0,
   }));
   const social = {
+    teamEmojis: await teamEmojiEvents(db, config, u, member?.team, features, now),
     notifications: await notificationStats(db,u),
     challengeSolves,
     gameRevision: `${themeRevision}:${currentCatalog.revision}:${settings.revision}:${[...milestones].join(",")}:${completions.map((r) => `${r.challenge}=${r.points}@${r.user}`).join(",")}:${JSON.stringify(hints.map(h => [h.challenge, h.hint, h.cost]))}:${JSON.stringify(submitted)}`,
@@ -148,19 +153,25 @@ export async function handlePresence(
       now - 9000,
     )
     .run();
+  if (body.emote !== undefined) {
+    await db.prepare(
+      "INSERT INTO player_emotes(user,emoji,expires_at) SELECT user,?,? FROM player_presence WHERE user=? ON CONFLICT(user) DO UPDATE SET emoji=excluded.emoji,expires_at=excluded.expires_at",
+    ).bind(body.emote, now + EMOTE_DURATION_MS, u.id).run();
+  }
   const yamlAdmins = config.accounts.users
     .filter((a) => a.role === "admin")
     .map((a) => a.username);
   const rows = (
     await db
       .prepare(
-        `SELECT p.user,p.x,p.y,s.username,s.hero,s.managed,s.role,s.provisioned,m.team FROM player_presence p JOIN students s ON s.id=p.user LEFT JOIN team_members m ON m.user=s.id
+        `SELECT p.user,p.x,p.y,s.username,s.hero,s.managed,s.role,s.provisioned,m.team,e.emoji,e.expires_at FROM player_presence p JOIN students s ON s.id=p.user LEFT JOIN team_members m ON m.user=s.id LEFT JOIN player_emotes e ON e.user=p.user AND e.expires_at>?
  WHERE p.map=? AND p.theme_revision=? AND p.updated_at>? AND p.user<>? AND s.disabled=0 AND NOT EXISTS(SELECT 1 FROM teams t WHERE t.id=m.team AND t.disabled=1)
  AND EXISTS(SELECT 1 FROM sessions WHERE sessions.user=s.id AND expires>?)
  AND (COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)='all' OR (COALESCE((SELECT visibility FROM presence_settings WHERE id='active'),?)='team' AND (m.team=? OR ?=1 OR (s.managed=1 AND s.role='admin') OR (s.managed=0 AND s.username IN (${yamlAdmins.map(() => "?").join(",") || "NULL"})))))
  ORDER BY p.updated_at DESC,s.username LIMIT 101`,
       )
       .bind(
+        now,
         body.map,
         themeRevision,
         now - 20000,
@@ -197,6 +208,7 @@ export async function handlePresence(
         teammate: !!member && r.team === member.team,
         team: r.team || null,
         crowned: crowned(r.team, !!member && r.team === member.team),
+        ...(r.emoji ? { emote: { emoji: r.emoji, remainingMs: r.expires_at - now } } : {}),
       };
     });
   return reply({

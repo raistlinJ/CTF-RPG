@@ -110,10 +110,18 @@ PUBLIC_ORIGIN=https://ctf.example.org
 
 `PUBLIC_ORIGIN` must match the browser's exact HTTPS origin, without a trailing slash. If using another public port, include it (for example `https://localhost:8443`) and set `HTTPS_PORT=8443`. `HTTP_PORT` changes the redirect listener's default port 80. When specifying nondefault ports in shell variables, pass them for every Compose command or store them in `.env`.
 
-Mount certificates using the project's **`./nginx/ssl`** directory:
+Mount certificates using the project's **`./nginx/ssl`** directory by default. To use **`./certs`** instead, set `TLS_CERT_DIR=./certs` in `.env`. Relative paths resolve from the project directory. The selected directory must contain:
 
 - `fullchain.pem`: your certificate plus any intermediate chain.
 - `privkey.pem`: the matching, unencrypted private key.
+
+After changing `TLS_CERT_DIR`, apply the new mount with:
+
+```sh
+docker compose -f compose.https.yaml up -d nginx
+```
+
+The base `docker compose up --build -d` command starts only the HTTP app. Certificates are mounted at runtime, so rebuilding images does not import certificates or make a running Nginx process reload changed files.
 
 When neither file exists, the Nginx startup script generates a 365-day self-signed pair for the hostname/IP in `PUBLIC_ORIGIN`. An optional `TLS_SERVER_NAME` overrides the generated certificate hostname. Certificates are persisted in that mount and reused on restart; existing pairs are never replaced. If only one file exists or is empty, startup stops with an explanation instead of overwriting it. Generated certificates include SANs for the chosen host, localhost, and 127.0.0.1. Self-signed certificates display a browser trust warning until you trust them; use your own trusted certificate pair for public hosting. After replacing certificates, restart the proxy:
 
@@ -132,7 +140,7 @@ docker compose -f compose.https.yaml down
 
 ## Backups and verification
 
-Back up configuration, `public/sprites`, `public/audio`, and the SQLite database. Stop the service before copying its database (including any `-wal`/`-shm` files), or use SQLite's online backup mechanism. Keep `data/` writable by the server account. Build output is disposable and can be regenerated. Entity activation, cutscene playback history, inventory, and transport unlocks live in the same database as challenge progress. SQLite creates new tables automatically when the upgraded application starts; Cloudflare/D1 installations need migrations through `0028_personal_chat_mutes.sql`, as listed in [README.md](README.md#run-the-cloudflare-preview-locally).
+Back up configuration, `public/sprites`, `public/audio`, and the SQLite database. Stop the service before copying its database (including any `-wal`/`-shm` files), or use SQLite's online backup mechanism. Keep `data/` writable by the server account. Build output is disposable and can be regenerated. Entity activation, cutscene playback history, inventory, and transport unlocks live in the same database as challenge progress. SQLite creates new tables automatically when the upgraded application starts; Cloudflare/D1 installations need migrations through `0032_player_emotes.sql`, as listed in [README.md](README.md#run-the-cloudflare-preview-locally).
 
 ```sh
 npm run build:selfhost

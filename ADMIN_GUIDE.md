@@ -93,6 +93,8 @@ Use **Messages** in the game header, press **M** while exploring, or click the *
 
 Use **Send message** to contact the selected team. Conversations are visible to all members of the sending and receiving teams; unrelated teams cannot read them. **Your team → Team inbox** collects messages, with **Reply to…** opening the sending team’s conversation and **Reply to instructors** opening instructor replies. Admins can send instructor messages from management and view conversations for the selected team. Messages are plain text (1–1000 characters), with at most five sends per explorer per minute and the latest 100 messages displayed. Retrying a send preserves its reference to avoid duplicate delivery.
 
+For another student team, choose **Emoji**, select 👋, 👍, 👎, 😮 or 😢, then **Send emoji**. The panel closes to show the map: nearby recipient teammates glow green for the sender. Receiving teammates see “Team X sent you a 👋” and a gold glow around the player who sent it. Notices and glows last five seconds; the emoji stays in the conversation history. These sends obey messaging permissions, personal mutes, hidden team names and chat rate limits. Glows only mark players already visible on the current map.
+
 ### Personal chat mutes
 
 Click a player avatar and choose **Mute for me** or **Unmute for me**. The same controls appear beside eligible senders in the chat stream. You can personally mute other students outside your current team; your own account, current teammates, and administrators are exempt. These exemptions are checked by the server on every message read, so a player who joins your team or becomes an administrator remains available even if you muted them earlier.

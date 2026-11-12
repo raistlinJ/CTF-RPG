@@ -19,6 +19,8 @@ import { savedMessageReadAt, saveMessageReadAt } from "@/lib/message-inbox.mjs";
 import { KEY_PALETTE, hintCostLabel } from "@/lib/inventory-data.mjs";
 import { PlayerInventory, TransportUnlock, type Inventory, type LockedTransport } from "./player-inventory";
 import { usePlayerPresence, type NearbyPlayer, type SolveShine } from "./use-player-presence";
+import { PlayerEmotePicker, PlayerEmoteBubble } from "./player-emotes";
+import { TeamEmojiGlows, TeamEmojiNotices, type TeamEmojiEvent } from "./team-emoji-effects";
 import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ScoresPanel from "./scoreboard/scores-panel";
@@ -204,6 +206,7 @@ export function World({
   messageCount = 0,
   onOpenMessages,
   solveShines = [],
+  teamEmojis = [],
   selfMarkers = { teammate: false, crowned: false },
   unlockedTransports = [],
 }: {
@@ -228,6 +231,7 @@ export function World({
   messageCount?: number;
   onOpenMessages?: () => void;
   solveShines?: SolveShine[];
+  teamEmojis?: TeamEmojiEvent[];
   selfMarkers?: { teammate: boolean; crowned: boolean };
   unlockedTransports?: string[];
 }) {
@@ -574,7 +578,8 @@ export function World({
                     left: own ? "var(--explorer-x)" : `${((tile.x + 0.5) / 40) * 100}%`,
                     top: own ? "var(--explorer-y)" : `${((tile.y + 0.5) / 28) * 100}%`,
                   }}
-                  aria-label={`View players: ${occupants.map((p) => p.username).join(", ")}`}
+                  aria-label={`${own ? "Show emoji reactions and view player" : "View players"}: ${occupants.map((p) => p.username).join(", ")}`}
+                  aria-haspopup="dialog"
                   onClick={() => onPlayerSelect?.(tile.x, tile.y)}
                 >
                   {p.teammate && <i className="team-halo" aria-hidden="true" />}
@@ -591,6 +596,17 @@ export function World({
             })}
           </div>
         )}
+        {!onSelect && selfPlayer && [...players, selfPlayer].filter(player => player.emote).map(player => (
+          <PlayerEmoteBubble key={`${player.username}:${player.emote!.expiresAt}`} username={player.username} emote={player.emote!}
+            style={{
+              left: player.username === selfPlayer.username ? "var(--explorer-x)" : `${((player.x + 0.5) / 40) * 100}%`,
+              top: player.username === selfPlayer.username ? "var(--explorer-y)" : `${((player.y + 0.5) / 28) * 100}%`,
+            }} />
+        ))}
+        {!onSelect && <>
+          <TeamEmojiGlows events={teamEmojis} players={players} />
+          <TeamEmojiNotices events={teamEmojis} />
+        </>}
       </div>
       {!onSelect && <Dialog open={!!selectedSolved} onOpenChange={open => { if (!open) setSelectedSolvedId(null); }}>
         <DialogContent className="challenge-dialog"><DialogHeader><DialogTitle>{selectedSolved?.object}</DialogTitle><DialogDescription>You have solved this challenge.</DialogDescription></DialogHeader></DialogContent>
@@ -1267,6 +1283,7 @@ export default function Game() {
         x: pos.x,
         y: pos.y,
         team: team?.id || null,
+        emote: presence.selfEmote,
         ...presence.self,
       }
     : undefined;
@@ -1384,6 +1401,10 @@ export default function Game() {
         personalMutes={personalMutes}
         viewerUsername={user?.username}
         viewerTeam={team?.id || null}
+        onEmote={(emoji) => {
+          presence.sendEmote(emoji);
+          setPlayerTile(null);
+        }}
         featureRevision={presence.features.revision}
         onMessage={(id) => {
           setPlayerTile(null);
@@ -1391,6 +1412,10 @@ export default function Game() {
         }}
       />
       <TeamPanel
+        onEmojiSent={event => {
+          presence.sentTeamEmoji(event);
+          setTeamPanelOpen(false);
+        }}
         personalMutes={personalMutes}
         open={teamPanelOpen}
         onOpenChange={setTeamPanelOpen}
@@ -1542,6 +1567,7 @@ export default function Game() {
               messageCount={presence.messageCount}
               onOpenMessages={openMessages}
               solveShines={presence.solveShines}
+              teamEmojis={presence.teamEmojis}
               selfPlayer={selfPlayer}
               onPlayerSelect={(x, y) => {
                 // Keep the selected players available until the popup is closed.
@@ -1888,6 +1914,7 @@ function PlayerPopup({
   personalMutes,
   viewerUsername,
   viewerTeam,
+  onEmote,
 }: {
   tile: { map: string; x: number; y: number } | null;
   onClose: () => void;
@@ -1900,6 +1927,7 @@ function PlayerPopup({
   personalMutes: PersonalMutes;
   viewerUsername?: string;
   viewerTeam: string | null;
+  onEmote: (emoji: string) => void;
 }) {
   const [teams, setTeams] = useState<
     { id: string; label: string; score?: number; canMessage: boolean }[] | null
@@ -1994,6 +2022,7 @@ function PlayerPopup({
           {tile?.x}, {tile?.y}
         </p>
         {error && <p role="alert">{error}</p>}
+        {players.some(player => player.username === viewerUsername) && <PlayerEmotePicker onSelect={onEmote} />}
         <PersonalMuteControls controls={personalMutes} />
         <div className="player-card-list">
           {players.map((p) => {

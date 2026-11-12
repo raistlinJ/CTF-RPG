@@ -2417,6 +2417,27 @@ input::placeholder {
 .nearby-player.teammate canvas { filter: drop-shadow(0 0 2px #a4eed6); }
 .nearby-player span { position:absolute; bottom:calc(96% + clamp(13px,2vw,25px) + 4px); padding:2px 4px; border:1px solid #665e8a; border-radius:3px; background:#112735; color:#f0e7ff; font-size:11px; white-space:nowrap; }
 .nearby-player.teammate span { border-color:#80c5b0; color:#b4efdb; }
+.player-emote-picker { padding:12px 0; }
+.player-emote-picker p { margin:0 0 10px; color:#b8ccd3; font-size:14px; }
+.player-emote-picker > div { display:flex; flex-wrap:wrap; gap:8px; }
+.player-emote-picker button { display:grid; place-items:center; min-width:48px; min-height:48px; padding:8px; border:1px solid #64818c; border-radius:10px; background:#153441; cursor:pointer; font-size:28px; line-height:1; }
+.player-emote-picker button:hover { background:#275363; border-color:#a7ead4; }
+.player-emote-picker button:focus-visible { outline:3px solid #a7ead4; outline-offset:3px; }
+.player-emote-picker button[aria-pressed="true"] { background:#326553; border-color:#c4ffe9; box-shadow:0 0 0 2px #a7ead4; }
+.player-emote-picker button:disabled { opacity:.6; cursor:wait; }
+.team-message-form > .team-message-modes { display:flex; gap:8px; justify-content:flex-start; flex-direction:row; flex-wrap:wrap; }
+.team-message-form > .player-emote-picker { display:block; }
+.team-message-modes button { border:1px solid #64818c; border-radius:6px; background:#153441; color:#d9ece6; padding:8px 12px; cursor:pointer; }
+.team-message-modes button[aria-pressed="true"] { background:#326553; border-color:#a7ead4; }
+.team-message-modes button:focus-visible { outline:3px solid #a7ead4; outline-offset:2px; }
+.team-emoji-notices { position:absolute; top:12px; left:50%; transform:translateX(-50%); width:max-content; max-width:calc(100% - 24px); z-index:8; pointer-events:none; }
+.team-emoji-notices p { margin:0 0 6px; padding:10px 14px; border:1px solid #f1cd79; border-radius:10px; background:#132e3af2; box-shadow:0 3px 12px #0005; color:#fff3d0; font-size:clamp(12px,1.4vw,16px); text-align:center; overflow-wrap:anywhere; }
+.team-emoji-notices p.outgoing { border-color:#a7ead4; color:#d9fff1; }
+.team-emoji-glow-layer { position:absolute; inset:0; pointer-events:none; }
+.team-emoji-glow { position:absolute; transform:translate(-50%,-50%); width:5.5%; min-width:24px; aspect-ratio:1; z-index:4; border-radius:50%; border:2px solid #f8d98a; background:#ffe8a52b; box-shadow:0 0 8px 4px #ffd978b0,0 0 20px 8px #ffd97855; }
+.team-emoji-glow.recipient { border-color:#b1f9e0; background:#b1f9e02b; box-shadow:0 0 8px 4px #7af1c9b0,0 0 20px 8px #7af1c955; }
+.player-emote-bubble { position:absolute; transform:translate(-50%,calc(-100% - 58px)); z-index:6; display:grid; place-items:center; min-width:44px; min-height:44px; padding:5px 9px; border:2px solid #8cbcae; border-radius:16px; background:#f4faf6; box-shadow:0 3px 10px #0005; font-size:30px; line-height:1; pointer-events:none; }
+.player-emote-bubble::after { content:""; position:absolute; left:50%; bottom:-7px; width:10px; height:10px; transform:translateX(-50%) rotate(45deg); border-right:2px solid #8cbcae; border-bottom:2px solid #8cbcae; background:#f4faf6; }
 .presence-note { padding:10px 2px; color:#9cb6bf; font-size:13px; line-height:1.5; }
 
 .team-banner-button { color:inherit; background:transparent; border:0; padding:0; font:inherit; cursor:pointer; text-align:left; line-height:1.6; overflow-wrap:anywhere; }

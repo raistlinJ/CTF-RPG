@@ -17,7 +17,7 @@ services:
       TLS_SERVER_NAME: ${TLS_SERVER_NAME:-}
       NGINX_ENVSUBST_FILTER: "^PUBLIC_ORIGIN$$"
     volumes:
-      - ./nginx/ssl:/etc/nginx/ssl
+      - ${TLS_CERT_DIR:-./nginx/ssl}:/etc/nginx/ssl
     depends_on:
       ctf-rpg:
         condition: service_healthy

@@ -3,6 +3,9 @@ import { startPolling } from "@/lib/adaptive-poll.mjs";
 import { clientUuid } from "@/lib/client-uuid.mjs";
 import { PersonalMuteButton, PersonalMuteControls, type PersonalMutes } from "./personal-mutes";
 import { useEffect, useRef, useState } from "react";
+import { PlayerEmotePicker } from "./player-emotes";
+import { isPlayerEmote, teamEmojiNotice } from "@/lib/player-emotes.mjs";
+import type { SentTeamEmoji } from "./team-emoji-effects";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +67,7 @@ export default function TeamPanel({
   onSelect,
   onRead,
   personalMutes,
+  onEmojiSent,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -71,12 +75,14 @@ export default function TeamPanel({
   onSelect: (id: string | null) => void;
   onRead: (at: number) => void;
   personalMutes?: PersonalMutes;
+  onEmojiSent?: (event: SentTeamEmoji) => void;
 }) {
   const [data, setData] = useState<ResponseData | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false),
     [busy, setBusy] = useState(false),
     [text, setText] = useState(""),
+    [selectedEmoji, setSelectedEmoji] = useState(""),
     [confirmClear, setConfirmClear] = useState(false),
     [clearing, setClearing] = useState(false),
     [clearNotice, setClearNotice] = useState("");
@@ -87,6 +93,7 @@ export default function TeamPanel({
     sendFailed = useRef(false);
   const loadRequest = useRef<{version:number;controller:AbortController}|null>(null);
   const selectedRef = useRef(selected);
+  const canSendTeamEmoji = !!data?.ownTeam && !data.isAdmin && !!data.team && !data.team.isYourTeam && selected !== "instructors";
   selectedRef.current = selected;
   async function load(silent = false, signal?: AbortSignal) {
     const target = selected,
@@ -133,6 +140,7 @@ export default function TeamPanel({
     setData(null);
     setError("");
     setText("");
+    setSelectedEmoji("");
     request.current = { id: "", text: "", team: "" };
     if (!open) return;
     let first = true;
@@ -171,12 +179,13 @@ export default function TeamPanel({
   }
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    if (busy || clearing || !selected || !text.trim()) return;
+    const emoji = canSendTeamEmoji && isPlayerEmote(selectedEmoji) ? selectedEmoji : "";
+    if (busy || clearing || !selected || (!emoji && !text.trim())) return;
     setBusy(true);
     sendFailed.current = false;
     setError("");
     const target = selected,
-      body = text.trim(),
+      body = emoji || text.trim(),
       version = generation.current;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -192,7 +201,8 @@ export default function TeamPanel({
         d = (await r.json()) as { error?: string };
       if (!r.ok) throw Error(d.error || "Could not send message.");
       if (version === generation.current) {
-        setText("");
+        if (emoji && data?.team) onEmojiSent?.({ id: request.current.id, emoji, toTeam: { id: target, label: data.team.label } });
+        if (!emoji) setText("");
         request.current = { id: "", text: "", team: "" };
         void load(true);
       }
@@ -201,7 +211,7 @@ export default function TeamPanel({
         sendFailed.current = true;
         setError(
           controller.signal.aborted
-            ? "Sending timed out. Your text is preserved; retry to safely check or send this message."
+            ? "Sending timed out. Your message is preserved; retry to safely check or send this message."
             : (e as Error).message,
         );
       }
@@ -338,7 +348,9 @@ export default function TeamPanel({
                                 })}
                               </time>
                             </div>
-                            {m.personalMuted ? <p className="personal-muted-message">Message hidden — you muted this player.</p> : <p>{m.text}</p>}
+                            {m.personalMuted ? <p className="personal-muted-message">Message hidden — you muted this player.</p> : <p>{m.fromTeam && m.fromTeam.id !== m.toTeam.id && isPlayerEmote(m.text)
+                              ? teamEmojiNotice({ ...m, emoji: m.text }, "Your team")
+                              : m.text}</p>}
                             <div className="team-message-actions">
                               {m.canPersonalMute && personalMutes && <PersonalMuteButton controls={personalMutes} username={m.sender} muted={m.personalMuted} />}
                               {data.team?.isYourTeam && !data.isAdmin && !m.fromTeam && !m.outgoing && (
@@ -365,7 +377,14 @@ export default function TeamPanel({
                       </div>
                       {data.team?.canMessage ? (
                         <form className="team-message-form" onSubmit={send}>
-                          <label>
+                          {canSendTeamEmoji && <div className="team-message-modes" role="group" aria-label="Message type">
+                            <button type="button" aria-pressed={!selectedEmoji} disabled={busy} onClick={() => setSelectedEmoji("")}>Text message</button>
+                            <button type="button" aria-pressed={!!selectedEmoji} disabled={busy} onClick={() => setSelectedEmoji("👋")}>Emoji</button>
+                          </div>}
+                          {selectedEmoji && canSendTeamEmoji ? <PlayerEmotePicker
+                            onSelect={setSelectedEmoji} selected={selectedEmoji} disabled={busy}
+                            description={`Send an emoji to ${data.team.label}. Nearby recipients will glow for 5 seconds.`}
+                          /> : <label>
                             Message{" "}
                             {data.team?.isYourTeam
                               ? "your team"
@@ -379,10 +398,10 @@ export default function TeamPanel({
                               placeholder="Write a message…"
                               disabled={busy}
                             />
-                          </label>
+                          </label>}
                           <div>
                             <small>
-                              {text.length}/1000 ·{" "}
+                              {selectedEmoji && canSendTeamEmoji ? "Emoji reaction" : `${text.length}/1000`} ·{" "}
                               {selected === "instructors"
                                 ? "visible to your team and administrators"
                                 : "visible to team members"}
@@ -390,10 +409,10 @@ export default function TeamPanel({
                             <button
                               className="primary"
                               aria-busy={busy}
-                              disabled={busy || !text.trim()}
+                              disabled={busy || (!(selectedEmoji && canSendTeamEmoji) && !text.trim())}
                             >
                               <Send size={16} />
-                              {busy ? "Sending…" : "Send message"}
+                              {busy ? "Sending…" : selectedEmoji && canSendTeamEmoji ? "Send emoji" : "Send message"}
                             </button>
                           </div>
                         </form>

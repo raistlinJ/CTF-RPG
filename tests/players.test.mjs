@@ -8,6 +8,7 @@ import { createApi } from "../server/api.mjs";
 import { createSQLiteAdapter, initializeSchema } from "../server/sqlite.mjs";
 import { createSnapshot, validateSnapshot } from "../server/backup.mjs";
 import { defaultWorld } from "../lib/world-data.mjs";
+import { EMOTE_DURATION_MS, PLAYER_EMOTES } from "../lib/player-emotes.mjs";
 function setup() {
   const sqlite = new DatabaseSync(":memory:");
   initializeSchema(sqlite);
@@ -65,6 +66,69 @@ const auth = (c, username, mode = "register") =>
     hero: "web",
     mode,
   });
+test("player reactions are shared with visible players, expire after five seconds without poll renewal, and are removed on leave", async t => {
+  const { sqlite, client } = setup();
+  try {
+    const alice = client(), mate = client(), outsider = client(), admin = client();
+    await auth(admin, "teacher", "login");
+    await auth(alice, "alice");
+    await auth(mate, "annika");
+    await auth(outsider, "bobby");
+    const team = (await alice("/api/teams", { mode: "create", name: "Alpha", password: "team-password" })).data.team;
+    await mate("/api/teams", { mode: "join", id: team.id, password: "team-password" });
+    await outsider("/api/teams", { mode: "create", name: "Beta", password: "team-password" });
+    const position = { map: "town", x: 18, y: 20, themeRevision: 0 };
+    let now = Date.now();
+    t.mock.method(Date, "now", () => now);
+    for (const { emoji } of PLAYER_EMOTES) {
+      const sent = await alice("/api/presence", { ...position, emote: emoji, username: "bobby", expiresAt: now + 100000 });
+      assert.equal(sent.status, 200);
+      const seen = (await mate("/api/presence", position)).data.players.find(p => p.username === "alice");
+      assert.deepEqual(seen.emote, { emoji, remainingMs: EMOTE_DURATION_MS });
+    }
+    for (const emote of ["not-an-emoji", "🎉", "", null, {}, ["👋"]])
+      assert.equal((await alice("/api/presence", { ...position, emote })).status, 400);
+    assert.equal((await client()("/api/presence", { ...position, emote: "👋" })).status, 401);
+    assert.equal((await outsider("/api/presence", position)).data.players.some(p => p.username === "alice"), false);
+    now += EMOTE_DURATION_MS - 1;
+    await alice("/api/presence", { ...position, x: 19 });
+    let seen = (await mate("/api/presence", position)).data.players.find(p => p.username === "alice");
+    assert.deepEqual(seen.emote, { emoji: "😢", remainingMs: 1 });
+    now += 1;
+    seen = (await mate("/api/presence", position)).data.players.find(p => p.username === "alice");
+    assert.equal(seen.emote, undefined);
+    await alice("/api/presence", { ...position, emote: "👋" });
+    now += 1000;
+    await alice("/api/presence", { ...position, emote: "👍" });
+    seen = (await mate("/api/presence", position)).data.players.find(p => p.username === "alice");
+    assert.deepEqual(seen.emote, { emoji: "👍", remainingMs: EMOTE_DURATION_MS });
+    await admin("/api/admin/presence", { visibility: "all", revision: 0 });
+    seen = (await outsider("/api/presence", position)).data.players.find(p => p.username === "alice");
+    assert.equal(seen.emote.emoji, "👍");
+    await admin("/api/admin/presence", { visibility: "off", revision: 1 });
+    assert.deepEqual((await mate("/api/presence", position)).data.players, []);
+    await alice("/api/presence", { ...position, emote: "👎" });
+    assert.equal(sqlite.prepare("SELECT emoji FROM player_emotes WHERE user=(SELECT id FROM students WHERE username='alice')").get().emoji, "👍");
+    await alice("/api/presence", undefined, "DELETE");
+    assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM player_emotes").get().n, 0);
+  } finally {
+    sqlite.close();
+  }
+});
+
+test("existing native and D1 databases can add transient player reactions", () => {
+  for (const native of [true, false]) {
+    const sqlite = new DatabaseSync(":memory:");
+    try {
+      initializeSchema(sqlite);
+      sqlite.exec("DROP TABLE player_emotes");
+      if (native) initializeSchema(sqlite);
+      else sqlite.exec(readFileSync("drizzle/0032_player_emotes.sql", "utf8"));
+      assert.ok(sqlite.prepare("SELECT name FROM sqlite_master WHERE name='player_emotes'").get());
+      assert.ok(sqlite.prepare("PRAGMA foreign_key_list(player_emotes)").all().some(key => key.table === "player_presence" && key.on_delete === "CASCADE"));
+    } finally { sqlite.close(); }
+  }
+});
 test("admin assigns user spawn; students cannot override; invalid/stale tiles reject; backups keep assignments with old-backup compatibility", async () => {
   const { sqlite, db, config, challenges, client } = setup();
   try {

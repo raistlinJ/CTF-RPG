@@ -218,6 +218,20 @@
       "when": 1792432800002,
       "tag": "0030_social_performance",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1792432800003,
+      "tag": "0031_notification_revisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1794502800000,
+      "tag": "0032_player_emotes",
+      "breakpoints": true
     }
   ]
 }

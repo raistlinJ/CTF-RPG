@@ -167,6 +167,11 @@ export const presenceSettings = sqliteTable("presence_settings", {
   visibility: text("visibility").notNull(),
   revision: integer("revision").notNull(),
 });
+export const playerEmotes = sqliteTable("player_emotes", {
+  user: text("user").primaryKey().references(() => playerPresence.user, { onDelete: "cascade" }),
+  emoji: text("emoji").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+});
 
 export const teamSocialSettings = sqliteTable("team_social_settings", {
   everyoneNames: integer("everyone_names"),

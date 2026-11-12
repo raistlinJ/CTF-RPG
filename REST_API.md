@@ -52,6 +52,10 @@ Game state shares challenge completions, earned scores, challenge prerequisites,
 
 These are the same endpoints used by the admin UI. JSON writes use `Content-Type: application/json`; map, media/audio/sound, and pack uploads use the endpoint's multipart form format. Editing uses the current `revision` and, where required, `themeRevision` / `contentRevision` returned by the corresponding reads. A stale save returns 409; refresh before applying changes again.
 
+## Team emoji messages
+
+Emoji-only cross-team messages use the normal `/api/team-social` POST body, for example `{"id":"UUID","team":"TEAM_ID","text":"👋"}`. The five supported reactions are 👋, 👍, 👎, 😮 and 😢. Presence responses include recent `teamEmojis` events with `id`, `emoji`, `sender`, `fromTeam`, `toTeam`, `outgoing` and `remainingMs`. Only the sending account and receiving teammates receive these events; messaging permissions, personal mutes, cleared history and team-name visibility still apply. Each client displays a new event once for five seconds, highlighting the sender for receivers and visible recipient teammates for the sender. Emoji messages remain ordinary chat records for history, backups, moderation, retry deduplication and rate limiting.
+
 ## Personal chat mutes
 
 `GET /api/chat-mutes` returns `{muteAll, revision, overrides}`, where overrides maps previously selected usernames to booleans. All access is scoped to the signed-in account; a platform-admin header without an individual game session cannot manage personal preferences.
