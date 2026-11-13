@@ -1,6 +1,8 @@
 export type EntityCharacter = { id: string; name: string; subtitle: string; sprite: string | null; fallback: "web" | "thunder" | "shield"; appearanceFor?: "player" | "entity" | "both" };
-export type EntitySummary = { id: string; name: string; characterId: string; map: string; location: { x: number; y: number }; size?: 1 | 2 | 3; restartable?: boolean };
+export type EntitySummary = { id: string; name: string; characterId: string; map: string; location: { x: number; y: number }; size?: 1 | 2 | 3; restartable?: boolean; acceptsEmoji?: boolean; invisible?: boolean };
+export type EntityEmojiInteraction = { emoji: string; response: string; effect: "none" | "sparkles" | "hearts" | "fireworks"; once: boolean; outputNodeId: string | null };
+export type EntityEmojiReaction = { matched: boolean; emoji: string; response: string; effect: EntityEmojiInteraction["effect"]; firstDiscovery: boolean; repeated?: boolean; preview?: boolean };
 export type EntityChoice = { id: string; label: string; to: string };
 export type EntityNode = { id: string; text: string; choices: EntityChoice[] };
-export type NonPlayerEntity = EntitySummary & { startNode: string; nodes: EntityNode[]; dependsOn?: string[] };
+export type NonPlayerEntity = EntitySummary & { startNode: string; nodes: EntityNode[]; dependsOn?: string[]; emojiInteractions?: EntityEmojiInteraction[] };
 export type PublicDialogue = { id: string; text: string; choices: { id: string; label: string }[] };

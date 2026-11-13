@@ -57,6 +57,7 @@ export default function TeamEmojiPicker({ team, username, onSent }: {
       <button type="button" aria-pressed={recipient === "team"} disabled={busy} onClick={() => { setRecipient("team"); setError(""); }}>Team</button>
     </div>
     <PlayerEmotePicker description={`Send an emoji to ${recipient === "user" ? username : team.label}`} disabled={busy} onSelect={emoji => void send(emoji)} />
+    <small className="emoji-combo-hint">Wave back for a high-five · Match 😮 for fireworks</small>
     {busy && <p role="status">Sending…</p>}
     {error && <p className="error" role="alert">{error}</p>}
   </div>;

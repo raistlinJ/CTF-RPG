@@ -20,8 +20,8 @@ test('default character catalog keeps player and entity appearances separate',()
  assert.ok(publicConfig(config).characters.every(c=>c.appearanceFor!=='entity'));
 });
 // The legacy adventures share the same boss/reward route. Assignment themes
-// have their own progression and import regression tests.
-for(const preset of themePresets.filter(preset=>preset.demoTheme && preset.contentLabel !== 'assignment')) {
+// and Doom's Winter Dominion have their own progression and import regression tests.
+for(const preset of themePresets.filter(preset=>preset.demoTheme && preset.contentLabel !== 'assignment' && preset.id !== 'doom-holiday')) {
  test(`${preset.id} demo ZIPs preserve footprints, separate content, and a solvable reward route`,async()=>{
   const {id,demoTheme,challenges}=preset;
   assert.deepEqual(challenges,parseChallenges(readFileSync(`themes/${id}/demo-challenges.yaml`,'utf8')));

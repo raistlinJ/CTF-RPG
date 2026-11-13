@@ -16,7 +16,7 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
     const supplied = [
       ...value.media.filter(item => item.source === 'theme').map(item => ({ src: item.src, name: item.name })),
       ...value.characters.filter(c => c.sprite).map(c => ({ src: c.sprite, name: `${c.name} appearance` })),
-      ...(value.adminSprite ? [{ src: value.adminSprite, name: 'Admin wizard appearance' }] : []),
+      ...(value.adminSprite ? [{ src: value.adminSprite, name: 'Administrator appearance' }] : []),
       ...value.world.maps.flatMap(m => [m.background && { src: m.background, name: `${m.name} background` }, m.originalBackground && { src: m.originalBackground, name: `${m.name} original background` }]).filter(Boolean),
       ...themeBossStyles(value).map(style => ({ src: style.sprite, name: style.label })),
     ].filter(item => !uploaded.has(item.src));
@@ -82,7 +82,7 @@ export async function handleThemeMedia(req, { db, user, platformAdmin, theme, th
       const allowed = new Set([...themeAssetPaths(theme).filter(p => imageExtension.test(p)), ...BOSS_STYLES.map(style => style.sprite)]);
       const valid = src => src === null || (typeof src === 'string' && allowed.has(src));
       const adminSprite = Object.hasOwn(body, 'adminSprite') ? body.adminSprite : theme.adminSprite;
-      if (!valid(adminSprite)) throw Error('Choose an admin wizard image already in this theme.');
+      if (!valid(adminSprite)) throw Error('Choose an administrator image already in this theme.');
       if (Object.keys(changes).some(id => !theme.characters.some(c => c.id === id) || !valid(changes[id])) ||
           Object.keys(bosses).some(id => !themeBossStyles(theme).some(s => s.id === id) || !valid(bosses[id])) ||
           Object.keys(maps).some(id => !theme.world.maps.some(m => m.id === id) || !valid(maps[id]))) throw Error('Choose images already in this theme.');

@@ -447,7 +447,7 @@
         "source": "theme"
       },
       {
-        "name": "Challenge discovery",
+        "name": "Challenge opened",
         "src": "/themes/agentic-circuit/audio/sounds/discovery.wav",
         "source": "theme"
       },
@@ -512,6 +512,21 @@
         "source": "theme"
       },
       {
+        "name": "NPC emoji secret unlocked",
+        "src": "/themes/agentic-circuit/audio/sounds/npcEmojiUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "High-five",
+        "src": "/themes/agentic-circuit/audio/sounds/highFive.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Double wow",
+        "src": "/themes/agentic-circuit/audio/sounds/doubleWow.wav",
+        "source": "theme"
+      },
+      {
         "name": "Map entry",
         "src": "/themes/agentic-circuit/audio/sounds/mapEntry.wav",
         "source": "theme"
@@ -542,7 +557,10 @@
       "hintUnlocked": "/themes/agentic-circuit/audio/sounds/hintUnlocked.wav",
       "lockedRoute": "/themes/agentic-circuit/audio/sounds/lockedRoute.wav",
       "routeUnlocked": "/themes/agentic-circuit/audio/sounds/routeUnlocked.wav",
-      "searchEmpty": "/themes/agentic-circuit/audio/sounds/searchEmpty.wav"
+      "searchEmpty": "/themes/agentic-circuit/audio/sounds/searchEmpty.wav",
+      "npcEmojiUnlocked": "/themes/agentic-circuit/audio/sounds/npcEmojiUnlocked.wav",
+      "highFive": "/themes/agentic-circuit/audio/sounds/highFive.wav",
+      "doubleWow": "/themes/agentic-circuit/audio/sounds/doubleWow.wav"
     }
   }
 }

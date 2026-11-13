@@ -4,6 +4,8 @@ import type { TeamFeatures } from "./team-panel";
 import { useEffect, useRef, useState } from "react";
 import { emptyMessageInbox, receiveMessages, readMessages } from "@/lib/message-inbox.mjs";
 import { EMOTE_DURATION_MS, isPlayerEmote } from "@/lib/player-emotes.mjs";
+import { EMOJI_COMBO_DURATION_MS, EMOJI_COMBO_WINDOW_MS } from "@/lib/emoji-combos.mjs";
+import type { EmojiComboEffect } from "./emoji-combo-effects";
 import type { PlayerEmote } from "./player-emotes";
 import type { SentTeamEmoji, TeamEmojiEvent } from "./team-emoji-effects";
 export type ChallengeSolve = { id: string; map: string; x: number; y: number; count: number };
@@ -26,25 +28,30 @@ export function usePlayerPresence(
   pos: { x: number; y: number },
   themeRevision: number | undefined,
   readMessagesAt = 0,
+  onEmojiCombo?: (kind: EmojiComboEffect["kind"]) => void,
 ) {
+  const comboListener = useRef(onEmojiCombo);
+  useEffect(() => { comboListener.current = onEmojiCombo; }, [onEmojiCombo]);
   const [selfEmote, setSelfEmote] = useState<(PlayerEmote & { username: string }) | undefined>();
   const pendingEmote = useRef<PlayerEmote | null>(null);
   const refreshPresence = useRef<(() => void) | null>(null);
   useEffect(() => { refreshPresence.current?.(); }, [map]);
   const seenTeamEmojis = useRef(new Map<string, number>());
-  const [teamEmojiState, setTeamEmojiState] = useState<{ username?: string; events: TeamEmojiEvent[] }>({ events: [] });
+  const seenCombos = useRef(new Map<string, number>());
+  const [teamEmojiState, setTeamEmojiState] = useState<{ username?: string; events: TeamEmojiEvent[]; combos: EmojiComboEffect[] }>({ events: [], combos: [] });
   function sentTeamEmoji(event: SentTeamEmoji) {
     if (!username || !enabled || !isPlayerEmote(event.emoji)) return;
     const now = Date.now();
     seenTeamEmojis.current.set(event.id, now + EMOTE_DURATION_MS * 2);
     const outgoing = { ...event, sender: username, fromTeam: null, outgoing: true, expiresAt: now + EMOTE_DURATION_MS };
-    setTeamEmojiState(previous => ({ username, events: [...(previous.username === username ? previous.events.filter(old => old.id !== event.id) : []), outgoing] }));
+    setTeamEmojiState(previous => ({ username, events: [...(previous.username === username ? previous.events.filter(old => old.id !== event.id) : []), outgoing], combos: previous.username === username ? previous.combos : [] }));
     refreshPresence.current?.();
   }
   useEffect(() => {
-    if (!teamEmojiState.events.length) return;
-    const nextExpiry = Math.min(...teamEmojiState.events.map(event => event.expiresAt));
-    const timer = setTimeout(() => setTeamEmojiState(previous => ({ ...previous, events: previous.events.filter(event => event.expiresAt > Date.now()) })), Math.max(0, nextExpiry - Date.now()));
+    const active = [...teamEmojiState.events, ...teamEmojiState.combos];
+    if (!active.length) return;
+    const nextExpiry = Math.min(...active.map(event => event.expiresAt));
+    const timer = setTimeout(() => setTeamEmojiState(previous => ({ ...previous, events: previous.events.filter(event => event.expiresAt > Date.now()), combos: previous.combos.filter(combo => combo.expiresAt > Date.now()) })), Math.max(0, nextExpiry - Date.now()));
     return () => clearTimeout(timer);
   }, [teamEmojiState]);
   function sendEmote(emoji: string) {
@@ -89,6 +96,7 @@ export function usePlayerPresence(
   useEffect(() => {
     pendingEmote.current = null;
     seenTeamEmojis.current.clear();
+    seenCombos.current.clear();
     setSnapshot({ map: current.current.map, players: [] });
     setStatus("");
     setSelf({ teammate: false, crowned: false });
@@ -127,6 +135,7 @@ export function usePlayerPresence(
         challengeSolves: ChallengeSolve[];
         players: (Omit<NearbyPlayer, "emote"> & { emote?: { emoji: string; remainingMs: number } })[];
         teamEmojis?: (Omit<TeamEmojiEvent, "expiresAt"> & { remainingMs: number })[];
+        emojiCombos?: (Omit<EmojiComboEffect, "expiresAt"> & { remainingMs: number })[];
         visibility: string;
         truncated: boolean;
         teamFeatures: TeamFeatures;
@@ -158,7 +167,13 @@ export function usePlayerPresence(
           seenTeamEmojis.current.set(event.id, receivedAt + EMOTE_DURATION_MS * 2);
           return { ...event, expiresAt: receivedAt + EMOTE_DURATION_MS };
         });
-        if (freshEmojis.length) setTeamEmojiState(previous => ({ username, events: [...(previous.username === username ? previous.events : []), ...freshEmojis] }));
+        for (const [id, expiry] of seenCombos.current) if (expiry <= receivedAt) seenCombos.current.delete(id);
+        const freshCombos = (d.emojiCombos || []).filter(combo => (combo.kind === "high-five" || combo.kind === "fireworks") && combo.remainingMs > 0 && !seenCombos.current.has(combo.id)).map(combo => {
+          seenCombos.current.set(combo.id, receivedAt + EMOJI_COMBO_WINDOW_MS + EMOJI_COMBO_DURATION_MS);
+          return { ...combo, expiresAt: receivedAt + Math.min(EMOJI_COMBO_DURATION_MS, combo.remainingMs) };
+        });
+        if (freshEmojis.length || freshCombos.length) setTeamEmojiState(previous => ({ username, events: [...(previous.username === username ? previous.events : []), ...freshEmojis], combos: [...(previous.username === username ? previous.combos : []), ...freshCombos] }));
+        for (const combo of freshCombos) comboListener.current?.(combo.kind);
         setSnapshot({ map: sent.map, players: d.players.map(player => ({
           ...player,
           emote: player.emote ? { emoji: player.emote.emoji, expiresAt: receivedAt + Math.min(EMOTE_DURATION_MS, player.emote.remainingMs) } : undefined,
@@ -198,6 +213,7 @@ export function usePlayerPresence(
     };
   }, [username, enabled, themeRevision]);
   return {
+    emojiCombos: enabled && teamEmojiState.username === username ? teamEmojiState.combos : [],
     teamEmojis: enabled && teamEmojiState.username === username ? teamEmojiState.events : [],
     sentTeamEmoji,
     selfEmote: enabled && selfEmote?.username === username ? selfEmote : undefined,

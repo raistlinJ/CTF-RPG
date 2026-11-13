@@ -1,0 +1,4 @@
+NORTH POLE DELIVERY CONTROL
+Status: Holiday Star restored
+CONFIRMED: FLAG{JOY_RESTORED}
+Message: Even Latveria deserves a peaceful holiday.

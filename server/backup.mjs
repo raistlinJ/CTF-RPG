@@ -194,6 +194,7 @@ export function validateSnapshot(input) {
       entityActivations: z.array(z.object({ user: z.string(), entity: z.string().min(1).max(80) }).strict()).max(1000000).default([]),
       entityDialogueProgress: z.array(z.object({ user: z.string(), entity: z.string().min(1).max(80), session: z.string().max(80), node: z.string().min(1).max(80), text: z.string().max(5000), path: z.string().max(10000), completed: z.number().int().min(0).max(1) }).strict()).max(1000000).default([]),
       entityDialogueOutputs: z.array(z.object({ user: z.string(), entity: z.string().min(1).max(80), node: z.string().min(1).max(80) }).strict()).max(1000000).default([]),
+      entityEmojiDiscoveries: z.array(z.object({ user:z.string(), entity:z.string().min(1).max(80), emoji:z.enum(["👋","👍","👎","😮","😢"]), discovered_at:z.number().int().min(0) }).strict()).max(1000000).default([]),
     })
     .strict()
     .parse(input);
@@ -210,6 +211,7 @@ export function validateSnapshot(input) {
   if (new Set(snapshot.entityActivations.map(a => `${a.user}\0${a.entity}`)).size !== snapshot.entityActivations.length) throw Error("Duplicate entity activations in backup.");
   if (new Set(snapshot.entityDialogueProgress.map(p => `${p.user}\0${p.entity}`)).size !== snapshot.entityDialogueProgress.length) throw Error("Duplicate entity dialogue progress in backup.");
   if (new Set(snapshot.entityDialogueOutputs.map(p => `${p.user}\0${p.entity}\0${p.node}`)).size !== snapshot.entityDialogueOutputs.length) throw Error("Duplicate entity dialogue outputs in backup.");
+  if (new Set(snapshot.entityEmojiDiscoveries.map(p => `${p.user}\0${p.entity}\0${p.emoji}`)).size !== snapshot.entityEmojiDiscoveries.length) throw Error("Duplicate entity emoji discoveries in backup.");
   for (const p of snapshot.entityDialogueProgress) if (!Array.isArray(JSON.parse(p.path))) throw Error("Invalid entity dialogue path in backup.");
   if (new Set(snapshot.answerAttempts.map(a=>a.id)).size!==snapshot.answerAttempts.length) throw Error("Backup contains duplicate answer attempts.");
   const ids = new Set(snapshot.accounts.map((a) => a.id));
@@ -237,6 +239,7 @@ export function validateSnapshot(input) {
     snapshot.entityActivations,
     snapshot.entityDialogueProgress,
     snapshot.entityDialogueOutputs,
+    snapshot.entityEmojiDiscoveries,
     snapshot.earnedRewards,
     snapshot.unlockedTransports,
   ])
@@ -449,6 +452,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     entityActivations: (await db.prepare("SELECT user,entity FROM entity_activations ORDER BY user,entity").bind().all()).results,
     entityDialogueProgress: (await db.prepare("SELECT user,entity,session,node,text,path,completed FROM entity_dialogue_progress ORDER BY user,entity").bind().all()).results,
     entityDialogueOutputs: (await db.prepare("SELECT user,entity,node FROM entity_dialogue_outputs ORDER BY user,entity,node").bind().all()).results,
+    entityEmojiDiscoveries: (await db.prepare("SELECT user,entity,emoji,discovered_at FROM entity_emoji_discoveries ORDER BY user,entity,emoji").bind().all()).results,
     cutscenes: (await db.prepare("SELECT user,challenge,phase FROM challenge_cutscenes ORDER BY user,challenge,phase").bind().all()).results,
     purchasedHints: hints.results.map(({reward_cost,...r}) => ({...r,rewardCost:JSON.parse(reward_cost)})),
     writtenResponses: responses.results.map(({rewards_payload,...r}) => ({...r,rewards:JSON.parse(rewards_payload)})),
@@ -527,7 +531,7 @@ export async function exportFullBackup(state, assets = {}) {
   );
   const size = Object.values(entries).reduce((s, b) => s + b.length, 0);
   if (size > FULL_BACKUP_LIMIT)
-    throw Error("The backup exceeds the 64 MB packaging limit.");
+    throw Error(`The backup exceeds the ${FULL_BACKUP_LIMIT / 1024 / 1024} MB packaging limit.`);
   const archive = zipSync(entries, { level: 6 });
   return new Response(archive, {
     headers: {

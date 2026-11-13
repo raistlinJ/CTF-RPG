@@ -1,0 +1,3 @@
+item=walnut flag=FLAG{WALNUT} verified=no
+item=acorn flag=FLAG{NUTCRACKER} verified=yes
+item=chestnut flag=FLAG{CHESTNUT} verified=no

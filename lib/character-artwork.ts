@@ -1,5 +1,7 @@
 import { visibleSprite } from "./visible-sprite";
 
+export const MAP_AVATAR_SIZE = 42;
+
 export type CharacterArtwork = {
   sprite: string | null;
   fallback: "web" | "thunder" | "shield";
@@ -20,9 +22,9 @@ export function drawCharacter(
   image: HTMLImageElement | null,
   size: number,
 ) {
-  if (character.sprite && !image) {
+  if ((character.sprite || character.administrator) && !image) {
     // A configured image is still loading or failed. Do not substitute a legacy
-    // character (including the administrator wizard) for this theme's artwork.
+    // character (including a previous administrator appearance) for this theme's artwork.
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(size / 32, size / 32);
@@ -32,29 +34,12 @@ export function drawCharacter(
     ctx.fill();
     ctx.fillRect(-9, 1, 18, 13);
     ctx.restore();
-  } else if (character.administrator && !image) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(size / 32, size / 32);
-    const r = (c: string, a: number, b: number, w: number, h: number) => {
-      ctx.fillStyle = c;
-      ctx.fillRect(a, b, w, h);
-    };
-    r("#1d203f", -9, 12, 18, 3);
-    r("#ede5ff", -6, -15, 12, 4);
-    r("#eac6a2", -5, -11, 10, 8);
-    r("#413568", -5, -7, 10, 2);
-    r("#805dcc", -8, -2, 16, 14);
-    r("#eee5ff", -2, -2, 4, 14);
-    r("#e9c970", -8, 9, 16, 3);
-    r("#34334e", -6, 12, 5, 3);
-    r("#34334e", 1, 12, 5, 3);
-    r("#e9c970", 10, -10, 2, 24);
-    r("#8ae6ff", 8, -15, 6, 6);
-    r("#d5e8ff", -12, 0, 5, 7);
-    r("#4b587c", -11, 1, 3, 5);
-    ctx.restore();
   } else if (image) {
+    ctx.save();
+    if (character.administrator) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+    }
     const bounds = visibleSprite(image);
     const ratio = bounds.w / bounds.h;
     const h = size,
@@ -70,6 +55,7 @@ export function drawCharacter(
       w,
       h,
     );
+    ctx.restore();
   } else sprite(ctx, x, y, character.fallback, size / 32);
 }
 function sprite(

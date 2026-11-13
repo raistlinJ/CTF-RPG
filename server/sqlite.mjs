@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS notification_reads(notification TEXT NOT NULL REFEREN
 CREATE TABLE IF NOT EXISTS ctfd_imports(id TEXT PRIMARY KEY,digest TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL,report TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user TEXT NOT NULL REFERENCES students(id),expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS entity_activations(user TEXT NOT NULL REFERENCES students(id),entity TEXT NOT NULL,PRIMARY KEY(user,entity));
+CREATE TABLE IF NOT EXISTS entity_emoji_discoveries(user TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,entity TEXT NOT NULL,emoji TEXT NOT NULL,discovered_at INTEGER NOT NULL,PRIMARY KEY(user,entity,emoji));
 CREATE TABLE IF NOT EXISTS entity_dialogue_progress(user TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,entity TEXT NOT NULL,session TEXT NOT NULL,node TEXT NOT NULL,text TEXT NOT NULL,path TEXT NOT NULL,completed INTEGER NOT NULL CHECK(completed IN (0,1)),PRIMARY KEY(user,entity));
 CREATE TABLE IF NOT EXISTS entity_dialogue_outputs(user TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,entity TEXT NOT NULL,node TEXT NOT NULL,PRIMARY KEY(user,entity,node));
 CREATE TABLE IF NOT EXISTS discovered_challenges(user TEXT NOT NULL REFERENCES students(id),challenge TEXT NOT NULL,PRIMARY KEY(user,challenge));

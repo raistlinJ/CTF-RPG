@@ -312,3 +312,10 @@ export const entityActivations = sqliteTable("entity_activations", {
   user: text("user").notNull().references(() => students.id),
   entity: text("entity").notNull(),
 }, (t) => [primaryKey({ columns: [t.user, t.entity] })]);
+
+export const entityEmojiDiscoveries = sqliteTable("entity_emoji_discoveries", {
+  user: text("user").notNull().references(() => students.id, { onDelete: "cascade" }),
+  entity: text("entity").notNull(),
+  emoji: text("emoji").notNull(),
+  discoveredAt: integer("discovered_at").notNull(),
+}, (t) => [primaryKey({ columns: [t.user, t.entity, t.emoji] })]);

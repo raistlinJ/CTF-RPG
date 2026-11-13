@@ -12,7 +12,7 @@ export function PlayerEmotePicker({ onSelect, description = "Show an emoji above
 }) {
   return (
     <div className="player-emote-picker" role="group" aria-label="Choose an emoji reaction">
-      <p>{description}</p>
+      {description && <p>{description}</p>}
       <div>
         {PLAYER_EMOTES.map(({ emoji, label }) => (
           <button key={emoji} type="button" aria-label={label} title={label} disabled={disabled} aria-pressed={selected ? selected === emoji : undefined} onClick={() => onSelect(emoji)}>

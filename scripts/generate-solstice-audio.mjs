@@ -50,6 +50,7 @@ const motifs = {
   expeditionComplete: [60, 67, 72, 76, 84], submitted: [64, 69],
   incorrect: [66, 60], interaction: [72, 67], hintUnlocked: [67, 71, 74],
   lockedRoute: [60, 57], routeUnlocked: [60, 67, 76], searchEmpty: [60, 59],
+  npcEmojiUnlocked: [76, 79, 84, 91, 96], highFive: [79, 88], doubleWow: [67, 76, 84, 88, 91, 100],
 };
 const rate = 22050;
 function cue(notes) {

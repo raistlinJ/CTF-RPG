@@ -507,6 +507,21 @@
         "name": "Map entry",
         "src": "/themes/halloween/audio/sounds/mapEntry.wav",
         "source": "theme"
+      },
+      {
+        "name": "NPC emoji secret unlocked",
+        "src": "/themes/halloween/audio/sounds/npcEmojiUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "High-five",
+        "src": "/themes/halloween/audio/sounds/highFive.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Double wow",
+        "src": "/themes/halloween/audio/sounds/doubleWow.wav",
+        "source": "theme"
       }
     ],
     "maps": {
@@ -534,7 +549,10 @@
       "hintUnlocked": "/themes/halloween/audio/sounds/hintUnlocked.wav",
       "lockedRoute": "/themes/halloween/audio/sounds/lockedRoute.wav",
       "routeUnlocked": "/themes/halloween/audio/sounds/routeUnlocked.wav",
-      "searchEmpty": "/themes/halloween/audio/sounds/searchEmpty.wav"
+      "searchEmpty": "/themes/halloween/audio/sounds/searchEmpty.wav",
+      "npcEmojiUnlocked": "/themes/halloween/audio/sounds/npcEmojiUnlocked.wav",
+      "highFive": "/themes/halloween/audio/sounds/highFive.wav",
+      "doubleWow": "/themes/halloween/audio/sounds/doubleWow.wav"
     }
   },
   "bosses": [

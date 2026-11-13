@@ -4,7 +4,7 @@ import {stat as fileStat, readFile, writeFile, rename, rm} from "node:fs/promise
 import {assetKeyPattern, assetTypes} from "./packs.mjs";
 import {pageRoute} from '../lib/page-routes.mjs';
 import {createAuthRateLimiter} from './auth-rate-limit.mjs';
-import { THEME_UPLOAD_LIMIT, PACK_IMPORT_REQUEST_LIMIT, CTFD_IMPORT_REQUEST_LIMIT, CHALLENGE_FILE_LIMIT } from "../lib/pack-limits.mjs";
+import { THEME_UPLOAD_LIMIT, PACK_IMPORT_REQUEST_LIMIT, CTFD_IMPORT_REQUEST_LIMIT, CHALLENGE_FILE_LIMIT, PUBLIC_BACKUP_ASSET_LIMIT } from "../lib/pack-limits.mjs";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
@@ -63,7 +63,7 @@ function publicAssets() {
       if (info.isDirectory()) walk(full, prefix + name + "/");
       else {
         size += info.size;
-        if (size > 24 * 1024 * 1024)
+        if (size > PUBLIC_BACKUP_ASSET_LIMIT)
           throw Error("Local assets exceed the backup limit.");
         files[prefix + name] = new Uint8Array(readFileSync(full));
       }

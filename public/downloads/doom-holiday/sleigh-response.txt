@@ -1,0 +1,6 @@
+HTTP/1.1 200 OK
+Content-Type: text/plain
+X-Holiday-Route: FLAG{NORTHBOUND}
+X-Sleigh-ID: RUDOLPH-25
+
+Doom’s dashboard suggests FLAG{WRONG_WAY}. Trust the specified header, not this decoy.

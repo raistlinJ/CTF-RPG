@@ -2,6 +2,8 @@ import { playerCompletions, sharedCompletionsSQL, unsolvedForTeamSQL, completion
 import { invalidateSharedCache } from './shared-cache.mjs';
 import { bulkChallengeVisibility } from "./challenge-bulk.mjs";
 import { playerMilestones } from "./progression.mjs";
+import { solveCelebrationProgress } from "../lib/solve-celebrations.mjs";
+import { handleEntityEmoji } from "./entity-emojis.mjs";
 import { entityOutputReference, entityReference, entityUnlocked, validateProgressionDependencies } from "../lib/challenge-dependencies.mjs";
 import { handleChallengeDependencies } from "./challenge-dependencies.mjs";
 import { bulkUserAction } from "./user-actions.mjs";
@@ -178,11 +180,14 @@ function createRequestApi({
         .all()
     ).results;
     const cutscenes = (await db.prepare("SELECT challenge,phase FROM challenge_cutscenes WHERE user=?").bind(userId).all()).results;
+    const membership = await db.prepare("SELECT team FROM team_members WHERE user=?").bind(userId).first();
+    const expeditionComplete = expedition.length > 0 && expedition.every(c => solvedIds.has(c.id));
     return {
       ...items,
       entities: (theme.world.entities || []).filter(e => admin || entityUnlocked(e, milestones) && maps.has(e.map)).map(publicEntity),
       activatedEntities: [...milestones].filter(id => id.startsWith("npe:") && !id.includes(":", 4)).map(id => id.slice(4)),
-      expeditionComplete: expedition.length > 0 && expedition.every(c => solvedIds.has(c.id)),
+      expeditionComplete,
+      celebrationProgress: solveCelebrationProgress(current.challenges, theme.world.entities, [...solvedIds], `${userId}:${membership?.team || "individual"}`, expeditionComplete, challenges.map(c => c.id)),
       challenges: challenges.map((c) => {
         const bought = purchases.filter((p) => p.challenge === c.id);
         const hintCost = bought.reduce((sum, p) => sum + p.cost, 0);
@@ -1039,6 +1044,7 @@ function createRequestApi({
       if (method === "POST") {
         const body = await req.json();
         const { id, answer, action, hintId, revision, phase, replay, phrase } = body;
+        if (action === "entity-emoji") return handleEntityEmoji(body, {db,user:u,admin,theme,themeRevision,catalog,gameState});
         if (action === "entity-dialogue") {
           if (body.themeRevision !== themeRevision) return json({ error: "The characters changed. Close this conversation and refresh the game." }, 409);
           const entity = (theme.world.entities || []).find(e => e.id === id);
@@ -1047,7 +1053,7 @@ function createRequestApi({
           if (!admin && !accessibleMaps(theme, items.unlockedTransports, u.spawn.map).has(entity.map))
             return json({ error: "Unlock a route to this map before speaking with its characters." }, 403);
           if (!entityInInteractionRange(entity, body.map, body.x, body.y) || !createWorld(theme.world).reachable(body.map, body.x, body.y))
-            return json({ error: "Move within one tile of this character and Search nearby to speak." }, 400);
+            return json({ error: entity.invisible ? "Stand on this hidden character's exact tile and Search to interact." : "Move within one tile of this character and Search nearby to speak." }, 400);
           const choices = body.choices ?? [];
           if (!Array.isArray(choices) || choices.length > 100 || choices.some(c => typeof c !== "string" || c.length > 80))
             return json({ error: "Restart this conversation to continue." }, 400);

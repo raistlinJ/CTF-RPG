@@ -168,3 +168,17 @@ test("an NPC blocks passage through a painted corridor and placement cannot cove
   assert.equal(entityLocationAvailable(engine,[],world.entities,map.id,10,20,"gatekeeper"),false);
   assert.equal(entityLocationAvailable(engine,[],[],map.id,9,19,undefined,{size:2}),false,"a non-anchor spawn overlap is forbidden");
 });
+
+test("invisible NPCs allow passage without overriding the underlying terrain", async () => {
+  const { defaultWorld, createWorld } = await import("../lib/world-data.mjs");
+  const world=structuredClone(defaultWorld),map=world.maps.find(m=>m.id===world.startMap);
+  map.spawn={x:10,y:20};map.ground=[[10,20],[11,20],[12,20],[13,20]];
+  const hidden={id:"hidden-item",map:map.id,location:{x:11,y:20},size:2,invisible:true};
+  world.entities=[hidden];
+  const engine=createWorld(world);
+  assert.equal(engine.blocked(map.id,11,20),false);
+  assert.equal(engine.reachable(map.id,13,20),true);
+  assert.deepEqual(engine.step({map:map.id,pos:{x:10,y:20}},1,0).pos,{x:11,y:20});
+  assert.equal(engine.blocked(map.id,11,21),true,"unpainted terrain stays blocked");
+  assert.equal(createWorld({...world,entities:[{...hidden,invisible:false}]}).reachable(map.id,13,20),false);
+});

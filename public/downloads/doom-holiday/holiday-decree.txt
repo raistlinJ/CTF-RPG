@@ -1,0 +1,6 @@
+DOOM’S IMPERIAL HOLIDAY DECREE
+Record 03: FRIENDS
+Record 01: DOOM
+Record 02: NEEDS
+
+Put the words in record-number order. Separate them with underscores inside FLAG{...}.

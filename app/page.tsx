@@ -3,6 +3,7 @@ import { drawBossIcon, challengeSize, challengeDistance, challengeTiles, challen
 import { startPolling } from "@/lib/adaptive-poll.mjs";
 import { useBossSprites } from "./use-boss-sprites";
 import { useExplorerMotion } from "./use-explorer-motion";
+import { usePlayerReplay } from "./use-player-replay";
 import { useHeldMovement } from "./use-held-movement";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
@@ -13,7 +14,8 @@ import ChallengeCutscene, { type Cutscene } from "./challenge-cutscene";
 import { EntityConversation, EntityMarker } from "./entity-dialogue";
 import SolvedAnswer from "./solved-answer";
 import ChallengeMarkdown from "./challenge-markdown";
-import { drawCharacter, matchingSprite, type SpriteImage } from "@/lib/character-artwork";
+import { drawCharacter, matchingSprite, MAP_AVATAR_SIZE, type SpriteImage } from "@/lib/character-artwork";
+import { administratorAppearance } from "@/lib/administrator-appearance.mjs";
 import type { EntitySummary } from "@/lib/non-player-entities";
 import { entityInInteractionRange } from "@/lib/non-player-entities.mjs";
 import { clientUuid } from "@/lib/client-uuid.mjs";
@@ -24,6 +26,10 @@ import { usePlayerPresence, type NearbyPlayer, type SolveShine } from "./use-pla
 import { PlayerEmotePicker, PlayerEmoteBubble } from "./player-emotes";
 import TeamEmojiPicker from "./team-emoji-picker";
 import { TeamEmojiLinks, TeamEmojiNotices, type TeamEmojiEvent, type SentTeamEmoji } from "./team-emoji-effects";
+import EmojiComboEffects, { type EmojiComboEffect } from "./emoji-combo-effects";
+import SolveCelebrationEffects, { MapSolveCelebration } from "./solve-celebration-effects";
+import EntityEmojiEffects, { type ActiveEntityReaction } from "./entity-emoji-effects";
+import { useSolveCelebrations, type CelebrationProgress, type SolveCelebration } from "./use-solve-celebrations";
 import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ScoresPanel from "./scoreboard/scores-panel";
@@ -150,6 +156,7 @@ type GameState = {
   inventory: Inventory;
   unlockedTransports: string[];
   expeditionComplete: boolean;
+  celebrationProgress?: CelebrationProgress;
 };
 type GameResponse = GameState & {
   error?: string;
@@ -176,17 +183,125 @@ function useSprite(path: string | null) {
   }, [path]);
   return matchingSprite(path, artwork);
 }
-const adminAvatar: Character = {
-  id: "quest-admin",
-  name: "Administrator",
-  subtitle: "Game master",
-  sprite: null,
-  fallback: "shield",
-  administrator: true,
-};
-function administratorAppearance(sprite: string | null = null): Character {
-  return sprite ? { ...adminAvatar, sprite } : adminAvatar;
+// Keep animation frames confined to player markers and their attached effects.
+function PlayerMapLayer({ map, players: reportedPlayers, challenges, pos, selfPlayer, selfMarkers, characters, adminSprite, messageCount, onOpenMessages, onPlayerSelect, teamEmojis, emojiCombos }: {
+  map: string;
+  players: NearbyPlayer[];
+  challenges: Challenge[];
+  pos: { x: number; y: number };
+  selfPlayer: NearbyPlayer;
+  selfMarkers: { teammate: boolean; crowned: boolean };
+  characters: Character[];
+  adminSprite: string | null;
+  messageCount: number;
+  onOpenMessages?: () => void;
+  onPlayerSelect?: (x: number, y: number) => void;
+  teamEmojis: TeamEmojiEvent[];
+  emojiCombos: EmojiComboEffect[];
+}) {
+  const players = usePlayerReplay(map, reportedPlayers, challenges);
+  return <>
+    <div className="nearby-player-layer" aria-label="Players on this map">
+      {messageCount > 0 && onOpenMessages && (
+        <button
+          type="button"
+          className="avatar-message-badge"
+          aria-label={`Open messages: ${messageCount} unread`}
+          aria-haspopup="dialog"
+          title="Open your inbox. Use Messages in the header to reopen it anytime."
+          onClick={onOpenMessages}
+          style={{
+            left: "var(--explorer-x)",
+            top: "var(--explorer-y)",
+          }}
+        >
+          <MessageCircle size={14} aria-hidden="true" /> {messageCount} · Open
+        </button>
+      )}
+      {players.some((p) => p.x === pos.x && p.y === pos.y) &&
+        (selfMarkers.teammate || selfMarkers.crowned) && (
+          <div
+            className="self-player-markers"
+            style={{
+              left: "var(--explorer-x)",
+              top: "var(--explorer-y)",
+            }}
+            aria-label="Your explorer markers"
+          >
+            {selfMarkers.teammate && (
+              <i className="team-halo" aria-hidden="true" />
+            )}
+            {selfMarkers.crowned && (
+              <Crown className="team-crown" aria-hidden="true" />
+            )}
+          </div>
+        )}
+
+      {Array.from(
+        new Map(
+          [...players, selfPlayer].map((p) => [
+            `${p.x},${p.y}`,
+            { x: p.x, y: p.y },
+          ]),
+        ).values(),
+      ).map((tile) => {
+        const occupants = [...players, selfPlayer].filter(
+          (p) => p.x === tile.x && p.y === tile.y,
+        );
+        const p =
+          occupants.find((p) => p.username !== selfPlayer.username) ||
+          selfPlayer;
+        const own = p.username === selfPlayer.username;
+        const character =
+          p.role === "admin"
+            ? administratorAppearance(adminSprite)
+            : characters.find((c) => c.id === p.hero);
+        return (
+          <button
+            type="button"
+            key={p.username}
+            className={
+              "nearby-player " +
+              (p.teammate ? "teammate " : "") +
+              (p.crowned ? "crowned" : "")
+            }
+            style={{
+              left: own ? "var(--explorer-x)" : `${((tile.x + 0.5) / 40) * 100}%`,
+              top: own ? "var(--explorer-y)" : `${((tile.y + 0.5) / 28) * 100}%`,
+            }}
+            aria-label={`${own ? "Show emoji reactions and view player" : "View players"}: ${occupants.map((p) => p.username).join(", ")}`}
+            aria-haspopup="dialog"
+            onClick={() => {
+              const reported = own ? selfPlayer : reportedPlayers.find(player => player.username === p.username);
+              if (reported) onPlayerSelect?.(reported.x, reported.y);
+            }}
+          >
+            {p.teammate && <i className="team-halo" aria-hidden="true" />}
+            {!own && character && <Portrait hero={character} />}
+            {p.crowned && (
+              <Crown className="team-crown" aria-hidden="true" />
+            )}
+            {!own && <span>{p.username}</span>}
+            {occupants.length > 1 && (
+              <b className="player-count">{occupants.length}</b>
+            )}
+          </button>
+        );
+      })}
+    </div>
+    {[...players, selfPlayer].filter(player => player.emote).map(player => (
+      <PlayerEmoteBubble key={`${player.username}:${player.emote!.expiresAt}`} username={player.username} emote={player.emote!}
+        style={{
+          left: player.username === selfPlayer.username ? "var(--explorer-x)" : `${((player.x + 0.5) / 40) * 100}%`,
+          top: player.username === selfPlayer.username ? "var(--explorer-y)" : `${((player.y + 0.5) / 28) * 100}%`,
+        }} />
+    ))}
+    <TeamEmojiLinks events={teamEmojis} players={players} self={selfPlayer} />
+    <EmojiComboEffects combos={emojiCombos} players={players} self={selfPlayer} />
+    <TeamEmojiNotices events={teamEmojis} combos={emojiCombos} />
+  </>;
 }
+
 export function World({
   hero,
   map,
@@ -210,6 +325,9 @@ export function World({
   onOpenMessages,
   solveShines = [],
   teamEmojis = [],
+  emojiCombos = [],
+  solveCelebration = null,
+  entityReaction = null,
   selfMarkers = { teammate: false, crowned: false },
   unlockedTransports = [],
 }: {
@@ -235,6 +353,9 @@ export function World({
   onOpenMessages?: () => void;
   solveShines?: SolveShine[];
   teamEmojis?: TeamEmojiEvent[];
+  emojiCombos?: EmojiComboEffect[];
+  solveCelebration?: SolveCelebration | null;
+  entityReaction?: ActiveEntityReaction | null;
   selfMarkers?: { teammate: boolean; crowned: boolean };
   unlockedTransports?: string[];
 }) {
@@ -263,7 +384,7 @@ export function World({
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, 960, 672);
-    drawCharacter(ctx, 480, 336, hero, image, 42);
+    drawCharacter(ctx, 480, 336, hero, image, MAP_AVATAR_SIZE);
     ctx.fillStyle = "#264954";
     ctx.fillRect(477, 358, 6, 3);
   }, [hero, image, onSelect]);
@@ -492,7 +613,7 @@ export function World({
               : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
           }
         />
-        {!onSelect && <div className="explorer-sprite" aria-hidden="true">
+        {!onSelect && <div className={`explorer-sprite${hero.administrator ? " is-administrator" : ""}`} aria-hidden="true">
           <canvas ref={explorerRef} width={960} height={672} />
         </div>}
         {!onSelect && <div className="solved-challenge-layer" aria-label="Solved challenges on this map">
@@ -511,104 +632,17 @@ export function World({
         {!onSelect && solveShines.length > 0 && (
           <div key={`${map}:${solveShines.at(-1)!.key}`} className="map-solve-flash" aria-hidden="true" />
         )}
-        <div className="entity-map-layer">{entities.filter(e => e.map === map).map(e => <EntityMarker key={e.id} entity={e} character={characters.find(c => c.id === e.characterId)} showName={!!onSelect || entityInInteractionRange(e, map, pos.x, pos.y)} />)}</div>
-        {!onSelect && selfPlayer && (
-          <div className="nearby-player-layer" aria-label="Players on this map">
-            {messageCount > 0 && onOpenMessages && (
-              <button
-                type="button"
-                className="avatar-message-badge"
-                aria-label={`Open messages: ${messageCount} unread`}
-                aria-haspopup="dialog"
-                title="Open your inbox. Use Messages in the header to reopen it anytime."
-                onClick={onOpenMessages}
-                style={{
-                  left: "var(--explorer-x)",
-                  top: "var(--explorer-y)",
-                }}
-              >
-                <MessageCircle size={14} aria-hidden="true" /> {messageCount} · Open
-              </button>
-            )}
-            {players.some((p) => p.x === pos.x && p.y === pos.y) &&
-              (selfMarkers.teammate || selfMarkers.crowned) && (
-                <div
-                  className="self-player-markers"
-                  style={{
-                    left: "var(--explorer-x)",
-                    top: "var(--explorer-y)",
-                  }}
-                  aria-label="Your explorer markers"
-                >
-                  {selfMarkers.teammate && (
-                    <i className="team-halo" aria-hidden="true" />
-                  )}
-                  {selfMarkers.crowned && (
-                    <Crown className="team-crown" aria-hidden="true" />
-                  )}
-                </div>
-              )}
-
-            {Array.from(
-              new Map(
-                [...players, selfPlayer].map((p) => [
-                  `${p.x},${p.y}`,
-                  { x: p.x, y: p.y },
-                ]),
-              ).values(),
-            ).map((tile) => {
-              const occupants = [...players, selfPlayer].filter(
-                (p) => p.x === tile.x && p.y === tile.y,
-              );
-              const p =
-                occupants.find((p) => p.username !== selfPlayer.username) ||
-                selfPlayer;
-              const own = p.username === selfPlayer.username;
-              const character =
-                p.role === "admin"
-                  ? administratorAppearance(adminSprite)
-                  : characters.find((c) => c.id === p.hero);
-              return (
-                <button
-                  type="button"
-                  key={own ? "self" : `${tile.x},${tile.y}`}
-                  className={
-                    "nearby-player " +
-                    (p.teammate ? "teammate " : "") +
-                    (p.crowned ? "crowned" : "")
-                  }
-                  style={{
-                    left: own ? "var(--explorer-x)" : `${((tile.x + 0.5) / 40) * 100}%`,
-                    top: own ? "var(--explorer-y)" : `${((tile.y + 0.5) / 28) * 100}%`,
-                  }}
-                  aria-label={`${own ? "Show emoji reactions and view player" : "View players"}: ${occupants.map((p) => p.username).join(", ")}`}
-                  aria-haspopup="dialog"
-                  onClick={() => onPlayerSelect?.(tile.x, tile.y)}
-                >
-                  {p.teammate && <i className="team-halo" aria-hidden="true" />}
-                  {!own && character && <Portrait hero={character} />}
-                  {p.crowned && (
-                    <Crown className="team-crown" aria-hidden="true" />
-                  )}
-                  {!own && <span>{p.username}</span>}
-                  {occupants.length > 1 && (
-                    <b className="player-count">{occupants.length}</b>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {!onSelect && selfPlayer && [...players, selfPlayer].filter(player => player.emote).map(player => (
-          <PlayerEmoteBubble key={`${player.username}:${player.emote!.expiresAt}`} username={player.username} emote={player.emote!}
-            style={{
-              left: player.username === selfPlayer.username ? "var(--explorer-x)" : `${((player.x + 0.5) / 40) * 100}%`,
-              top: player.username === selfPlayer.username ? "var(--explorer-y)" : `${((player.y + 0.5) / 28) * 100}%`,
-            }} />
-        ))}
+        <div className="entity-map-layer">{entities.filter(e => e.map === map).map(e => <EntityMarker key={e.id} entity={e} character={characters.find(c => c.id === e.characterId)} revealInvisible={!!onSelect} showName={!!onSelect || entityInInteractionRange(e, map, pos.x, pos.y)} />)}</div>
+        {!onSelect && selfPlayer && <PlayerMapLayer
+          map={map} players={players} challenges={challenges} pos={pos}
+          selfPlayer={selfPlayer} selfMarkers={selfMarkers} characters={characters}
+          adminSprite={adminSprite} messageCount={messageCount}
+          onOpenMessages={onOpenMessages} onPlayerSelect={onPlayerSelect}
+          teamEmojis={teamEmojis} emojiCombos={emojiCombos}
+        />}
         {!onSelect && <>
-          <TeamEmojiLinks events={teamEmojis} players={players} self={selfPlayer} />
-          <TeamEmojiNotices events={teamEmojis} />
+          <MapSolveCelebration celebration={solveCelebration} map={map} world={activeWorld} />
+          <EntityEmojiEffects active={entityReaction} map={map} pos={pos} />
         </>}
       </div>
       {!onSelect && <Dialog open={!!selectedSolved} onOpenChange={open => { if (!open) setSelectedSolvedId(null); }}>
@@ -659,7 +693,7 @@ export function Portrait({ hero }: { hero: Character }) {
       ref={ref}
       width={100}
       height={100}
-      className="portrait"
+      className={`portrait${hero.administrator ? " administrator-portrait" : ""}`}
       aria-label={hero.name}
     />
   );
@@ -705,6 +739,12 @@ export default function Game() {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [lockedTransport, setLockedTransport] = useState<LockedTransport | null>(null);
   const [talkingTo, setTalkingTo] = useState<EntitySummary | null>(null);
+  const [entityReaction,setEntityReaction]=useState<ActiveEntityReaction|null>(null);
+  useEffect(()=>{
+    if(!entityReaction)return;
+    const timeout=setTimeout(()=>setEntityReaction(null),Math.max(0,entityReaction.expiresAt-Date.now()));
+    return()=>clearTimeout(timeout);
+  },[entityReaction]);
   const [nearbyOptions, setNearbyOptions] = useState<{ entities: EntitySummary[]; challenges: Challenge[] } | null>(null);
   const [cutsceneQueue, setCutsceneQueue] = useState<Cutscene[]>([]);
   const cutsceneRequests = useRef(new Set<string>());
@@ -769,6 +809,7 @@ export default function Game() {
     [selectedTeam, setSelectedTeam] = useState<string | null>(null),
     [teamMessageMode, setTeamMessageMode] = useState<"text" | "emoji">("emoji"),
     [readMessagesAt, setReadMessagesAt] = useState(0);
+  const solveCelebrations = useSolveCelebrations(cutsceneOpen || !!active || inventoryOpen || !!lockedTransport || !!talkingTo || !!nearbyOptions || scoreboardOpen || !!playerTile || teamPanelOpen);
   const personalMutes = usePersonalMutes(user?.username, !!playerTile || teamPanelOpen);
   function openTeam(id: string | null, mode: "text" | "emoji" = "emoji") {
     setSelectedTeam(id);
@@ -791,6 +832,7 @@ export default function Game() {
     pos,
     config?.themeRevision,
     readMessagesAt,
+    kind => playEventSound(kind === "high-five" ? "highFive" : "doubleWow"),
   );
   const conversationInbox = useConversationInbox(user?.username, canAdmin ? "admin" : team?.id, !!user && (canAdmin || !!team));
   const hasUnreadMessages = conversationInbox.unreadCount > 0;
@@ -802,6 +844,7 @@ export default function Game() {
   }
   const [entities, setEntities] = useState<EntitySummary[]>([]);
   function applyGame(d: GameState) {
+    solveCelebrations.observe(d.celebrationProgress);
     setEntities(d.entities || []);
     setInventory(d.inventory || {keys:[],incantations:[]});
     setUnlockedTransports(d.unlockedTransports || []);
@@ -1364,6 +1407,8 @@ export default function Game() {
                   if (!r.ok) throw Error();
                   playbackSession.current += 1;
                   cutsceneRequests.current.clear();
+                  solveCelebrations.reset();
+                  setEntityReaction(null);
                   setCutsceneQueue([]);
                   setInventory({keys:[],incantations:[]});
                   setUnlockedTransports([]);
@@ -1579,6 +1624,9 @@ export default function Game() {
               onOpenMessages={openMessages}
               solveShines={presence.solveShines}
               teamEmojis={presence.teamEmojis}
+              emojiCombos={presence.emojiCombos}
+              solveCelebration={solveCelebrations.current}
+              entityReaction={entityReaction}
               selfPlayer={selfPlayer}
               onPlayerSelect={(x, y) => {
                 // Keep the selected players available until the popup is closed.
@@ -1745,7 +1793,16 @@ export default function Game() {
           </aside>
         </section>
       ) : null}
-      {talkingTo && config && <EntityConversation key={talkingTo.id} entity={talkingTo} character={config.theme.characters.find(c => c.id === talkingTo.characterId)} themeRevision={config.themeRevision} map={map} pos={pos} onGameChange={applyGame} onClose={() => setTalkingTo(null)} />}
+      {talkingTo && config && <EntityConversation key={talkingTo.id} entity={talkingTo} character={config.theme.characters.find(c => c.id === talkingTo.characterId)} themeRevision={config.themeRevision} map={map} pos={pos} onGameChange={applyGame} onClose={() => setTalkingTo(null)}
+        onReaction={reaction=>{
+          setEntityReaction({id:clientUuid(),entity:talkingTo,reaction,expiresAt:Date.now()+(reaction.matched?5000:2000)});
+          if(reaction.matched){
+            if(reaction.firstDiscovery || reaction.preview)playEventSound("npcEmojiUnlocked");
+            presence.sendEmote(reaction.emoji);
+            setNotice(`${talkingTo.name}: ${reaction.response}`);
+          }
+          setTalkingTo(null);
+        }} />}
       <Dialog open={!!nearbyOptions} onOpenChange={open => { if (!open) setNearbyOptions(null); }}>
         <DialogContent className="entity-dialogue" aria-describedby="nearby-interaction-help">
           <DialogTitle>Search nearby</DialogTitle><p id="nearby-interaction-help">Choose a character to speak with or a challenge to open.</p>
@@ -1767,154 +1824,162 @@ export default function Game() {
         }}
       >
         <DialogContent className={`challenge-modal${active?.icon === "boss" ? " boss-challenge-modal" : ""}`}>
-          <span className="eyebrow">{active?.icon === "boss" ? "BOSS CHALLENGE" : "CHALLENGE"}</span>
-          <DialogTitle>{active?.icon === "boss" && <span className="sr-only">Boss Challenge: </span>}{active?.object}</DialogTitle>
-          <div className="challenge-meta">
-            <span>{active?.region}</span>
-            <span>{presence.challengeSolves.find((c) => c.id === active?.id)?.count ?? active?.solveCount ?? 0} solves</span>
-            <span>
-              +{active?.awardedPoints ?? active?.remainingPoints} points
-            </span>
-          </div>
-          <ChallengeMarkdown className="question">{active?.text}</ChallengeMarkdown>
-          {active?.rewards && (active.rewards.keys.length > 0 || active.rewards.incantationCount > 0) && <p className="challenge-inventory-rewards">Inventory rewards: {[...active.rewards.keys.map(color => `${color} key`), ...(active.rewards.incantationCount ? [`${active.rewards.incantationCount} incantation${active.rewards.incantationCount === 1 ? "" : "s"}`] : [])].join(" · ")}</p>}
-          {active && (active.discoveryVideo || active.solveVideo) && <div className="cutscene-replays" aria-label="Replay cutscenes">
-            {active.discoveryVideo && <button type="button" className="text-button" onClick={() => void playCutscene(active, "discovery", true)}>Replay discovery cutscene</button>}
-            {solved.includes(active.id) && active.solveVideo && <button type="button" className="text-button" onClick={() => void playCutscene(active, "solve", true)}>Replay solve cutscene</button>}
-          </div>}
-          <p className="reward-details">
-            {active?.grading === "manual"
-              ? "Written response · admin review"
-              : active?.answerRules || (active?.caseSensitive
-                ? "Case-sensitive flag"
-                : "Case-insensitive flag")}
-            {active && active.hintCost > 0
-              ? ` · ${active.hintCost} points spent on hints`
-              : ""}
-          </p>
-          {!!active?.downloads.length && (
-            <section
-              className="challenge-downloads"
-              aria-label="Challenge files"
-            >
-              <h3>Challenge files</h3>
-              {active.downloads.map((file, index) => (
-                <a
-                  key={`${file.url}:${index}`}
-                  href={file.url}
-                  download={file.filename || file.name}
-                  target={file.url.startsWith("https:") ? "_blank" : undefined}
-                  rel="noopener noreferrer"
-                >
-                  <span>↓</span> {file.name}
-                </a>
-              ))}
-            </section>
-          )}
-          {active && solved.includes(active.id) ? <>
-            <SolvedAnswer key={active.id} challengeId={active.id} />
-            <button className="primary" type="button" onClick={() => setActive(null)}>Keep exploring</button>
-          </> : <form onSubmit={submit}>
-            <label>
-              Your answer
-              {active?.grading === "manual" ? (
-                <textarea
-                  aria-label="Your answer"
-                  autoFocus
-                  required
-                  rows={7}
-                  maxLength={20000}
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  disabled={active.submission?.status === "graded"}
-                  placeholder="Write your response here…"
-                />
-              ) : (
-                <input
-                  autoFocus
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  required
-                  maxLength={500}
-                  disabled={!!active && solved.includes(active.id)}
-                  placeholder="What do you think?"
-                />
-              )}
-            </label>
-              <button className="primary" disabled={busy}>
-                {busy
-                  ? "Saving…"
-                  : active?.grading === "manual"
-                    ? active.submission
-                      ? "Update response"
-                      : "Submit for review"
-                    : "Check answer"}
-              </button>
-          </form>}
-          {active?.submission && (
-            <section className="submission-status" aria-label="Response status">
-              <b>
-                {active.submission.status === "pending"
-                  ? "Awaiting admin review"
-                  : `Graded: ${active.awardedPoints} points`}
-              </b>
-              <p>
-                {active.submission.feedback ||
-                  (active.submission.status === "pending"
-                    ? "Your written answer is saved. Points will appear after grading."
-                    : "Your grade is saved.")}
-              </p>
-            </section>
-          )}
-          {!!active?.hints.length && (
-            <section className="challenge-hints" aria-label="Challenge hints">
-              <h3>
-                Hints <small>Hints unlock for your whole team. Costs reduce your team’s completion points and rewards once per hint.</small>
-              </h3>
-              {active.hintsLocked && !active.submission && !solved.includes(active.id) && <p>Hints are locked because a teammate has submitted an answer.</p>}
-              {active.hints.map((h) => (
-                <div className="challenge-hint" key={h.id}>
-                  <div className="hint-title">
-                    <b>{h.label}</b>
-                    {h.unlocked ? (
-                      <span>
-                        {hintCostLabel(h.cost, h.rewardCost)} · unlocked
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={
-                          busy ||
-                          solved.includes(active.id) ||
-                          !!active.submission ||
-                          active.hintsLocked ||
-                          !h.available
-                        }
-                        onClick={() => unlockHint(h.id)}
-                      >
-                        {hintCostLabel(h.cost, h.rewardCost) === "Free" ? "Reveal free hint" : `Unlock · ${hintCostLabel(h.cost, h.rewardCost)}`}
-                      </button>
-                    )}
+          <div key={active?.id} className="challenge-modal-scroll" role="region" aria-label="Challenge details" tabIndex={0}>
+            <span className="eyebrow">{active?.icon === "boss" ? "BOSS CHALLENGE" : "CHALLENGE"}</span>
+            <DialogTitle>{active?.icon === "boss" && <span className="sr-only">Boss Challenge: </span>}{active?.object}</DialogTitle>
+            <div className="challenge-meta">
+              <span>{active?.region}</span>
+              <span>{presence.challengeSolves.find((c) => c.id === active?.id)?.count ?? active?.solveCount ?? 0} solves</span>
+              <span>
+                +{active?.awardedPoints ?? active?.remainingPoints} points
+              </span>
+            </div>
+            <ChallengeMarkdown className="question">{active?.text}</ChallengeMarkdown>
+            {active?.rewards && (active.rewards.keys.length > 0 || active.rewards.incantationCount > 0) && <p className="challenge-inventory-rewards">Inventory rewards: {[...active.rewards.keys.map(color => `${color} key`), ...(active.rewards.incantationCount ? [`${active.rewards.incantationCount} incantation${active.rewards.incantationCount === 1 ? "" : "s"}`] : [])].join(" · ")}</p>}
+            {active && (active.discoveryVideo || active.solveVideo) && <div className="cutscene-replays" aria-label="Replay cutscenes">
+              {active.discoveryVideo && <button type="button" className="text-button" onClick={() => void playCutscene(active, "discovery", true)}>Replay discovery cutscene</button>}
+              {solved.includes(active.id) && active.solveVideo && <button type="button" className="text-button" onClick={() => void playCutscene(active, "solve", true)}>Replay solve cutscene</button>}
+            </div>}
+            <p className="reward-details">
+              {active?.grading === "manual"
+                ? "Written response · admin review"
+                : active?.answerRules || (active?.caseSensitive
+                  ? "Case-sensitive flag"
+                  : "Case-insensitive flag")}
+              {active && active.hintCost > 0
+                ? ` · ${active.hintCost} points spent on hints`
+                : ""}
+            </p>
+            {active?.submission && (
+              <section className="submission-status" aria-label="Response status">
+                <b>
+                  {active.submission.status === "pending"
+                    ? "Awaiting admin review"
+                    : `Graded: ${active.awardedPoints} points`}
+                </b>
+                <p>
+                  {active.submission.feedback ||
+                    (active.submission.status === "pending"
+                      ? "Your written answer is saved. Points will appear after grading."
+                      : "Your grade is saved.")}
+                </p>
+              </section>
+            )}
+            {!!active?.hints.length && (
+              <section className="challenge-hints" aria-label="Challenge hints">
+                <h3>
+                  Hints <small>Hints unlock for your whole team. Costs reduce your team’s completion points and rewards once per hint.</small>
+                </h3>
+                {active.hintsLocked && !active.submission && !solved.includes(active.id) && <p>Hints are locked because a teammate has submitted an answer.</p>}
+                {active.hints.map((h) => (
+                  <div className="challenge-hint" key={h.id}>
+                    <div className="hint-title">
+                      <b>{h.label}</b>
+                      {h.unlocked ? (
+                        <span>
+                          {hintCostLabel(h.cost, h.rewardCost)} · unlocked
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={
+                            busy ||
+                            solved.includes(active.id) ||
+                            !!active.submission ||
+                            active.hintsLocked ||
+                            !h.available
+                          }
+                          onClick={() => unlockHint(h.id)}
+                        >
+                          {hintCostLabel(h.cost, h.rewardCost) === "Free" ? "Reveal free hint" : `Unlock · ${hintCostLabel(h.cost, h.rewardCost)}`}
+                        </button>
+                      )}
+                    </div>
+                    {!h.unlocked && !h.available && !solved.includes(active.id) && !active.submission && <p>A reward required by this hint has already been used for another hint.</p>}
+                    {h.unlocked && <ChallengeMarkdown>{h.text}</ChallengeMarkdown>}
                   </div>
-                  {!h.unlocked && !h.available && !solved.includes(active.id) && !active.submission && <p>A reward required by this hint has already been used for another hint.</p>}
-                  {h.unlocked && <ChallengeMarkdown>{h.text}</ChallengeMarkdown>}
+                ))}
+              </section>
+            )}
+            {hintMessage && (
+              <p className="hint-status" role="status">
+                {hintMessage}
+              </p>
+            )}
+            {active && solved.includes(active.id) && <SolvedAnswer key={active.id} challengeId={active.id} />}
+          </div>
+          <div className="challenge-modal-actions">
+            {!!active?.downloads.length && (
+              <section
+                className="challenge-downloads"
+                aria-label="Challenge files"
+              >
+                <h3>Challenge files</h3>
+                <div className="challenge-download-links">
+                  {active.downloads.map((file, index) => (
+                    <a
+                      key={`${file.url}:${index}`}
+                      href={file.url}
+                      download={file.filename || file.name}
+                      title={file.name}
+                      target={file.url.startsWith("https:") ? "_blank" : undefined}
+                      rel="noopener noreferrer"
+                    >
+                      <span>↓</span> {file.name}
+                    </a>
+                  ))}
                 </div>
-              ))}
-            </section>
-          )}
-          {hintMessage && (
-            <p className="hint-status" role="status">
-              {hintMessage}
-            </p>
-          )}
-          {feedback && (
-            <p role="status" className={feedbackSuccess ? "success" : "error"}>
-              {feedback}
-            </p>
-          )}
+              </section>
+            )}
+            {active && solved.includes(active.id) ? (
+              <button className="primary" type="button" onClick={() => setActive(null)}>Keep exploring</button>
+            ) : <form onSubmit={submit}>
+              <label>
+                Your answer
+                {active?.grading === "manual" ? (
+                  <textarea
+                    aria-label="Your answer"
+                    autoFocus
+                    required
+                    rows={7}
+                    maxLength={20000}
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    disabled={active.submission?.status === "graded"}
+                    placeholder="Write your response here…"
+                  />
+                ) : (
+                  <input
+                    autoFocus
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    required
+                    maxLength={500}
+                    disabled={!!active && solved.includes(active.id)}
+                    placeholder="What do you think?"
+                  />
+                )}
+              </label>
+                <button className="primary" disabled={busy}>
+                  {busy
+                    ? "Saving…"
+                    : active?.grading === "manual"
+                      ? active.submission
+                        ? "Update response"
+                        : "Submit for review"
+                      : "Check answer"}
+                </button>
+            </form>}
+            {feedback && (
+              <p role="status" className={feedbackSuccess ? "success" : "error"}>
+                {feedback}
+              </p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
       {cutscene && <ChallengeCutscene key={cutscene.playbackId} scene={cutscene} onDone={() => setCutsceneQueue(queue => queue.slice(1))} />}
+      <SolveCelebrationEffects celebration={solveCelebrations.current} onDismiss={solveCelebrations.dismiss} />
       <PlayerInventory open={inventoryOpen && !cutscene} onOpenChange={setInventoryOpen} items={inventory} />
       {lockedTransport && !cutscene && <TransportUnlock key={lockedTransport.id} target={lockedTransport} items={inventory} onClose={() => setLockedTransport(null)} onUnlock={unlockRoute} />}
     </main>

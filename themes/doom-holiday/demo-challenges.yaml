@@ -1,0 +1,498 @@
+# Public practice adventure. Replace flags and IDs before a graded holiday event.
+challenges:
+  - id: dh-holiday-v1-signal
+    map: town
+    location:
+      x: 18
+      y: 20
+    object: 01 · The Winter Signal
+    region: Doomstadt Winter Square
+    text: >-
+      Winter Guard Captain asks you to recover the opening signal. Decode this
+      hexadecimal ASCII message, then submit the result exactly.
+
+
+      `46 4c 41 47 7b 48 4f 4c 49 44 41 59 7d`
+
+
+      This is a local practice puzzle; no network target is involved.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{HOLIDAY}
+    caseSensitive: true
+    points: 100
+    hints:
+      - id: signal-hex
+        label: Hex to text
+        text: Each two-digit hexadecimal number represents one ASCII character. For
+          example, 46 is F and 4c is L.
+        cost: 0
+    downloads: []
+    dependsOn:
+      - npe:dh-captain:briefing
+    rewards:
+      keys: []
+      incantations: []
+  - id: dh-holiday-v1-manifest
+    map: town
+    location:
+      x: 11
+      y: 18
+    object: 02 · The Misrouted Parcel
+    region: Doomstadt Winter Square
+    text: Download the gift manifest. Find the parcel whose destination is LATVERIA
+      and whose status is MISROUTED. Submit the flag in that row.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{RETURN_TO_SENDER}
+    caseSensitive: true
+    points: 100
+    hints:
+      - id: manifest-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads:
+      - name: Gift manifest (CSV)
+        url: /downloads/doom-holiday/gift-manifest.csv
+        filename: gift-manifest.csv
+    dependsOn:
+      - dh-holiday-v1-signal
+    rewards:
+      keys: []
+      incantations: []
+  - id: dh-holiday-v1-gift-code
+    map: toy-workshop
+    location:
+      x: 20
+      y: 12
+    object: 03 · The Gift Terminal
+    region: Doombot Gift Foundry
+    text: |-
+      Decode the Base64 string on the gift terminal:
+
+      `RkxBR3tHSUZUX0ZPUkdFfQ==`
+
+      A correct answer releases the **red key** for the Aurora Reactor Vault.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{GIFT_FORGE}
+    caseSensitive: true
+    points: 100
+    hints:
+      - id: gift-base64
+        label: Decode Base64
+        text: "Use a local Base64 decoder. On macOS or Linux: printf %s
+          RkxBR3tHSUZUX0ZPUkdFfQ== | base64 -d. The output is the complete
+          flag."
+        cost: 0
+    downloads: []
+    dependsOn:
+      - dh-holiday-v1-signal
+    rewards:
+      keys:
+        - red
+      incantations: []
+  - id: dh-holiday-v1-parcel-sentry
+    map: toy-workshop
+    location:
+      x: 18
+      y: 17
+    object: 04 · Parcel Sentry
+    region: Doombot Gift Foundry
+    text: |-
+      The Doombot prints four binary ASCII bytes:
+
+      `01000100 01001111 01001111 01001101`
+
+      Decode the word and wrap it as `FLAG{WORD}`.
+    grading: automatic
+    visibility: visible
+    icon: boss
+    iconSize: 1
+    flags:
+      - FLAG{DOOM}
+    caseSensitive: true
+    points: 150
+    hints:
+      - id: parcel-sentry-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads: []
+    dependsOn:
+      - dh-holiday-v1-gift-code
+    rewards:
+      keys: []
+      incantations: []
+    bossStyle: boss-holiday-doombot
+  - id: dh-holiday-v1-relay
+    map: post-office
+    location:
+      x: 20
+      y: 12
+    object: 05 · Sleigh Route Header
+    region: Sleigh Signal Relay
+    text: Download the captured sleigh response. The `X-Holiday-Route` header
+      contains the real route flag; the body contains a decoy. Submit the header
+      value.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{NORTHBOUND}
+    caseSensitive: true
+    points: 100
+    hints:
+      - id: relay-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads:
+      - name: Captured sleigh response
+        url: /downloads/doom-holiday/sleigh-response.txt
+        filename: sleigh-response.txt
+    dependsOn:
+      - dh-holiday-v1-manifest
+    rewards:
+      keys: []
+      incantations: []
+  - id: dh-holiday-v1-mirror
+    map: post-office
+    location:
+      x: 24
+      y: 17
+    object: 06 · The Archivist’s Mirrored Memo
+    region: Sleigh Signal Relay
+    text: Read the downloaded memo. Reverse the entire line under MIRRORED MESSAGE,
+      preserving punctuation, to recover the flag.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{SILVER_BELLS}
+    caseSensitive: true
+    points: 100
+    hints:
+      - id: mirror-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads:
+      - name: Mirrored memo
+        url: /downloads/doom-holiday/mirrored-memo.txt
+        filename: mirrored-memo.txt
+    dependsOn:
+      - dh-holiday-v1-relay
+    rewards:
+      keys: []
+      incantations: []
+  - id: dh-holiday-v1-snowglobe
+    map: cocoa-cottage
+    location:
+      x: 20
+      y: 13
+    object: 07 · Strange’s Snowglobe
+    region: Snowglobe Sanctum
+    text: >-
+      The snowglobe uses a Caesar shift of **+3**. Undo the shift on letters
+      only:
+
+
+      `IODJ{ZLQWHU_VSDUN}`
+
+
+      Braces and underscores remain unchanged.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{WINTER_SPARK}
+    caseSensitive: true
+    points: 100
+    hints:
+      - id: snowglobe-shift
+        label: Shift backwards
+        text: "Move each letter three places backwards: I becomes F, O becomes L, D
+          becomes A, and J becomes G."
+        cost: 0
+    downloads: []
+    dependsOn:
+      - dh-holiday-v1-signal
+    rewards:
+      keys: []
+      incantations: []
+  - id: dh-holiday-v1-ornament
+    map: cocoa-cottage
+    location:
+      x: 26
+      y: 17
+    object: 08 · The Ribbon Weaver’s Encoded Ornament
+    region: Snowglobe Sanctum
+    text: |-
+      The ornament inscription is URL-encoded:
+
+      `FLAG%7BCRIMSON_STAR%7D`
+
+      Decode it once to recover the complete flag.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{CRIMSON_STAR}
+    caseSensitive: true
+    points: 100
+    hints:
+      - id: ornament-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads: []
+    dependsOn:
+      - dh-holiday-v1-snowglobe
+    rewards:
+      keys: []
+      incantations: []
+  - id: dh-holiday-v1-secret-santa
+    map: cocoa-cottage
+    location:
+      x: 12
+      y: 18
+    object: 09 · The Invisible Gift
+    region: Snowglobe Sanctum
+    text: The hidden gift’s friendly wave revealed a flag. Submit the exact flag
+      printed on its tag. Ask Squirrel Girl in Doomstadt if you need to find the
+      gift again.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{SECRET_SANTA}
+    caseSensitive: true
+    points: 125
+    hints:
+      - id: secret-santa-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads: []
+    dependsOn:
+      - npe:dh-hidden-gift:cache-found
+    rewards:
+      keys: []
+      incantations: []
+  - id: dh-holiday-v1-power
+    map: elf-house
+    location:
+      x: 20
+      y: 12
+    object: 10 · Aurora Power Budget
+    region: Aurora Reactor Vault
+    text: >-
+      The reactor reads `00011001` in binary. Convert it to decimal, then submit
+      `FLAG{NUMBER_WATTS}`. For example, a reading of 3 would use FLAG{3_WATTS}.
+
+
+      This restores the **gold key** to Castle Doom.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{25_WATTS}
+    caseSensitive: true
+    points: 125
+    hints:
+      - id: power-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads: []
+    dependsOn:
+      - dh-holiday-v1-gift-code
+      - dh-holiday-v1-relay
+    rewards:
+      keys:
+        - gold
+      incantations: []
+  - id: dh-holiday-v1-sentinel
+    map: elf-house
+    location:
+      x: 18
+      y: 17
+    object: 11 · Aurora Sentinel
+    region: Aurora Reactor Vault
+    text: The sentinel’s RGB display reads `#00FF00`. Which color channel is at its
+      maximum? Submit `FLAG{COLOR}` using uppercase letters.
+    grading: automatic
+    visibility: visible
+    icon: boss
+    iconSize: 2
+    flags:
+      - FLAG{GREEN}
+    caseSensitive: true
+    points: 175
+    hints:
+      - id: sentinel-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads: []
+    dependsOn:
+      - dh-holiday-v1-power
+      - dh-holiday-v1-ornament
+    rewards:
+      keys: []
+      incantations: []
+    bossStyle: boss-aurora-sentinel
+  - id: dh-holiday-v1-doom
+    map: castle
+    location:
+      x: 19
+      y: 12
+    object: 12 · Doom’s Holiday Decree
+    region: "Castle Doom: The Holiday Throne"
+    text: Doom’s final decree is split into three numbered records. Download the
+      decree, put its records in numerical order, join the three words with
+      underscores, and submit `FLAG{YOUR_WORDS}`.
+    grading: automatic
+    visibility: visible
+    icon: boss
+    iconSize: 3
+    flags:
+      - FLAG{DOOM_NEEDS_FRIENDS}
+    caseSensitive: true
+    points: 250
+    hints:
+      - id: doom-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads:
+      - name: Doom’s final decree
+        url: /downloads/doom-holiday/holiday-decree.txt
+        filename: holiday-decree.txt
+    dependsOn:
+      - dh-holiday-v1-sentinel
+      - dh-holiday-v1-parcel-sentry
+      - dh-holiday-v1-mirror
+      - dh-holiday-v1-secret-santa
+    rewards:
+      keys:
+        - silver
+      incantations:
+        - let the holidays shine
+    bossStyle: boss-doctor-doom
+  - id: dh-holiday-v1-star
+    map: bakery
+    location:
+      x: 18
+      y: 15
+    object: 13 · Restore the Holiday Star
+    region: The Holiday Truce Hall
+    text: Santa’s dispatch is ready. Download the final delivery note and submit the
+      flag on its CONFIRMED line. The Holiday Star can shine again.
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{JOY_RESTORED}
+    caseSensitive: true
+    points: 150
+    hints:
+      - id: star-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads:
+      - name: Final delivery note
+        url: /downloads/doom-holiday/final-delivery.txt
+        filename: final-delivery.txt
+    dependsOn:
+      - dh-holiday-v1-doom
+    rewards:
+      keys: []
+      incantations: []
+  - id: dh-holiday-v1-debrief
+    map: bakery
+    location:
+      x: 25
+      y: 18
+    object: 14 · The Holiday Truce
+    region: The Holiday Truce Hall
+    text: "Write a short team debrief: describe one encoding you recognized, one
+      piece of evidence you verified, and how your team handled a wrong answer.
+      Your instructor reviews this response. Do not include passwords or other
+      real credentials."
+    grading: manual
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags: []
+    caseSensitive: false
+    points: 100
+    hints:
+      - id: debrief-nudge
+        label: Free nudge
+        text: Read the task carefully and preserve the exact FLAG{...} format.
+        cost: 0
+    downloads: []
+    dependsOn:
+      - dh-holiday-v1-star
+    rewards:
+      keys: []
+      incantations: []
+  - id: dh-holiday-v1-acorn-audit
+    map: town
+    location:
+      x: 23
+      y: 17
+    object: 15 · Squirrel Girl’s Acorn Audit
+    region: Doomstadt Winter Square
+    text: "Optional side quest: download the acorn ledger and find the only entry
+      with `verified=yes`. Submit the flag from that entry."
+    grading: automatic
+    visibility: visible
+    icon: star
+    iconSize: 1
+    flags:
+      - FLAG{NUTCRACKER}
+    caseSensitive: true
+    points: 75
+    hints:
+      - id: acorn-free
+        label: Free nudge
+        text: Only one line ends with verified=yes. Read its flag field.
+        cost: 0
+      - id: acorn-answer
+        label: Reveal answer (forfeits orange key)
+        text: The verified line contains FLAG{NUTCRACKER}.
+        cost: 10
+        rewardCost:
+          keys:
+            - orange
+          incantations: []
+    downloads:
+      - name: Acorn ledger
+        url: /downloads/doom-holiday/acorn-ledger.txt
+        filename: acorn-ledger.txt
+    dependsOn: []
+    rewards:
+      keys:
+        - orange
+      incantations: []

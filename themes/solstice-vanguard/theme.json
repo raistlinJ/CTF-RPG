@@ -437,6 +437,21 @@
         "name": "Map entry",
         "src": "/themes/solstice-vanguard/audio/sounds/mapEntry.wav",
         "source": "theme"
+      },
+      {
+        "name": "NPC emoji secret unlocked",
+        "src": "/themes/solstice-vanguard/audio/sounds/npcEmojiUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "High-five",
+        "src": "/themes/solstice-vanguard/audio/sounds/highFive.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Double wow",
+        "src": "/themes/solstice-vanguard/audio/sounds/doubleWow.wav",
+        "source": "theme"
       }
     ],
     "maps": {
@@ -464,7 +479,10 @@
       "hintUnlocked": "/themes/solstice-vanguard/audio/sounds/hintUnlocked.wav",
       "lockedRoute": "/themes/solstice-vanguard/audio/sounds/lockedRoute.wav",
       "routeUnlocked": "/themes/solstice-vanguard/audio/sounds/routeUnlocked.wav",
-      "searchEmpty": "/themes/solstice-vanguard/audio/sounds/searchEmpty.wav"
+      "searchEmpty": "/themes/solstice-vanguard/audio/sounds/searchEmpty.wav",
+      "npcEmojiUnlocked": "/themes/solstice-vanguard/audio/sounds/npcEmojiUnlocked.wav",
+      "highFive": "/themes/solstice-vanguard/audio/sounds/highFive.wav",
+      "doubleWow": "/themes/solstice-vanguard/audio/sounds/doubleWow.wav"
     }
   },
   "bosses": [

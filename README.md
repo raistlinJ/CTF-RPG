@@ -115,7 +115,7 @@ The built-in **Agentic Circuit** theme is available under **Theme → Theme libr
 
 ## Included theme packs
 
-The repository includes both [North Pole](themes/north-pole/README.md) and [Agentic Circuit](themes/agentic-circuit/README.md), with ready-to-import ZIPs in [theme-packs](theme-packs/README.md). Rebuild both with `npm run themes:build`.
+The repository includes both [North Pole](themes/north-pole/README.md) and [Agentic Circuit](themes/agentic-circuit/README.md), with ready-to-import ZIPs in [theme-packs](theme-packs/README.md). Rebuild both with `npm run themes:build`. Doom’s Winter Dominion adds a Doctor Doom × Christmas event world with 25 appearances, seventeen maps, and a separate 15-challenge practice adventure; see [the holiday theme guide](themes/doom-holiday/README.md).
 
 ## CTFd imports
 

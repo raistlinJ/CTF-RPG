@@ -1,0 +1,8 @@
+{
+  "prompt": "Use case: stylized-concept. Asset type: transparent full-body default administrator avatar for a 2D role-playing game. Create an original character called The Overseer: an elegant, authoritative and slightly ominous system custodian. Charcoal-black tailored long coat with a high sculpted collar, deep midnight-indigo inner lining, restrained brushed-silver shoulder armor and gauntlets, a small geometric key-shaped insignia at the chest. A smooth dark obsidian face mask with two narrow luminous violet eyes; no visible skin. A slender silver circlet suggests rank. One gloved hand calmly holds a small dark administration tablet with a simple glowing violet geometric mark, no letters or interface text. Other hand relaxed at side. Composed upright stance, slight three-quarter turn toward the viewer, strong compact silhouette. Neat and cool, mysterious rather than aggressive. Polished hand-painted 2D game illustration, smooth detailed shading and crisp clean contours, restrained violet highlights and silver edge lighting. NOT pixel art. Full body including boots, one centered character, generous transparent margin, readable at small map-icon size. No scenery, no background glow, no floor, no cast shadow, no text, no watermark. Genuine transparent alpha background.",
+  "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-280d2489-c7c7-40b1-a1ff-717d9d69d5eb.png",
+  "tool": "built-in image_gen",
+  "name": "The Overseer",
+  "file": "/sprites/administrator-overseer-v1.webp",
+  "notes": "Original default administrator character. Optimized WebP preserves the generated alpha; no background was composited into the project asset."
+}

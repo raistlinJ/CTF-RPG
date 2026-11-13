@@ -1,0 +1,442 @@
+{
+  "tool": "built-in image_gen",
+  "notes": "Doctor Doom, Thor, Doctor Strange, Squirrel Girl, Santa and a holiday Doombot are joined by nine original Latverian holiday characters. Several other initial character requests were rejected by the image tool. WebP copies preserve generated alpha; maps are scaled to 960×672 and sprites to 384 pixels tall.",
+  "assets": [
+    {
+      "id": "winter-courier",
+      "kind": "sprite",
+      "name": "Winter Courier",
+      "file": "sprites/winter-courier.webp",
+      "transparent": true,
+      "prompt": "An original friendly young adult Latverian winter courier with warm brown skin, short curly dark hair, a charcoal winter coat, a bright magenta scarf, red knitted cap, silver boots and a satchel of gift letters, holding a small wrapped parcel. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Not based on any existing superhero costume.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-c954ea95-1b5c-4c0d-ae9f-ad568eade93c.png"
+    },
+    {
+      "id": "thor",
+      "kind": "sprite",
+      "name": "Thor",
+      "file": "sprites/thor.webp",
+      "transparent": true,
+      "prompt": "Thor from Marvel, blond hair, silver winged helmet, dark armor with silver discs and red cape, holding Mjolnir safely down by his side; white fur winter collar and a tiny holly sprig at his shoulder. A single full-body holiday RPG character sprite, facing forward with a slight three-quarter turn. Charming polished hand-painted pixel-art-inspired 2D game illustration, crisp outlines, readable silhouette, soft upper-left light, entire figure and feet visible with generous margins. One centered character only. True transparent alpha background; no scenery, backdrop, ground plane, text, label, border or watermark. Matching the visual style of a festive Doctor Doom RPG.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-e1215f6e-d3c1-4c61-8bba-1e4ebc899955.png"
+    },
+    {
+      "id": "winter-guard-captain",
+      "kind": "sprite",
+      "name": "Winter Guard Captain",
+      "file": "sprites/winter-guard-captain.webp",
+      "transparent": true,
+      "prompt": "An original friendly older woman captain of a fantasy winter town guard, silver cropped hair, a long forest-green military winter coat with brass buttons, crimson fur hat, cream gloves, sturdy boots, holding a brass signal lantern. No shield. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Not based on any existing superhero costume.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-090a8f80-c1bf-4eac-9d49-b4192d069813.png"
+    },
+    {
+      "id": "aurora-engineer",
+      "kind": "sprite",
+      "name": "Aurora Engineer",
+      "file": "sprites/aurora-engineer.webp",
+      "transparent": true,
+      "prompt": "An original friendly young adult winter reactor engineer with brown skin and copper braids, purple work overalls beneath a cream quilted parka, brass tool belt and round goggles, holding a green glowing mechanical snowflake gauge. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Not based on any existing superhero costume.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-cc6a5a04-0fb1-46b1-9101-c16009f9dbe7.png"
+    },
+    {
+      "id": "lantern-warden",
+      "kind": "sprite",
+      "name": "Lantern Warden",
+      "file": "sprites/lantern-warden.webp",
+      "transparent": true,
+      "prompt": "An original kind elderly Black man who guards a snowy castle's lanterns, midnight-navy wool coat with gold buttons, broad cream scarf, fur-trimmed boots and a short grey beard, carrying an ornate golden lantern. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Not based on any existing superhero costume.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-e37e20f1-6c1e-4153-996a-c44c14ab7822.png"
+    },
+    {
+      "id": "ribbon-weaver",
+      "kind": "sprite",
+      "name": "Ribbon Weaver",
+      "file": "sprites/ribbon-weaver.webp",
+      "transparent": true,
+      "prompt": "An original friendly adult holiday craftswoman with a silver pixie haircut, emerald winter dress under a cranberry checked apron, soft mittens and brown boots, holding reels of curling gold and red gift ribbon. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Not based on any existing superhero costume.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-83c5297d-b260-48e4-a112-fd9aab5e1c7f.png"
+    },
+    {
+      "id": "doctor-strange",
+      "kind": "sprite",
+      "name": "Doctor Strange",
+      "file": "sprites/doctor-strange.webp",
+      "transparent": true,
+      "prompt": "A cheerful Christmas RPG character sprite of Doctor Strange, blue tunic, red high-collar cloak, small gold amulet, dark hair with grey temples and a goatee, holding a golden snowflake ornament. Full-body friendly cartoon in a polished 2D pixel-art-inspired style. Single character, true transparent alpha background with no scenery or backdrop, no text.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-5dcc46e4-3de7-487c-9ee4-626782b0cd6b.png"
+    },
+    {
+      "id": "radio-archivist",
+      "kind": "sprite",
+      "name": "Radio Archivist",
+      "file": "sprites/radio-archivist.webp",
+      "transparent": true,
+      "prompt": "An original friendly middle-aged winter radio archivist, auburn hair, round spectacles, large brass earmuff headphones, olive quilted parka and burgundy trousers, carrying a small vintage radio and a rolled dispatch. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Original character design.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-2d46db24-2f95-4283-805f-7dc919f4061a.png"
+    },
+    {
+      "id": "snowglobe-keeper",
+      "kind": "sprite",
+      "name": "Snowglobe Keeper",
+      "file": "sprites/snowglobe-keeper.webp",
+      "transparent": true,
+      "prompt": "An original friendly adult South Asian woman who tends a magical winter library, straight black bob haircut, ivory fur-trimmed coat, teal trousers and gloves, carrying a blue glass snowglobe with a tiny golden star inside. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Original character design.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-a3f7c172-ad26-4f04-9bed-9e2d059a65ac.png"
+    },
+    {
+      "id": "hearth-tender",
+      "kind": "sprite",
+      "name": "Hearth Tender",
+      "file": "sprites/hearth-tender.webp",
+      "transparent": true,
+      "prompt": "An original cheerful elderly winter hearth tender and cocoa cook with a thick brown beard, russet apron over a cream shirt with rolled sleeves, green trousers and heavy brown boots, holding a steaming copper cocoa kettle. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Original character design.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-22462506-5673-4cb5-9cb0-e0fb6dd096e1.png"
+    },
+    {
+      "id": "gift-hauler",
+      "kind": "sprite",
+      "name": "Gift Hauler",
+      "file": "sprites/gift-hauler.webp",
+      "transparent": true,
+      "prompt": "An original friendly large wooden toy automaton who carries holiday gifts, articulated carved oak limbs, round wooden head with a smiling carved face, dark blue waistcoat and red plaid scarf, holding a stack of colorful gift boxes. Clearly a wooden clockwork helper. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Original character design.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-9d7a40de-389b-44bf-8079-5a533afff5b3.png"
+    },
+    {
+      "id": "squirrel-girl",
+      "kind": "sprite",
+      "name": "Squirrel Girl",
+      "file": "sprites/squirrel-girl.webp",
+      "transparent": true,
+      "prompt": "A cheerful holiday RPG sprite of Squirrel Girl, a smiling adult heroine with auburn hair, squirrel ears and a big bushy squirrel tail, brown winter jacket, green scarf, and red boots, holding a gift-wrapped acorn. Full-body charming cartoon in a hand-painted 2D pixel-art-inspired game style. One centered character, true transparent alpha background, no scenery, no text.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-b1f578be-a339-4620-95b9-4f76024e615b.png"
+    },
+    {
+      "id": "doctor-doom",
+      "kind": "sprite",
+      "name": "Doctor Doom",
+      "file": "sprites/doctor-doom.webp",
+      "transparent": true,
+      "prompt": "A cheerful holiday RPG sprite of Doctor Doom from Marvel, holding a small wrapped Christmas gift. Full body, green hood and cape, silver mask and armor, simple standing pose. Charming hand-painted 2D pixel-art-inspired game illustration with a readable silhouette and soft festive lighting. Single character, centered, true transparent background, no text, no scenery.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-d352c633-71ec-4f5f-825f-ccf58317a2e3.png"
+    },
+    {
+      "id": "santa-claus",
+      "kind": "sprite",
+      "name": "Santa Claus",
+      "file": "sprites/santa-claus.webp",
+      "transparent": true,
+      "prompt": "A cheerful holiday RPG sprite of Santa Claus, full white beard, red fur-trimmed winter coat and Santa hat, black boots, holding a small golden star and a gift sack. Full-body charming cartoon in a hand-painted 2D pixel-art-inspired game style. One centered character, true transparent alpha background, no scenery, no text.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-c49ff8f7-8631-44a8-8612-5fe339c6c621.png"
+    },
+    {
+      "id": "doombot",
+      "kind": "sprite",
+      "name": "Holiday Doombot",
+      "file": "sprites/doombot.webp",
+      "transparent": true,
+      "prompt": "A cheerful holiday RPG sprite of a Doombot, a friendly silver armored robot with Doctor Doom's green hood and short green cape, red-and-white winter scarf and a small bell, carrying a wrapped Christmas present. Full-body charming cartoon in a hand-painted 2D pixel-art-inspired game style. One centered character, true transparent alpha background, no scenery, no text.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-289fc212-a3cc-4bb2-a8e4-0533315db6e9.png"
+    },
+    {
+      "id": "doomstadt-square",
+      "kind": "map",
+      "name": "Doomstadt Winter Square",
+      "file": "maps/doomstadt-square.webp",
+      "transparent": false,
+      "prompt": "A snow-covered medieval Latverian castle courtyard under a clear icy winter night, with subtle frost-covered dark stone paving filling the vast open center. The very top border has a distant green-lit gothic Castle Doom facade and tiny red-and-gold holiday garlands. Snowy spruce branches, silver armor reliefs, warm lanterns and wrapped presents frame only the outer edge. Thin snow on the empty paving, emerald uplight and warm golden holiday lights. Landscape 10:7 aspect-ratio production game background for a top-down 2D holiday RPG, designed to scale to a 960 by 672 pixel map with 40 by 28 tiles. Strict straight-down orthographic camera, no isometric perspective, no horizon. Polished crisp hand-painted pixel-art-inspired background, cohesive emerald green, brushed silver, garnet red, antique gold and icy blue palette. CRITICAL LAYOUT: the entire central rectangular area from 5% to 95% of image width and from 8% to 92% of image height is a broad empty continuous WALKABLE floor with subtle small repeating tile texture only. Put ALL furniture, structures, objects and festive decorations exclusively in the outer 5% left/right strips and outer 8% top/bottom strips. Do not place any objects, raised platforms, trees, rugs, statues or obstacles in the central walkable rectangle. The center must remain visually quiet for game characters and challenge markers overlaid by code. Detailed decorative perimeter, clear readable movement space, festive atmosphere. No people, creatures, characters, text, UI, labels, logos, or watermark.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-4a47a995-8ca3-421a-b2fc-794e71f21174.png"
+    },
+    {
+      "id": "castle-doom",
+      "kind": "map",
+      "name": "Castle Doom: The Holiday Throne",
+      "file": "maps/castle-doom.webp",
+      "transparent": false,
+      "prompt": "The grand interior audience hall of Castle Doom transformed for Christmas. The central floor is uninterrupted dark green and silver square marble tiles, subtle reflections. Exclusively along the very top outer border: a grand iron throne and emerald gothic arches hung with holly. Exclusively at the extreme side edges: dark stone columns, green banners, golden candelabras and red ribbon. Snow visible through tiny top-border windows. Rich regal sinister-but-festive atmosphere. Landscape 10:7 aspect-ratio production game background for a top-down 2D holiday RPG, designed to scale to a 960 by 672 pixel map with 40 by 28 tiles. Strict straight-down orthographic camera, no isometric perspective, no horizon. Polished crisp hand-painted pixel-art-inspired background, cohesive emerald green, brushed silver, garnet red, antique gold and icy blue palette. CRITICAL LAYOUT: the entire central rectangular area from 5% to 95% of image width and from 8% to 92% of image height is a broad empty continuous WALKABLE floor with subtle small repeating tile texture only. Put ALL furniture, structures, objects and festive decorations exclusively in the outer 5% left/right strips and outer 8% top/bottom strips. Do not place any objects, raised platforms, trees, rugs, statues or obstacles in the central walkable rectangle. The center must remain visually quiet for game characters and challenge markers overlaid by code. Detailed decorative perimeter, clear readable movement space, festive atmosphere. No people, creatures, characters, text, UI, labels, logos, or watermark.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-3b117464-dad4-44dc-8b5f-1b8fcaa230ca.png"
+    },
+    {
+      "id": "gift-foundry",
+      "kind": "map",
+      "name": "Doombot Gift Foundry",
+      "file": "maps/gift-foundry.webp",
+      "transparent": false,
+      "prompt": "A festive high-tech Latverian robot workshop. The center is completely empty dark slate metal plate flooring with faint mint grid seams. Only the narrow perimeter strips contain conveyor machinery, tiny wrapped parcels, brass gears, green computer lights, hanging red stockings and Christmas garlands. Emerald and amber industrial lighting, playful toy-factory energy. Landscape 10:7 aspect-ratio production game background for a top-down 2D holiday RPG, designed to scale to a 960 by 672 pixel map with 40 by 28 tiles. Strict straight-down orthographic camera, no isometric perspective, no horizon. Polished crisp hand-painted pixel-art-inspired background, cohesive emerald green, brushed silver, garnet red, antique gold and icy blue palette. CRITICAL LAYOUT: the entire central rectangular area from 5% to 95% of image width and from 8% to 92% of image height is a broad empty continuous WALKABLE floor with subtle small repeating tile texture only. Put ALL furniture, structures, objects and festive decorations exclusively in the outer 5% left/right strips and outer 8% top/bottom strips. Do not place any objects, raised platforms, trees, rugs, statues or obstacles in the central walkable rectangle. The center must remain visually quiet for game characters and challenge markers overlaid by code. Detailed decorative perimeter, clear readable movement space, festive atmosphere. No people, creatures, characters, text, UI, labels, logos, or watermark.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-347d197e-9efd-4d58-a539-e1c9ae19291a.png"
+    },
+    {
+      "id": "snowglobe-sanctum",
+      "kind": "map",
+      "name": "Snowglobe Sanctum",
+      "file": "maps/snowglobe-sanctum.webp",
+      "transparent": false,
+      "prompt": "A holiday magical library and winter observatory. The central floor is empty midnight blue square stone tiles with very faint scattered frost sparkles, no circles or props. The top and side perimeter strips have curved magical bookshelves, hanging little golden stars, glass snowglobes, icy windows and deep red festive ribbons. Teal and violet magical illumination with warm gold candlelight. Landscape 10:7 aspect-ratio production game background for a top-down 2D holiday RPG, designed to scale to a 960 by 672 pixel map with 40 by 28 tiles. Strict straight-down orthographic camera, no isometric perspective, no horizon. Polished crisp hand-painted pixel-art-inspired background, cohesive emerald green, brushed silver, garnet red, antique gold and icy blue palette. CRITICAL LAYOUT: the entire central rectangular area from 5% to 95% of image width and from 8% to 92% of image height is a broad empty continuous WALKABLE floor with subtle small repeating tile texture only. Put ALL furniture, structures, objects and festive decorations exclusively in the outer 5% left/right strips and outer 8% top/bottom strips. Do not place any objects, raised platforms, trees, rugs, statues or obstacles in the central walkable rectangle. The center must remain visually quiet for game characters and challenge markers overlaid by code. Detailed decorative perimeter, clear readable movement space, festive atmosphere. No people, creatures, characters, text, UI, labels, logos, or watermark.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-e9aa7d30-16ec-4f7d-915f-15e2a09ded00.png"
+    },
+    {
+      "id": "sleigh-relay",
+      "kind": "map",
+      "name": "Sleigh Signal Relay",
+      "file": "maps/sleigh-relay.webp",
+      "transparent": false,
+      "prompt": "A festive winter communications and postal control room. Vast empty silver-blue square tiled floor in the center. Strictly at the outer edges are green radar panels, old brass radios, gift mail slots, tiny sleigh antenna models, red ribbons and holiday string lights. Emerald screens and amber lamps, arctic expedition atmosphere. Landscape 10:7 aspect-ratio production game background for a top-down 2D holiday RPG, designed to scale to a 960 by 672 pixel map with 40 by 28 tiles. Strict straight-down orthographic camera, no isometric perspective, no horizon. Polished crisp hand-painted pixel-art-inspired background, cohesive emerald green, brushed silver, garnet red, antique gold and icy blue palette. CRITICAL LAYOUT: the entire central rectangular area from 5% to 95% of image width and from 8% to 92% of image height is a broad empty continuous WALKABLE floor with subtle small repeating tile texture only. Put ALL furniture, structures, objects and festive decorations exclusively in the outer 5% left/right strips and outer 8% top/bottom strips. Do not place any objects, raised platforms, trees, rugs, statues or obstacles in the central walkable rectangle. The center must remain visually quiet for game characters and challenge markers overlaid by code. Detailed decorative perimeter, clear readable movement space, festive atmosphere. No people, creatures, characters, text, UI, labels, logos, or watermark.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-08514f0f-b4e5-497b-b772-58ecc8f71f5a.png"
+    },
+    {
+      "id": "aurora-vault",
+      "kind": "map",
+      "name": "Aurora Reactor Vault",
+      "file": "maps/aurora-vault.webp",
+      "transparent": false,
+      "prompt": "A dramatic Latverian energy vault with Christmas science-fantasy atmosphere. Vast empty dark emerald square-metal floor in the center, faint silver tile seams. Only along the very top border is a contained green-and-gold glowing energy reactor behind thick glass; at the side outer edges are silver power conduits, frost crystals, red-and-gold ribbons, small green lights. Cyan and emerald glow, careful empty gameplay center. Landscape 10:7 aspect-ratio production game background for a top-down 2D holiday RPG, designed to scale to a 960 by 672 pixel map with 40 by 28 tiles. Strict straight-down orthographic camera, no isometric perspective, no horizon. Polished crisp hand-painted pixel-art-inspired background, cohesive emerald green, brushed silver, garnet red, antique gold and icy blue palette. CRITICAL LAYOUT: the entire central rectangular area from 5% to 95% of image width and from 8% to 92% of image height is a broad empty continuous WALKABLE floor with subtle small repeating tile texture only. Put ALL furniture, structures, objects and festive decorations exclusively in the outer 5% left/right strips and outer 8% top/bottom strips. Do not place any objects, raised platforms, trees, rugs, statues or obstacles in the central walkable rectangle. The center must remain visually quiet for game characters and challenge markers overlaid by code. Detailed decorative perimeter, clear readable movement space, festive atmosphere. No people, creatures, characters, text, UI, labels, logos, or watermark.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-868561a7-d9ce-41f6-8b8e-70079f9d6620.png"
+    },
+    {
+      "id": "truce-banquet",
+      "kind": "map",
+      "name": "The Holiday Truce Hall",
+      "file": "maps/truce-banquet.webp",
+      "transparent": false,
+      "prompt": "A cozy festive gothic great hall. The broad central rectangular floor is empty warm dark-oak square parquet with small gold nail details. Only at the outer edge strips are long banquet tables with cocoa and gingerbread, red upholstered chairs, pine garlands, piles of wrapped gifts and warm fireplaces. A tiny gold holiday star ornament over the top border arch. Warm amber light, forest green and cranberry accents, celebratory winter atmosphere. Landscape 10:7 aspect-ratio production game background for a top-down 2D holiday RPG, designed to scale to a 960 by 672 pixel map with 40 by 28 tiles. Strict straight-down orthographic camera, no isometric perspective, no horizon. Polished crisp hand-painted pixel-art-inspired background, cohesive emerald green, brushed silver, garnet red, antique gold and icy blue palette. CRITICAL LAYOUT: the entire central rectangular area from 5% to 95% of image width and from 8% to 92% of image height is a broad empty continuous WALKABLE floor with subtle small repeating tile texture only. Put ALL furniture, structures, objects and festive decorations exclusively in the outer 5% left/right strips and outer 8% top/bottom strips. Do not place any objects, raised platforms, trees, rugs, statues or obstacles in the central walkable rectangle. The center must remain visually quiet for game characters and challenge markers overlaid by code. Detailed decorative perimeter, clear readable movement space, festive atmosphere. No people, creatures, characters, text, UI, labels, logos, or watermark.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-4f9b3390-1b83-4315-84d5-4b178d34afc7.png"
+    },
+    {
+      "id": "boss-parcel-sentry",
+      "kind": "boss",
+      "name": "Holiday Doombot",
+      "file": "bosses/parcel-sentry.webp",
+      "transparent": true,
+      "prompt": "A cheerful holiday RPG sprite of a Doombot, a friendly silver armored robot with Doctor Doom's green hood and short green cape, red-and-white winter scarf and a small bell, carrying a wrapped Christmas present. Full-body charming cartoon in a hand-painted 2D pixel-art-inspired game style. One centered character, true transparent alpha background, no scenery, no text.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-289fc212-a3cc-4bb2-a8e4-0533315db6e9.png",
+      "derivation": "Format for the existing square boss renderer: contain the generated image on a transparent 384×384 canvas, preserving aspect ratio and alpha."
+    },
+    {
+      "id": "boss-aurora-sentinel",
+      "kind": "boss",
+      "name": "Gift Hauler",
+      "file": "bosses/aurora-sentinel.webp",
+      "transparent": true,
+      "prompt": "An original friendly large wooden toy automaton who carries holiday gifts, articulated carved oak limbs, round wooden head with a smiling carved face, dark blue waistcoat and red plaid scarf, holding a stack of colorful gift boxes. Clearly a wooden clockwork helper. Full-body charming hand-painted 2D pixel-art-inspired holiday RPG sprite. Crisp readable silhouette, entire figure including feet visible, soft upper-left light. Single centered character, true transparent alpha background with no scenery, no backdrop and no text. Original character design.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-9d7a40de-389b-44bf-8079-5a533afff5b3.png",
+      "derivation": "Format for the existing square boss renderer: contain the generated image on a transparent 384×384 canvas, preserving aspect ratio and alpha."
+    },
+    {
+      "id": "boss-doctor-doom",
+      "kind": "boss",
+      "name": "Doctor Doom",
+      "file": "bosses/doctor-doom.webp",
+      "transparent": true,
+      "prompt": "A cheerful holiday RPG sprite of Doctor Doom from Marvel, holding a small wrapped Christmas gift. Full body, green hood and cape, silver mask and armor, simple standing pose. Charming hand-painted 2D pixel-art-inspired game illustration with a readable silhouette and soft festive lighting. Single character, centered, true transparent background, no text, no scenery.",
+      "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-d352c633-71ec-4f5f-825f-ccf58317a2e3.png",
+      "derivation": "Format for the existing square boss renderer: contain the generated image on a transparent 384×384 canvas, preserving aspect ratio and alpha."
+    }
+  ],
+  "expansion": {
+    "tool": "Built-in image_gen",
+    "assets": [
+      {
+        "id": "beta-ray-bill",
+        "name": "Beta Ray Bill",
+        "role": "hero",
+        "replaces": "hulk",
+        "detail": "horse-faced alien hero, golden helmet with white wings, dark suit with silver discs, red cape and a green winter scarf, holding his gold Stormbreaker hammer",
+        "prompt": "Use case: stylized-concept. Asset type: transparent character sprite for a holiday capture-the-flag game. Draw Beta Ray Bill: horse-faced alien hero, golden helmet with white wings, dark suit with silver discs, red cape and a green winter scarf, holding his gold Stormbreaker hammer. Friendly polished 2D storybook game illustration with clear silhouette, crisp outlines, soft painterly shading. One full-body character facing slightly toward the viewer, feet visible, centered with generous transparent margin. No scene, no ground, no text, no watermark. Actual transparent background. Comic character design, no actor likeness.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-ca1fdcaf-f317-4b61-ac85-4e60ee43a87e.png",
+        "file": "sprites/beta-ray-bill.webp",
+        "type": "character"
+      },
+      {
+        "id": "rocket-raccoon",
+        "name": "Rocket Raccoon",
+        "role": "hero",
+        "replaces": "wolverine",
+        "prompt": "A cheerful holiday RPG sprite of Marvel's Rocket Raccoon, a small clever upright raccoon in his orange space jumpsuit, warm blue winter scarf and boots, carrying a wrapped Christmas gift and a tiny toolkit. Full-body charming comic cartoon in a hand-painted 2D pixel-art-inspired game style. One centered character, true transparent alpha background, no scenery, no text.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-a07a2a19-bbbb-41c3-987d-dbfc96662929.png",
+        "file": "sprites/rocket-raccoon.webp",
+        "type": "character"
+      },
+      {
+        "id": "moon-knight",
+        "name": "Moon Knight",
+        "role": "hero",
+        "replaces": "storm",
+        "prompt": "A calm festive RPG sprite of Marvel's Moon Knight, fully wrapped white and ivory hooded costume, flowing white cape, small crescent chest symbol, soft gold trim and a pale-blue winter scarf, holding a golden holiday star ornament. Full-body charming comic cartoon in a hand-painted 2D pixel-art-inspired game style. One centered character, true transparent alpha background, no scenery, no text.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-86491ac0-d745-4415-89f2-d15908fdd3c0.png",
+        "file": "sprites/moon-knight.webp",
+        "type": "character"
+      },
+      {
+        "id": "hercules",
+        "name": "Hercules",
+        "role": "hero",
+        "replaces": "vision",
+        "detail": "the bearded Marvel Olympian superhero Hercules, classic green and gold costume, brown hair, red winter scarf, holding a wrapped holiday present",
+        "prompt": "Use case: background-extraction. Edit target: the attached hercules character sprite. Remove all background, colored haze, and surrounding glow so only the full character and held object remain. Preserve the drawing, costume, scarf, anatomy, face, and pose. Retain the fire on Dormammu's head if present, with a clean silhouette around the flames. Do not crop feet. Genuine clean transparent background and crisp transparent edges. No ground, shadow or scenery.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-4ef819a5-c19e-4644-8bac-97b46fa11ec4.png",
+        "originalPrompt": "Use case: stylized-concept. Asset type: transparent character sprite for a holiday capture-the-flag game. Draw Hercules: the bearded Marvel Olympian superhero Hercules, classic green and gold costume, brown hair, red winter scarf, holding a wrapped holiday present. Friendly polished 2D storybook game illustration with clear silhouette, crisp outlines, soft painterly shading. One full-body character facing slightly toward the viewer, feet visible, centered with generous transparent margin. No scene, no ground, no text, no watermark. Actual transparent background. Comic character design, no actor likeness.",
+        "reference": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-c88adb47-5da5-434e-af65-781d4244918b.png",
+        "file": "sprites/hercules.webp",
+        "type": "character"
+      },
+      {
+        "id": "silver-surfer",
+        "name": "Silver Surfer",
+        "role": "hero",
+        "prompt": "A friendly Christmas RPG character sprite of Marvel's Silver Surfer, a smooth chrome-silver cosmic superhero with a red winter scarf, standing beside his silver surfboard decorated with a tiny holly sprig, holding a small star ornament. Full-body comic cartoon, calm standing pose. Polished hand-painted 2D pixel-art-inspired game art, matching a festive Doctor Doom RPG. One centered character, genuine transparent alpha background, no scenery, no text, no actor likeness.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-2bb17fbf-cedd-4f48-9d8e-bf2f0f878720.png",
+        "file": "sprites/silver-surfer.webp",
+        "type": "character"
+      },
+      {
+        "id": "green-goblin",
+        "name": "Green Goblin",
+        "role": "villain",
+        "replaces": "loki",
+        "prompt": "A festive holiday RPG sprite of Marvel's Green Goblin, his recognizable green goblin face and pointed ears, purple cap and tunic, green leggings and purple boots, carrying a little orange gift sack and a Christmas ornament. Calm mischievous expression. Full-body charming comic cartoon in a hand-painted 2D pixel-art-inspired game style. One centered character, true transparent alpha background, no scenery, no text.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-0b6aff56-9323-44fc-ae5c-cd5e7f03d19b.png",
+        "file": "sprites/green-goblin.webp",
+        "type": "character"
+      },
+      {
+        "id": "dormammu",
+        "name": "Dormammu",
+        "role": "villain",
+        "replaces": "magneto",
+        "detail": "the Marvel villain Dormammu, magical flaming head with dark face, purple armored tunic and boots, small red holiday scarf, hands holding a glowing snow globe",
+        "prompt": "Use case: background-extraction. Edit target: the attached dormammu character sprite. Remove all background, colored haze, and surrounding glow so only the full character and held object remain. Preserve the drawing, costume, scarf, anatomy, face, and pose. Retain the fire on Dormammu's head if present, with a clean silhouette around the flames. Do not crop feet. Genuine clean transparent background and crisp transparent edges. No ground, shadow or scenery.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-49179c8e-49e5-4137-a9d0-36f355e2b987.png",
+        "originalPrompt": "Use case: stylized-concept. Asset type: transparent character sprite for a holiday capture-the-flag game. Draw Dormammu: the Marvel villain Dormammu, magical flaming head with dark face, purple armored tunic and boots, small red holiday scarf, hands holding a glowing snow globe. Friendly polished 2D storybook game illustration with clear silhouette, crisp outlines, soft painterly shading. One full-body character facing slightly toward the viewer, feet visible, centered with generous transparent margin. No scene, no ground, no text, no watermark. Actual transparent background. Comic character design, no actor likeness.",
+        "reference": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-7984d3f7-6179-4b0f-9cf7-a8a874c0ce1b.png",
+        "file": "sprites/dormammu.webp",
+        "type": "character"
+      },
+      {
+        "id": "ultron",
+        "name": "Ultron",
+        "role": "villain",
+        "prompt": "A festive RPG sprite of Marvel's Ultron, a silver robot with his recognizable angular faceplate, small red eye lights and segmented metallic armor, wearing a red-and-white knitted scarf and carrying a wrapped Christmas parcel. Full-body comic cartoon, calm standing pose. Polished hand-painted 2D pixel-art-inspired game art, matching a festive Doctor Doom RPG. One centered character, genuine transparent alpha background, no scenery, no text, no actor likeness.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-189c6193-3e6e-4003-ac2a-29e005d81152.png",
+        "file": "sprites/ultron.webp",
+        "type": "character"
+      },
+      {
+        "id": "doctor-octopus",
+        "name": "Doctor Octopus",
+        "role": "villain",
+        "prompt": "A festive RPG sprite of Marvel's Doctor Octopus, a comic-book scientist with round glasses, brown hair, a long green winter coat and four curved mechanical tentacles attached to his back, gently holding small gift parcels. Full-body comic cartoon, calm friendly standing pose. Polished hand-painted 2D pixel-art-inspired game art, matching a festive Doctor Doom RPG. One centered character, genuine transparent alpha background, no scenery, no text, no actor likeness.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-409e4923-d3eb-4fcb-8c2f-189e9f082d42.png",
+        "file": "sprites/doctor-octopus.webp",
+        "type": "character"
+      },
+      {
+        "id": "taskmaster",
+        "name": "Taskmaster",
+        "role": "villain",
+        "replaces": "mysterio",
+        "detail": "the Marvel villain Taskmaster in his classic skull mask and white hood, navy suit, orange trim, white cape, gold utility belt, festive green scarf, relaxed neutral pose holding a wrapped present",
+        "prompt": "Use case: background-extraction. Edit target: the attached Taskmaster sprite. Remove the gray, gold, and red background haze and all outer glow. Preserve only the full character, costume, scarf, mask, and gift exactly as drawn. Keep his whole body and feet. Clean transparent background, no shadow, no scenery, no surrounding color.",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-b8e6a9c1-5023-4c22-a277-3feec0f872e9.png",
+        "originalPrompt": "Use case: stylized-concept. Asset type: transparent character sprite for a holiday capture-the-flag game. Draw Taskmaster: the Marvel villain Taskmaster in his classic skull mask and white hood, navy suit, orange trim, white cape, gold utility belt, festive green scarf, relaxed neutral pose holding a wrapped present. Friendly polished 2D storybook game illustration with clear silhouette, crisp outlines, soft painterly shading. One full-body character facing slightly toward the viewer, feet visible, centered with generous transparent margin. No scene, no ground, no text, no watermark. Actual transparent background. Comic character design, no actor likeness.",
+        "reference": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-2d2c7fa3-f203-4ba3-b824-e89007f9b085.png",
+        "file": "sprites/taskmaster.webp",
+        "type": "character"
+      },
+      {
+        "id": "latverian-offices",
+        "name": "Latverian Office Wing",
+        "file": "maps/latverian-offices-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: finished landscape RPG map background, 960×672 pixels, 40×28 logical tiles. A Latverian winter office headquarters with a reception lobby, an executive office at upper left, a records office at upper right, a staff workroom at lower left and a conference room at lower right. Rich green carpets, dark oak desks, brass desk lamps, filing cabinets, vintage computer terminals, gift parcels and modest pine garlands. The main horizontal hallway runs left to right, with a central vertical hall and four clear side-room doorways. A northern lift doorway leads to the orbital station. IMPORTANT: use the supplied geometric reference as an exact floor-plan constraint. Blue-gray regions are walkable floors and must retain their shapes, positions and connections; tan blocks are furniture obstacles; dark navy gaps are solid walls or exterior void. Keep all walkable corridors and three-tile-wide door openings unobstructed. Render as a three-quarter CUTAWAY DOLLHOUSE interior with visible vertical wall fronts, angled cornices, layered doorway arches and a slight view into the rooms, like an elevated 2.5D adventure game. Keep the ground plane aligned with the horizontal/vertical reference, not rotated into a diamond. This must look like interconnected corridors and rooms, not a single empty top-down rectangle. Crisp polished hand-painted pixel-art-inspired scenery, emerald green, garnet red, antique gold, icy silver holiday palette, consistent gentle upper-left lighting, strong readable floor/wall contrast. No people, characters, text, labels, grid lines, UI or watermark. Furniture and raised details only inside tan obstacles or dark wall regions. The lower central corridor ends in an entrance door at tile (20,23).",
+        "reference": "layout-references/latverian-offices.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-079fd26f-54d8-4c34-8a19-b35692454d32.png",
+        "type": "map"
+      },
+      {
+        "id": "orbital-station",
+        "name": "Orbital Gift Station",
+        "file": "maps/orbital-gift-station-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: finished landscape RPG map background, 960×672 pixels, 40×28 logical tiles. A holiday orbital space station above a blue planet, floating in a starfield. Cutaway pressure hull and layered bulkhead wall fronts reveal a central junction, upper-left command bridge, upper-right observation room, lower-left cargo bay and lower-right reactor room. Silver-blue deck plates, amber strip lights, cyan consoles, round windows into space, carefully stacked presents and tiny strings of holiday lights. Horizontal and vertical corridors join five chambers through obvious open airlock doorways. The top central airlock leads into a castle gateway. IMPORTANT: use the supplied geometric reference as an exact floor-plan constraint. Blue-gray regions are walkable floors and must retain their shapes, positions and connections; tan blocks are furniture obstacles; dark navy gaps are solid walls or exterior void. Keep all walkable corridors and three-tile-wide door openings unobstructed. Render as a three-quarter CUTAWAY DOLLHOUSE interior with visible vertical wall fronts, angled cornices, layered doorway arches and a slight view into the rooms, like an elevated 2.5D adventure game. Keep the ground plane aligned with the horizontal/vertical reference, not rotated into a diamond. This must look like interconnected corridors and rooms, not a single empty top-down rectangle. Crisp polished hand-painted pixel-art-inspired scenery, emerald green, garnet red, antique gold, icy silver holiday palette, consistent gentle upper-left lighting, strong readable floor/wall contrast. No people, characters, text, labels, grid lines, UI or watermark. Furniture and raised details only inside tan obstacles or dark wall regions. The lower central corridor ends in an entrance door at tile (20,23).",
+        "reference": "layout-references/orbital-station.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-531b7c7b-2ac3-4ec6-aa27-2c89ccb1565b.png",
+        "type": "map"
+      },
+      {
+        "id": "castle-corridors",
+        "name": "Castle Doom: The Secret Galleries",
+        "file": "maps/castle-secret-galleries-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: finished landscape RPG map background, 960×672 pixels, 40×28 logical tiles. A secret wing of Castle Doom in a snowy holiday night. A northern throne antechamber, upper-left candlelit library, upper-right armory, lower-left vaulted treasury and lower-right feast preparation chamber are linked by a broad east-west gallery and narrow north-south passages. Emerald banners, silver suits of armor, stone arches, iron-banded open doors, red ribbons, torches and snowy windows. Layered stone wall fronts and cutaway corners make each side room feel like a place to enter and leave. Furniture stays in the marked solid blocks; all hallways and door thresholds remain clear. IMPORTANT: use the supplied geometric reference as an exact floor-plan constraint. Blue-gray regions are walkable floors and must retain their shapes, positions and connections; tan blocks are furniture obstacles; dark navy gaps are solid walls or exterior void. Keep all walkable corridors and three-tile-wide door openings unobstructed. Render as a three-quarter CUTAWAY DOLLHOUSE interior with visible vertical wall fronts, angled cornices, layered doorway arches and a slight view into the rooms, like an elevated 2.5D adventure game. Keep the ground plane aligned with the horizontal/vertical reference, not rotated into a diamond. This must look like interconnected corridors and rooms, not a single empty top-down rectangle. Crisp polished hand-painted pixel-art-inspired scenery, emerald green, garnet red, antique gold, icy silver holiday palette, consistent gentle upper-left lighting, strong readable floor/wall contrast. No people, characters, text, labels, grid lines, UI or watermark. Furniture and raised details only inside tan obstacles or dark wall regions. The lower central corridor ends in an entrance door at tile (20,23).",
+        "reference": "layout-references/castle-corridors.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-141f54c7-8ab3-4ae8-bf20-b9e67589e290.png",
+        "type": "map"
+      }
+    ]
+  },
+  "pathExpansion": {
+    "tool": "built-in image_gen",
+    "notes": "Seven additional maps. The floor-plan PNGs are initial composition references; collision masks are refined against the rendered paintings in scripts/doom-holiday-path-maps.mjs.",
+    "assets": [
+      {
+        "id": "royal-archives",
+        "name": "Castle Doom: The Royal Archives",
+        "type": "map",
+        "file": "maps/royal-archives-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: 960 by 672 landscape map background for a holiday Doctor Doom role-playing game. Input image 1 is a FLOOR-PLAN REFERENCE. Its pale blue regions are the exact walkable rooms, bridges and corridors; gold rectangles are solid furniture; dark navy regions are NONWALKABLE walls, dense shelving, machinery, hedges, water or ravines according to the scene. Preserve the position, width, connectivity, bends and holes of every pale blue region. The whole image uses an axis-aligned 40 by 28 grid; do not rotate the plan or make a diamond. Scene: A secret Latverian royal archive. Emerald carpets form a perimeter loop, an offset interior gallery, and crooked passages between tightly packed dark oak book stacks. Four small reading alcoves, brass lamps, snowy narrow windows, red holiday ribbons and silver Doom-mask reliefs. Bookshelves fill the dark NONWALKABLE islands between corridors. Reading desks occupy only the marked gold blocks. A visible upper-right doorway leads to the winter hedge maze. Style: polished detailed hand-painted 2D storybook RPG environment, emerald, brushed silver, garnet, antique gold and icy blue. A shallow three-quarter CUTAWAY DOLLHOUSE treatment shows low wall fronts and side faces, but the top surface of every walkable floor remains in exactly its reference position. Keep walls shallow and mostly inside the dark regions so they do not consume walking lanes. Floor must remain visually distinct from walls and void. Decorations only in dark or gold regions. The arrival floor is at grid (20,23) near bottom center; show a small unobstructed threshold there. Clear continuous navigation floor with multiple turns and separate rooms, not one open arena. No people, creatures, characters, grid lines, text, map labels, UI, arrows or watermark. Full-bleed landscape 10:7 image.",
+        "reference": "layout-references/royal-archives-v1.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-b8205b1b-9f45-42ac-972f-d371e30cad59.png"
+      },
+      {
+        "id": "parcel-depot",
+        "name": "Doomstadt Parcel Depot",
+        "type": "map",
+        "file": "maps/parcel-depot-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: 960 by 672 landscape map background for a holiday Doctor Doom role-playing game. Input image 1 is a FLOOR-PLAN REFERENCE. Its pale blue regions are the exact walkable rooms, bridges and corridors; gold rectangles are solid furniture; dark navy regions are NONWALKABLE walls, dense shelving, machinery, hedges, water or ravines according to the scene. Preserve the position, width, connectivity, bends and holes of every pale blue region. The whole image uses an axis-aligned 40 by 28 grid; do not rotate the plan or make a diamond. Scene: A busy holiday parcel sorting depot inside a Latverian warehouse. Three horizontal cross aisles and four long vertical aisles weave between tall shelves of wrapped gifts, shipping crates and idle conveyor machinery. Upper corner loading booths, overhead warm work lamps, green iron supports, red ribbons and snowy loading windows. All crates, racks and conveyor belts belong in the dark solid islands between the blue paths. Floors are empty clear gray flagstones. Upper-right freight hatch leads to the service tunnels. Style: polished detailed hand-painted 2D storybook RPG environment, emerald, brushed silver, garnet, antique gold and icy blue. A shallow three-quarter CUTAWAY DOLLHOUSE treatment shows low wall fronts and side faces, but the top surface of every walkable floor remains in exactly its reference position. Keep walls shallow and mostly inside the dark regions so they do not consume walking lanes. Floor must remain visually distinct from walls and void. Decorations only in dark or gold regions. The arrival floor is at grid (20,23) near bottom center; show a small unobstructed threshold there. Clear continuous navigation floor with multiple turns and separate rooms, not one open arena. No people, creatures, characters, grid lines, text, map labels, UI, arrows or watermark. Full-bleed landscape 10:7 image.",
+        "reference": "layout-references/parcel-depot-v1.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-a0b5f361-35f4-4466-938b-4549cd0bbdeb.png"
+      },
+      {
+        "id": "service-tunnels",
+        "name": "Latverian Service Tunnels",
+        "type": "map",
+        "file": "maps/service-tunnels-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: 960 by 672 landscape map background for a holiday Doctor Doom role-playing game. Input image 1 is a FLOOR-PLAN REFERENCE. Its pale blue regions are the exact walkable rooms, bridges and corridors; gold rectangles are solid furniture; dark navy regions are NONWALKABLE walls, dense shelving, machinery, hedges, water or ravines according to the scene. Preserve the position, width, connectivity, bends and holes of every pale blue region. The whole image uses an axis-aligned 40 by 28 grid; do not rotate the plan or make a diamond. Scene: An intricate underground maintenance network beneath Castle Doom. Zigzag stone service passages turn left then right around solid rock and pipe chambers; a narrow eastern bypass creates a second route. Copper steam pipes, green-lit cable conduits, frosted grates and tiny red holiday bulbs on walls. Four utility alcoves; machinery occupies only gold blocks and dark areas. Clear blue-gray walking floor, shallow cutaway stone wall fronts. The upper-left hatch opens toward the frozen canals. Style: polished detailed hand-painted 2D storybook RPG environment, emerald, brushed silver, garnet, antique gold and icy blue. A shallow three-quarter CUTAWAY DOLLHOUSE treatment shows low wall fronts and side faces, but the top surface of every walkable floor remains in exactly its reference position. Keep walls shallow and mostly inside the dark regions so they do not consume walking lanes. Floor must remain visually distinct from walls and void. Decorations only in dark or gold regions. The arrival floor is at grid (20,23) near bottom center; show a small unobstructed threshold there. Clear continuous navigation floor with multiple turns and separate rooms, not one open arena. No people, creatures, characters, grid lines, text, map labels, UI, arrows or watermark. Full-bleed landscape 10:7 image.",
+        "reference": "layout-references/service-tunnels-v1.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-bfc36f57-0bc6-4905-bcbd-86b9ff254cc8.png"
+      },
+      {
+        "id": "frozen-canals",
+        "name": "Doomstadt Frozen Canals",
+        "type": "map",
+        "file": "maps/frozen-canals-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: 960 by 672 landscape map background for a holiday Doctor Doom role-playing game. Input image 1 is a FLOOR-PLAN REFERENCE. Its pale blue regions are the exact walkable rooms, bridges and corridors; gold rectangles are solid furniture; dark navy regions are NONWALKABLE walls, dense shelving, machinery, hedges, water or ravines according to the scene. Preserve the position, width, connectivity, bends and holes of every pale blue region. The whole image uses an axis-aligned 40 by 28 grid; do not rotate the plan or make a diamond. Scene: A winter canal district in snowbound Doomstadt. Narrow snowy stone towpaths follow a squared river loop. A long east-west footbridge crosses the center; a north-south bridge reaches a tiny central island and joins it. Icy dark blue water fills ALL nonwalkable islands, with reflected emerald lanterns. Small market booths, warm street lamps, gifts and snow-covered iron railings only outside the clear paths or in gold blocks. Bridges must align exactly with the reference corridors. No skating across the water. Low railings and short stone wall faces add cutaway depth. Style: polished detailed hand-painted 2D storybook RPG environment, emerald, brushed silver, garnet, antique gold and icy blue. A shallow three-quarter CUTAWAY DOLLHOUSE treatment shows low wall fronts and side faces, but the top surface of every walkable floor remains in exactly its reference position. Keep walls shallow and mostly inside the dark regions so they do not consume walking lanes. Floor must remain visually distinct from walls and void. Decorations only in dark or gold regions. The arrival floor is at grid (20,23) near bottom center; show a small unobstructed threshold there. Clear continuous navigation floor with multiple turns and separate rooms, not one open arena. No people, creatures, characters, grid lines, text, map labels, UI, arrows or watermark. Full-bleed landscape 10:7 image.",
+        "reference": "layout-references/frozen-canals-v1.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-34368844-5fcb-472a-9414-c5afc6effff2.png"
+      },
+      {
+        "id": "winter-hedge-maze",
+        "name": "Doom’s Winter Hedge Maze",
+        "type": "map",
+        "file": "maps/winter-hedge-maze-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: 960 by 672 landscape map background for a holiday Doctor Doom role-playing game. Input image 1 is a FLOOR-PLAN REFERENCE. Its pale blue regions are the exact walkable rooms, bridges and corridors; gold rectangles are solid furniture; dark navy regions are NONWALKABLE walls, dense shelving, machinery, hedges, water or ravines according to the scene. Preserve the position, width, connectivity, bends and holes of every pale blue region. The whole image uses an axis-aligned 40 by 28 grid; do not rotate the plan or make a diamond. Scene: An intricate outdoor Christmas hedge maze in Castle Doom’s snowy gardens. Dense evergreen hedge islands follow every nonwalkable region of the blueprint; narrow snowy paths contain the outer loop, interior switchbacks, side loops and dead ends exactly as drawn. Frosted hedge tops, occasional red bows, tiny warm lanterns and silver star ornaments stay embedded in the hedges, never on walking lanes. Low cutaway hedge faces and visible snow path surfaces. A stone garden gate on the lower central path marks the arrival. No big central clearing, no people, no extra openings through hedges. Style: polished detailed hand-painted 2D storybook RPG environment, emerald, brushed silver, garnet, antique gold and icy blue. A shallow three-quarter CUTAWAY DOLLHOUSE treatment shows low wall fronts and side faces, but the top surface of every walkable floor remains in exactly its reference position. Keep walls shallow and mostly inside the dark regions so they do not consume walking lanes. Floor must remain visually distinct from walls and void. Decorations only in dark or gold regions. The arrival floor is at grid (20,23) near bottom center; show a small unobstructed threshold there. Clear continuous navigation floor with multiple turns and separate rooms, not one open arena. No people, creatures, characters, grid lines, text, map labels, UI, arrows or watermark. Full-bleed landscape 10:7 image.",
+        "reference": "layout-references/winter-hedge-maze-v1.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-e75c04e9-7034-4a76-96a0-70d54c832b50.png"
+      },
+      {
+        "id": "orbital-labs",
+        "name": "Doom’s Orbital Research Labs",
+        "type": "map",
+        "file": "maps/orbital-labs-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: 960 by 672 landscape map background for a holiday Doctor Doom role-playing game. Input image 1 is a FLOOR-PLAN REFERENCE. Its pale blue regions are the exact walkable rooms, bridges and corridors; gold rectangles are solid furniture; dark navy regions are NONWALKABLE walls, dense shelving, machinery, hedges, water or ravines according to the scene. Preserve the position, width, connectivity, bends and holes of every pale blue region. The whole image uses an axis-aligned 40 by 28 grid; do not rotate the plan or make a diamond. Scene: A maze-like orbital research annex above a blue planet. Narrow pressurized corridors form a perimeter circuit and staggered cross-links between four small laboratories. Cyan glass sample chambers, green holographic research screens, silver bulkheads, amber airlock lights and modest strings of holiday lights. Dark solid regions are sealed machinery bays and outer-space gaps; only the marked blue areas are walkable deck. Scientific equipment sits in gold blocks or solid bays. A northeastern launch doorway leads to a mountain observatory. Shallow dollhouse cutaway walls, no giant open lobby. Style: polished detailed hand-painted 2D storybook RPG environment, emerald, brushed silver, garnet, antique gold and icy blue. A shallow three-quarter CUTAWAY DOLLHOUSE treatment shows low wall fronts and side faces, but the top surface of every walkable floor remains in exactly its reference position. Keep walls shallow and mostly inside the dark regions so they do not consume walking lanes. Floor must remain visually distinct from walls and void. Decorations only in dark or gold regions. The arrival floor is at grid (20,23) near bottom center; show a small unobstructed threshold there. Clear continuous navigation floor with multiple turns and separate rooms, not one open arena. No people, creatures, characters, grid lines, text, map labels, UI, arrows or watermark. Full-bleed landscape 10:7 image.",
+        "reference": "layout-references/orbital-labs-v1.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-7653b577-d136-43b8-9b25-2dbd20a55098.png"
+      },
+      {
+        "id": "mountain-observatory",
+        "name": "Latverian Mountain Observatory",
+        "type": "map",
+        "file": "maps/mountain-observatory-v1.webp",
+        "prompt": "Use case: stylized-concept. Asset type: 960 by 672 landscape map background for a holiday Doctor Doom role-playing game. Input image 1 is a FLOOR-PLAN REFERENCE. Its pale blue regions are the exact walkable rooms, bridges and corridors; gold rectangles are solid furniture; dark navy regions are NONWALKABLE walls, dense shelving, machinery, hedges, water or ravines according to the scene. Preserve the position, width, connectivity, bends and holes of every pale blue region. The whole image uses an axis-aligned 40 by 28 grid; do not rotate the plan or make a diamond. Scene: A mountaintop observatory complex at a snowy Latverian night. Small telescope domes, a chart room and a warm weather office are linked by long narrow enclosed galleries and right-angle glass skywalks over dark snowy ravines. Two vertical routes and offset horizontal passages make a circuit, with side chambers to enter and leave. Brass star instruments and telescope bases occupy only gold blocks or dark solid zones; walking lanes stay clear. Blue-white snow, warm gold lamps, emerald roof trim, red holiday garlands. Low wall cutaways expose the exact floor plan; no enormous open viewing plaza. Style: polished detailed hand-painted 2D storybook RPG environment, emerald, brushed silver, garnet, antique gold and icy blue. A shallow three-quarter CUTAWAY DOLLHOUSE treatment shows low wall fronts and side faces, but the top surface of every walkable floor remains in exactly its reference position. Keep walls shallow and mostly inside the dark regions so they do not consume walking lanes. Floor must remain visually distinct from walls and void. Decorations only in dark or gold regions. The arrival floor is at grid (20,23) near bottom center; show a small unobstructed threshold there. Clear continuous navigation floor with multiple turns and separate rooms, not one open arena. No people, creatures, characters, grid lines, text, map labels, UI, arrows or watermark. Full-bleed landscape 10:7 image.",
+        "reference": "layout-references/mountain-observatory-v1.png",
+        "source": "/Users/jcacosta/.codex/generated_images/01a1d5ab-d5f3-7041-8e3c-3589fea370df/exec-93298550-a654-4777-ba44-cd14657f05ff.png"
+      }
+    ]
+  }
+}

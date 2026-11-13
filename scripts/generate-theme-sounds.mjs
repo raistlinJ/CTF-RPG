@@ -14,6 +14,7 @@ const motifs = {
   expeditionComplete: [60, 67, 72, 76, 84], submitted: [64, 67],
   incorrect: [66, 60], interaction: [60, 64], hintUnlocked: [67, 71, 74],
   lockedRoute: [60, 57], routeUnlocked: [60, 67, 72], searchEmpty: [60, 58],
+  npcEmojiUnlocked: [72, 76, 79, 86, 91], highFive: [76, 84], doubleWow: [60, 72, 79, 84, 91, 96],
 };
 
 function wav(notes, circuit, signature) {

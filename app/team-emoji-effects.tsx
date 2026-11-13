@@ -2,6 +2,7 @@
 import { useId } from "react";
 import { teamEmojiNotice, teamEmojiConnections, emojiDeliveryColors } from "@/lib/player-emotes.mjs";
 import type { NearbyPlayer } from "./use-player-presence";
+import { emojiComboLabel, visibleEmojiCombos, type EmojiComboEffect } from "./emoji-combo-effects";
 
 export type SentTeamEmoji = { id: string; emoji: string; toTeam: { id: string; label: string }; toUser?: string };
 export type TeamEmojiEvent = SentTeamEmoji & {
@@ -11,10 +12,12 @@ export type TeamEmojiEvent = SentTeamEmoji & {
   expiresAt: number;
 };
 
-export function TeamEmojiNotices({ events }: { events: TeamEmojiEvent[] }) {
+export function TeamEmojiNotices({ events, combos = [] }: { events: TeamEmojiEvent[]; combos?: EmojiComboEffect[] }) {
   return <div className="team-emoji-notices" aria-live="polite" aria-atomic="false">
-    {events.slice(-3).map(event => <p key={event.id} className={event.outgoing ? "outgoing" : "incoming"}>
+    {visibleEmojiCombos(combos).slice(-2).map(combo => <p key={combo.id} className="combo-notice"><strong>{combo.kind === "high-five" ? "🙌" : "🎆"} {emojiComboLabel(combo)}</strong></p>)}
+    {events.slice(combos.length ? -1 : -3).map(event => <p key={event.id} className={event.outgoing ? "outgoing" : "incoming"}>
       {teamEmojiNotice(event)}
+      {!event.outgoing && (event.emoji === "👋" || event.emoji === "😮") && <small>{event.emoji === "👋" ? "Wave back for a high-five!" : "Send 😮 back for fireworks!"}</small>}
     </p>)}
   </div>;
 }

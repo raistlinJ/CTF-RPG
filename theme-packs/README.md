@@ -10,9 +10,10 @@ Dynamic SRE Part 1 adds **Breakpoint Rebellion**: `dynamic-sre-part1.zip` contai
 
 - `north-pole.zip` and `agentic-circuit.zip` contain the theme manifest, maps, sprites, MIDI music, sound effects, and default sound assignments. They contain no challenges or student progress.
 - `halloween.zip` contains the Halloween Hollow world, three heroes, a guide and boss appearance, MIDI music, and sound effects. Like the other reusable theme ZIPs, it has no demo content.
+- `doom-holiday.zip` contains **Doom’s Winter Dominion**: 25 character appearances, seventeen holiday Latverian maps, branching dialogue, an invisible gift, three original MIDI tracks, and event sounds. Its paired `doom-holiday-demo-theme.zip` and `doom-holiday-demo-content.zip` add a 15-challenge holiday CTF with three bosses, six evidence downloads, emoji discovery, key-locked routes, and an instructor debrief. See [the Doom holiday guide](../themes/doom-holiday/README.md).
 - `solstice-vanguard.zip` contains the original Solstice Vanguard holiday superhero world, three heroes, a guide and boss appearance, MIDI music, and sound effects. It has no demo content.
 - `north-pole-demo-theme.zip`, `agentic-circuit-demo-theme.zip`, `halloween-demo-theme.zip`, and `solstice-vanguard-demo-theme.zip` add matching demo routes and progression.
-- The corresponding `*-demo-content.zip` files contain practice challenges, answers, downloads, and two short MP4 cutscenes per theme. Keep these files private if you plan to reuse their answers.
+- The four legacy themes’ corresponding `*-demo-content.zip` files contain practice challenges, answers, downloads, and two short MP4 cutscenes per theme. Keep these files private if you plan to reuse their answers.
 
 Import packs through **Manage → Import & backup → Theme, content & backups**. Select a demo theme and its **Matching content ZIP** together. See the [North Pole](../themes/north-pole/README.md), [Agentic Circuit](../themes/agentic-circuit/README.md), [Halloween Hollow](../themes/halloween/README.md), and [Solstice Vanguard](../themes/solstice-vanguard/README.md) guides.
 

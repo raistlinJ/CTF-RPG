@@ -14,7 +14,7 @@ import { scoreboardSettings } from "./social-controls.mjs";
 import { registrationSettings } from "./registration-settings.mjs";
 import { createWorld } from "../lib/world-data.mjs";
 import { EMOTE_DURATION_MS, isPlayerEmote } from "../lib/player-emotes.mjs";
-import { teamEmojiEvents } from "./team-emojis.mjs";
+import { teamEmojiActivity } from "./team-emojis.mjs";
 const modes = ["off", "team", "all"];
 const reply = (data, status = 200) =>
   Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -120,7 +120,7 @@ export async function handlePresence(
     count: countByChallenge.get(c.id) || 0,
   }));
   const social = {
-    teamEmojis: await teamEmojiEvents(db, config, u, member?.team, features, now, admin),
+    ...(await teamEmojiActivity(db, config, u, member?.team, features, now, admin)),
     notifications: await notificationStats(db,u),
     challengeSolves,
     gameRevision: `${themeRevision}:${currentCatalog.revision}:${settings.revision}:${[...milestones].join(",")}:${completions.map((r) => `${r.challenge}=${r.points}@${r.user}`).join(",")}:${JSON.stringify(hints.map(h => [h.challenge, h.hint, h.cost]))}:${JSON.stringify(submitted)}`,

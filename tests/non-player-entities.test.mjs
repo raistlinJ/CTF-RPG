@@ -14,20 +14,22 @@ import { defaultTheme, parseTheme } from '../lib/theme-schema.mjs';
 import { createWorld } from '../lib/world-data.mjs';
 import { entitiesSchema, resolveEntityDialogue, matchDialogueChoice, entityLocationAvailable, findEntityLocation, entityInInteractionRange } from '../lib/non-player-entities.mjs';
 import { findChallengeLocation, planChallengePlacement } from '../lib/challenge-placement.mjs';
-import { exportFullBackup } from '../server/backup.mjs';
+import { exportFullBackup, validateSnapshot } from '../server/backup.mjs';
+import { PLAYER_EMOTES } from '../lib/player-emotes.mjs';
+import { publicTheme } from '../lib/inventory-data.mjs';
 
 const entity={id:'guide',name:'Trail guide',characterId:'web',map:'town',location:{x:16,y:20},startNode:'hello',nodes:[
   {id:'hello',text:'Welcome, traveler. What would you like to know?',choices:[{id:'key',label:'Find a key',to:'keys'},{id:'portal',label:'Open a portal',to:'spell'}]},
   {id:'keys',text:'A challenge can award a red key.',choices:[{id:'back',label:'Go back',to:'hello'}]},
   {id:'spell',text:'A hidden portal phrase: starlight unlocks.',choices:[]},
 ]};
-function setup(size = 1) {
+function setup(size = 1, { invisible = false } = {}) {
   const sqlite=new DatabaseSync(':memory:');initializeSchema(sqlite);
   const base=createSQLiteAdapter(sqlite);
   let hook;
   const db={...base,prepare(sql){const statement=base.prepare(sql);return{bind(...args){const bound=statement.bind(...args);return{...bound,_sql:sql,async run(){if(hook?.match(sql)){const h=hook;hook=null;h.run();}return bound.run();}};}};},async batch(statements){if(hook && statements.some(s=>hook.match(s._sql))){const h=hook;hook=null;h.run();}return base.batch(statements);}};
   const config=parseGame('characters:\n - id: web\n   name: Web\naccounts:\n allowRegistration: true\n users:\n  - username: teacher\n    password: teacher-password\n    role: admin\n    hero: web');
-  const theme=defaultTheme(config);theme.world.entities=[{...entity,size,...(size===3?{location:{x:14,y:20}}:{})},{...entity,id:'castle-guide',name:'Castle guide',map:'castle',location:{x:19,y:20}}];
+  const theme=defaultTheme(config);theme.world.entities=[{...entity,size,...(invisible?{invisible:true}:{}),...(size===3?{location:{x:14,y:20}}:{})},{...entity,id:'castle-guide',name:'Castle guide',map:'castle',location:{x:19,y:20}}];
   theme.world.portalOverrides=[{id:'entrance-castle',location:createWorld(theme.world).portals.find(p=>p.id==='entrance-castle').location,to:'castle',lock:{type:'key',color:'green'}}];
   const validTheme=parseTheme(theme);sqlite.prepare("INSERT INTO theme_catalog(id,payload,revision) VALUES('active',?,1)").run(JSON.stringify(validTheme));
   const challenges=parseChallenges(stringify({challenges:[{id:'quest',map:'town',object:'Key quest',location:{x:18,y:19},region:'Square',text:'Find the flag.',flags:['answer'],points:50,rewards:{keys:['red'],incantations:[]}}]}));
@@ -38,13 +40,218 @@ function setup(size = 1) {
     if(r.headers.has('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];
     const bytes=new Uint8Array(await r.arrayBuffer());return{status:r.status,bytes,data:r.headers.get('content-type')?.includes('json')?JSON.parse(strFromU8(bytes)):null};
   };}
-  return{sqlite,db,config,theme:validTheme,challenges,client,beforeWrite(match,run){hook={match,run};}};
+  return{sqlite,db,config,theme:validTheme,challenges,api,client,beforeWrite(match,run){hook={match,run};}};
 }
 async function login(call,name='alice') {assert.equal((await call('/api/auth',{mode:name==='teacher'?'login':'register',username:name,password:name==='teacher'?'teacher-password':'student-password',hero:'web'})).status,200);}
 const dialogue=(choices=[],extra={})=>({action:'entity-dialogue',id:'guide',themeRevision:1,map:'town',x:17,y:20,choices,...extra});
 function entityUpdate(themeRevision,entities,map='town',contentRevision=0) {
   const form=new FormData();form.set('action','update-entities');form.set('map',JSON.stringify({id:map}));form.set('entities',JSON.stringify(entities));form.set('themeRevision',String(themeRevision));form.set('contentRevision',String(contentRevision));return form;
 }
+
+function emojiSetup() {
+  const s=setup();
+  const theme=structuredClone(s.theme);
+  theme.world.entities[0].nodes.push({id:'secret',text:'The secret trail is now open.',choices:[]});
+  theme.world.entities[0].emojiInteractions=[
+    {emoji:'👋',response:'You found the secret greeting!',effect:'hearts',once:true,outputNodeId:'secret'},
+    {emoji:'😮',response:'A little wonder goes a long way.',effect:'fireworks',once:false,outputNodeId:null},
+  ];
+  s.sqlite.prepare("UPDATE theme_catalog SET payload=? WHERE id='active'").run(JSON.stringify(parseTheme(theme)));
+  const challenges=parseChallenges(stringify({challenges:[...s.challenges,{id:'secret-quest',map:'town',object:'Secret quest',location:{x:12,y:19},region:'Town',text:'A secret question.',flags:['SECRET'],points:50,dependsOn:['npe:guide:secret']}]}));
+  s.sqlite.prepare("INSERT INTO challenge_catalog(id,payload,revision) VALUES('active',?,1)").run(JSON.stringify(challenges));
+  return{...s,theme:parseTheme(theme),challenges};
+}
+const emojiRequest=(emoji='👋',extra={})=>({action:'entity-emoji',id:'guide',emoji,themeRevision:1,map:'town',x:17,y:20,...extra});
+
+test('every character accepts all supported emojis without configured secret interactions or progress changes',async()=>{
+  const s=setup();try{
+    const alice=s.client();await login(alice);
+    await alice('/api/teams',{mode:'create',name:'Alpha',password:'team-password'});
+    for(const path of ['/api/config','/api/game']){
+      const result=await alice(path);
+      const characters=path==='/api/config'?result.data.theme.world.entities:result.data.entities;
+      assert.ok(characters.length);
+      assert.ok(characters.every(character=>character.acceptsEmoji===true));
+    }
+    for(const {emoji} of PLAYER_EMOTES){
+      const response=await alice('/api/game',emojiRequest(emoji));
+      assert.equal(response.status,200);
+      assert.deepEqual(response.data.reaction,{matched:false,emoji,response:`${emoji} Sent`,effect:'none',firstDiscovery:false});
+    }
+    for(const table of ['entity_emoji_discoveries','entity_activations','entity_dialogue_outputs'])
+      assert.equal(s.sqlite.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n,0);
+  }finally{s.sqlite.close();}
+});
+
+test('invisible characters save, allow walking through their full allocation, and require their exact tile for dialogue and emojis',async()=>{
+  const s=setup(3);try{
+    const admin=s.client(),alice=s.client();await login(admin,'teacher');await login(alice);
+    await alice('/api/teams',{mode:'create',name:'Alpha',password:'team-password'});
+    const edited=structuredClone(s.theme.world.entities);
+    edited[0].invisible=true;
+    edited[0].emojiInteractions=[{emoji:'👋',response:'You found the hidden cache!',effect:'sparkles',once:true,outputNodeId:'spell'}];
+    const saved=await admin('/api/admin/maps',entityUpdate(1,edited));
+    assert.equal(saved.status,200,JSON.stringify(saved.data));
+    const catalog=(await admin('/api/admin/challenges')).data;
+    assert.equal(catalog.theme.world.entities[0].invisible,true);
+    const config=(await alice('/api/config')).data;
+    assert.equal(config.theme.world.entities[0].invisible,true);
+    assert.equal((await alice('/api/game')).data.entities[0].invisible,true);
+    for(const world of [catalog.theme.world,config.theme.world,publicTheme(catalog.theme).world]){
+      const engine=createWorld(world);
+      for(let y=20;y<23;y++)for(let x=14;x<17;x++){
+        assert.equal(engine.blocked('town',x,y),false,`${x},${y} must remain walkable`);
+        assert.equal(engine.reachable('town',x,y),true);
+      }
+      assert.deepEqual(engine.step({map:'town',pos:{x:13,y:20}},1,0).pos,{x:14,y:20});
+    }
+    for(const pos of [{x:13,y:20},{x:14,y:19},{x:15,y:20},{x:16,y:22},{x:13,y:19}]){
+      for(const call of [alice,admin]){
+        assert.equal((await call('/api/game',dialogue([],{...pos,themeRevision:2}))).status,400);
+        assert.equal((await call('/api/game',emojiRequest('👋',{...pos,themeRevision:2}))).status,400);
+      }
+    }
+    const exact={x:14,y:20,themeRevision:2};
+    assert.equal((await alice('/api/game',dialogue([],exact))).status,200);
+    const reaction=await alice('/api/game',emojiRequest('👋',exact));
+    assert.equal(reaction.status,200);assert.equal(reaction.data.reaction.matched,true);
+    assert.equal(reaction.data.reaction.firstDiscovery,true);
+    assert.equal(s.sqlite.prepare("SELECT COUNT(*) n FROM entity_dialogue_outputs WHERE entity='guide' AND node='spell'").get().n,1);
+    edited[0].invisible=false;
+    assert.equal((await admin('/api/admin/maps',entityUpdate(2,edited))).status,200);
+    const visible=(await alice('/api/config')).data;
+    assert.equal(createWorld(visible.theme.world).blocked('town',14,20),true);
+    assert.equal((await alice('/api/game',dialogue([],{x:14,y:20,themeRevision:3}))).status,400);
+    assert.equal((await alice('/api/game',dialogue([],{x:17,y:21,themeRevision:3}))).status,200);
+  }finally{s.sqlite.close();}
+});
+
+test('NPC emoji configuration validates secret rules and keeps their triggers and replies out of public summaries',async()=>{
+  const s=emojiSetup();try{
+    const definition=s.theme.world.entities[0];
+    for(const patch of [
+      {emojiInteractions:[{...definition.emojiInteractions[0],emoji:'🎉'}]},
+      {emojiInteractions:[definition.emojiInteractions[0],definition.emojiInteractions[0]]},
+      {emojiInteractions:[{...definition.emojiInteractions[0],response:''}]},
+      {emojiInteractions:[{...definition.emojiInteractions[0],effect:'danger'}]},
+      {emojiInteractions:[{...definition.emojiInteractions[0],outputNodeId:'missing'}]},
+      {emojiInteractions:[{...definition.emojiInteractions[0],outputNodeId:'hello'}]},
+    ])assert.throws(()=>entitiesSchema.parse([{...definition,...patch}]));
+    assert.deepEqual(entitiesSchema.parse([entity])[0].emojiInteractions,[]);
+    const alice=s.client();await login(alice);await alice('/api/teams',{mode:'create',name:'Alpha',password:'team-password'});
+    for(const path of ['/api/config','/api/game']){
+      const result=await alice(path);assert.equal(result.status,200);
+      const serialized=JSON.stringify(result.data);
+      assert.ok(!serialized.includes('You found the secret greeting!'));
+      assert.ok(!serialized.includes('emojiInteractions'));
+    }
+    const game=(await alice('/api/game')).data;
+    assert.equal(game.entities.find(e=>e.id==='guide').acceptsEmoji,true);
+    assert.ok(!game.challenges.some(c=>c.id==='secret-quest'));
+  }finally{s.sqlite.close();}
+});
+
+test('matching an NPC emoji records a per-player discovery, plays once when configured, and unlocks only its configured dialogue ending',async()=>{
+  const s=emojiSetup();try{
+    const alice=s.client(),bob=s.client();await login(alice);await login(bob,'bobby');
+    const team=(await alice('/api/teams',{mode:'create',name:'Alpha',password:'team-password'})).data.team;
+    await bob('/api/teams',{mode:'join',id:team.id,password:'team-password'});
+    const miss=await alice('/api/game',emojiRequest('👍'));assert.equal(miss.status,200);assert.equal(miss.data.reaction.matched,false);
+    assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM entity_emoji_discoveries').get().n,0);
+    const found=await alice('/api/game',emojiRequest('👋',{response:'Forged reply',effect:'fireworks',outputNodeId:'hello'}));
+    assert.equal(found.status,200);assert.equal(found.data.reaction.firstDiscovery,true);assert.equal(found.data.reaction.effect,'hearts');
+    assert.equal(found.data.reaction.response,'You found the secret greeting!');
+    assert.ok(found.data.game.challenges.some(c=>c.id==='secret-quest'));
+    assert.equal(found.data.game.score,0);assert.deepEqual(found.data.game.inventory,{keys:[],incantations:[]});
+    const repeat=await alice('/api/game',emojiRequest());assert.equal(repeat.data.reaction.repeated,true);assert.equal(repeat.data.reaction.effect,'none');
+    assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM entity_emoji_discoveries').get().n,1);
+    assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM entity_dialogue_outputs').get().n,1);
+    assert.ok(!(await bob('/api/game')).data.challenges.some(c=>c.id==='secret-quest'),'NPC milestones remain personal, just like dialogue outcomes');
+    for(let i=0;i<2;i++)assert.equal((await alice('/api/game',emojiRequest('😮'))).data.reaction.effect,'fireworks');
+    assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM entity_emoji_discoveries').get().n,2);
+  }finally{s.sqlite.close();}
+});
+
+test('NPC emoji actions enforce accounts, origins, map locks, prerequisites, footprint proximity and current revisions',async()=>{
+  const s=emojiSetup();try{
+    const anonymous=s.client();assert.equal((await anonymous('/api/game',emojiRequest())).status,401);
+    assert.equal((await s.api(new Request('https://quest.test/api/game',{method:'POST',headers:{Origin:'https://evil.test','Content-Type':'application/json'},body:JSON.stringify(emojiRequest())}))).status,403);
+    const alice=s.client();await login(alice);await alice('/api/teams',{mode:'create',name:'Alpha',password:'team-password'});
+    for(const [patch,status] of [[{emoji:'🎉'},400],[{themeRevision:0},409],[{x:18},400],[{x:17,y:21},400],[{map:'castle'},400],[{id:'missing'},404],[{id:'castle-guide',map:'castle',x:18,y:20},403]])
+      assert.equal((await alice('/api/game',emojiRequest('👋',patch))).status,status);
+    const gated=structuredClone(s.theme);gated.world.entities[0].dependsOn=['quest'];
+    s.sqlite.prepare("UPDATE theme_catalog SET payload=? WHERE id='active'").run(JSON.stringify(gated));
+    assert.equal((await alice('/api/game',emojiRequest())).status,404);
+    assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM entity_emoji_discoveries').get().n,0);
+    await alice('/api/game',{id:'quest',answer:'answer'});
+    assert.equal((await alice('/api/game',emojiRequest())).status,200);
+  }finally{s.sqlite.close();}
+});
+
+test('concurrent NPC emoji discoveries grant their outcome once and stale writes roll back without partial progress',async()=>{
+  const s=emojiSetup();try{
+    const alice=s.client();await login(alice);await alice('/api/teams',{mode:'create',name:'Alpha',password:'team-password'});
+    const responses=await Promise.all(Array.from({length:8},()=>alice('/api/game',emojiRequest())));
+    assert.ok(responses.every(r=>r.status===200));assert.equal(responses.filter(r=>r.data.reaction.firstDiscovery).length,1);
+    assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM entity_emoji_discoveries').get().n,1);
+    s.beforeWrite(sql=>sql.includes('INSERT OR IGNORE INTO entity_emoji_discoveries'),()=>s.sqlite.exec("UPDATE theme_catalog SET revision=revision+1 WHERE id='active'"));
+    assert.equal((await alice('/api/game',emojiRequest('😮'))).status,409);
+    assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM entity_emoji_discoveries').get().n,1);
+  }finally{s.sqlite.close();}
+});
+
+test('administrators can preview NPC emoji effects repeatedly without saving discoveries or changing progression',async()=>{
+  const s=emojiSetup();try{
+    const admin=s.client();await login(admin,'teacher');
+    for(let i=0;i<8;i++){
+      const response=await admin('/api/game',emojiRequest());assert.equal(response.status,200);assert.equal(response.data.reaction.preview,true);assert.equal(response.data.reaction.effect,'hearts');
+    }
+    assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM entity_emoji_discoveries').get().n,0);
+    assert.equal(s.sqlite.prepare('SELECT COUNT(*) n FROM entity_dialogue_outputs').get().n,0);
+  }finally{s.sqlite.close();}
+});
+
+test('NPC emoji discoveries and authored reactions survive full recreation while legacy backups default safely',async()=>{
+  const s=emojiSetup();let folder;try{
+    const alice=s.client(),admin=s.client();await login(alice);await login(admin,'teacher');
+    await alice('/api/teams',{mode:'create',name:'Alpha',password:'team-password'});
+    assert.equal((await alice('/api/game',emojiRequest())).status,200);
+    const themePack=unzipSync((await admin('/api/admin/packs?kind=theme')).bytes);
+    assert.equal(parse(strFromU8(themePack['theme.yaml'])).world.entities[0].emojiInteractions[0].response,'You found the secret greeting!');
+    assert.ok(!Object.keys(themePack).some(name=>name.includes('discoveries')));
+    const entries=unzipSync((await admin('/api/admin/backup')).bytes),snapshot=JSON.parse(strFromU8(entries['backup.json']));
+    assert.equal(snapshot.entityEmojiDiscoveries.length,1);
+    const old=structuredClone(snapshot);delete old.entityEmojiDiscoveries;assert.deepEqual(validateSnapshot(old).entityEmojiDiscoveries,[]);
+    assert.throws(()=>validateSnapshot({...snapshot,entityEmojiDiscoveries:[{...snapshot.entityEmojiDiscoveries[0],user:'missing'}]}));
+    assert.throws(()=>validateSnapshot({...snapshot,entityEmojiDiscoveries:[snapshot.entityEmojiDiscoveries[0],snapshot.entityEmojiDiscoveries[0]]}));
+    folder=mkdtempSync(resolve(tmpdir(),'npc-emoji-'));
+    for(const[name,bytes]of Object.entries(entries)){const path=resolve(folder,name);mkdirSync(dirname(path),{recursive:true});writeFileSync(path,bytes);}
+    symlinkSync(resolve('node_modules'),resolve(folder,'node_modules'),'dir');
+    const path=resolve(folder,'restored.sqlite');
+    const result=spawnSync(process.execPath,[resolve(folder,'server/restore.mjs'),resolve(folder,'backup.json')],{env:{...process.env,DATABASE_PATH:path},encoding:'utf8'});
+    assert.equal(result.status,0,result.stderr);
+    const restored=new DatabaseSync(path);try{
+      const discovery=restored.prepare('SELECT user,entity,emoji,discovered_at FROM entity_emoji_discoveries').get();
+      assert.deepEqual({...discovery},snapshot.entityEmojiDiscoveries[0]);
+      assert.equal(JSON.parse(restored.prepare("SELECT payload FROM theme_catalog WHERE id='active'").get().payload).world.entities[0].emojiInteractions[0].effect,'hearts');
+      restored.prepare('DELETE FROM entity_activations WHERE user=?').run(discovery.user);
+      restored.prepare('DELETE FROM entity_dialogue_outputs WHERE user=?').run(discovery.user);
+      restored.prepare('DELETE FROM team_members WHERE user=?').run(discovery.user);
+      restored.prepare('DELETE FROM students WHERE id=?').run(discovery.user);
+      assert.equal(restored.prepare('SELECT COUNT(*) n FROM entity_emoji_discoveries').get().n,0);
+    }finally{restored.close();}
+  }finally{s.sqlite.close();if(folder)rmSync(folder,{recursive:true,force:true});}
+});
+
+test('hosted migration and native startup support persistent per-player NPC emoji discoveries',()=>{
+  const db=new DatabaseSync(':memory:');try{
+    db.exec('PRAGMA foreign_keys=ON;CREATE TABLE students(id TEXT PRIMARY KEY);');
+    db.exec(readFileSync('drizzle/0034_entity_emoji_discoveries.sql','utf8'));
+    assert.ok(db.prepare('PRAGMA foreign_key_list(entity_emoji_discoveries)').all().some(row=>row.table==='students'&&row.on_delete==='CASCADE'));
+    assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name='entity_emoji_discoveries'").get());
+  }finally{db.close();}
+  const native=new DatabaseSync(':memory:');try{initializeSchema(native);initializeSchema(native);assert.ok(native.prepare('PRAGMA table_info(entity_emoji_discoveries)').all().some(column=>column.name==='discovered_at'));}finally{native.close();}
+});
 
 test('entity definitions validate dialogue links, appearances and spatial rules, with legacy themes defaulting to no entities',()=>{
   const {sqlite,theme}=setup();try {
@@ -183,7 +390,7 @@ test('Search conversations expose only reached dialogue, validate choices and pr
   const {sqlite,client}=setup();try {
     const alice=client(),bob=client(),admin=client();assert.equal((await alice('/api/game',dialogue())).status,401);await login(alice);await login(bob,'bobby');await login(admin,'teacher');
     const publicConfig=(await alice('/api/config')).data;assert.ok(!JSON.stringify(publicConfig).includes('starlight unlocks'));assert.ok(!JSON.stringify(publicConfig).includes('Welcome, traveler'));
-    assert.deepEqual(publicConfig.theme.world.entities[0],{id:entity.id,name:entity.name,characterId:entity.characterId,map:entity.map,location:entity.location,size:1,restartable:true});
+    assert.deepEqual(publicConfig.theme.world.entities[0],{id:entity.id,name:entity.name,characterId:entity.characterId,map:entity.map,location:entity.location,size:1,restartable:true,acceptsEmoji:true});
     const first=await alice('/api/game',dialogue());assert.equal(first.status,200);assert.equal(first.data.dialogue.text,entity.nodes[0].text);assert.equal(first.data.dialogue.choices[0].to,undefined);assert.ok(!JSON.stringify(first.data).includes('starlight unlocks'));
     assert.equal((await alice('/api/game',dialogue(['key']))).data.dialogue.id,'keys');
     const last=await alice('/api/game',dialogue(['portal']));assert.equal(last.data.dialogue.text,entity.nodes[2].text);assert.deepEqual(last.data.dialogue.choices,[]);
@@ -219,8 +426,8 @@ test('map entity saves preserve map geometry, transport and challenges, enforce 
   } finally {sqlite.close();}
 });
 
-test('theme packs and full backups retain entities and branching dialogue through restoration',async()=>{
-  const {sqlite,client,theme}=setup(3);let folder;try {
+test('theme packs and full backups retain invisible entities and branching dialogue through restoration',async()=>{
+  const {sqlite,client,theme}=setup(3,{invisible:true});let folder;try {
     const admin=client();await login(admin,'teacher');
     const pack=await admin('/api/admin/packs?kind=theme');assert.equal(pack.status,200);const packed=parse(strFromU8(unzipSync(pack.bytes)['theme.yaml']));assert.deepEqual(packed.world.entities,theme.world.entities);
     const backup=await admin('/api/admin/backup');assert.equal(backup.status,200,JSON.stringify(backup.data));const entries=unzipSync(backup.bytes),snapshot=JSON.parse(strFromU8(entries['backup.json']));assert.deepEqual(snapshot.theme.world.entities,theme.world.entities);

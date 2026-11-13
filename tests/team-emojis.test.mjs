@@ -82,6 +82,68 @@ async function fixture() {
   return { sqlite, db, config, clients, alpha, beta, send, feed };
 }
 
+test("a wave reply after its delivery line expires triggers one private high-five for both senders", async t => {
+  const s = await fixture();
+  try {
+    const { alice, annika, bobby, bruno, carol } = s.clients;
+    let now = Date.now(); t.mock.method(Date,"now",()=>now);
+    const first = { id:crypto.randomUUID(), team:s.beta, text:"👋", recipient:"bobby" };
+    assert.equal((await alice("/api/team-social",first)).status,200);
+    now += 8000;
+    assert.deepEqual(await s.feed(bobby),[],"ordinary emoji lines still expire after five seconds");
+    const reply = { id:crypto.randomUUID(), team:s.alpha, text:"👋", recipient:"alice" };
+    assert.equal((await bobby("/api/team-social",reply)).status,200);
+    const activity = async call => (await call("/api/presence",{ map:"town",x:18,y:20,themeRevision:0 })).data;
+    const combo = (await activity(alice)).emojiCombos[0];
+    assert.equal(combo.kind,"high-five"); assert.equal(combo.partner,"bobby");
+    assert.equal((await activity(bobby)).emojiCombos[0].id,combo.id);
+    for (const call of [annika,bruno,carol]) assert.deepEqual((await activity(call)).emojiCombos,[]);
+    assert.equal((await bobby("/api/team-social",reply)).status,200);
+    assert.equal((await activity(alice)).emojiCombos.length,1);
+    assert.equal((await activity(alice)).emojiCombos[0].id,combo.id,"polls and safe retries retain the combo reference");
+    now += 5000;
+    assert.deepEqual((await activity(alice)).emojiCombos,[]);
+    assert.deepEqual((await activity(bobby)).emojiCombos,[]);
+  } finally { s.sqlite.close(); }
+});
+
+test("team wow combos exclude spectators and respect personal mutes, clear history and feature controls", async t => {
+  const s = await fixture();
+  try {
+    const { alice, annika, bobby, bruno, teacher } = s.clients;
+    let now=Date.now(); t.mock.method(Date,"now",()=>now);
+    assert.equal((await s.send(alice,s.beta,"😮")).status,200);
+    now += 1000;
+    assert.equal((await s.send(bobby,s.alpha,"😮")).status,200);
+    const combos = async call => (await call("/api/presence",{map:"town",x:18,y:20,themeRevision:0})).data.emojiCombos;
+    assert.equal((await combos(alice))[0].kind,"fireworks");
+    assert.equal((await combos(bobby))[0].partner,"alice");
+    assert.deepEqual(await combos(annika),[]); assert.deepEqual(await combos(bruno),[]);
+    await alice("/api/chat-mutes",{action:"mute-all",revision:0});
+    assert.deepEqual(await combos(alice),[]); assert.equal((await combos(bobby)).length,1);
+    await bobby("/api/chat-history",{action:"clear-all"});
+    assert.deepEqual(await combos(bobby),[]);
+    const features=(await teacher("/api/admin/team-social")).data;
+    await teacher("/api/admin/team-social",{...features,everyone:{...features.everyone,messaging:false}});
+    assert.deepEqual(await combos(alice),[]);
+  } finally { s.sqlite.close(); }
+});
+
+test("students can complete an admin combo by replying through the existing instructor conversation", async t => {
+  const s=await fixture();
+  try {
+    const { teacher,alice,annika }=s.clients;
+    let now=Date.now(); t.mock.method(Date,"now",()=>now);
+    assert.equal((await teacher("/api/team-social",{id:crypto.randomUUID(),team:s.alpha,recipient:"alice",text:"👋"})).status,200);
+    now+=1000;
+    assert.equal((await s.send(alice,"instructors","👋")).status,200);
+    const combos=async call=>(await call("/api/presence",{map:"town",x:18,y:20,themeRevision:0})).data.emojiCombos;
+    assert.equal((await combos(teacher))[0].partner,"alice");
+    assert.equal((await combos(alice))[0].kind,"high-five");
+    assert.deepEqual(await combos(annika),[]);
+  } finally { s.sqlite.close(); }
+});
+
 test("user-only emojis reach one recipient, isolate history and unread counts, and preserve safe retries", async () => {
   const s = await fixture();
   try {

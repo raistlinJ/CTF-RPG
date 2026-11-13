@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import midiPackage from '@tonejs/midi';
 const {Midi} = midiPackage;
 import {unzipSync} from 'fflate';
@@ -40,7 +41,7 @@ test('row volumes save independently, validate, and survive exports, imports, an
     const initial=(await admin('/api/admin/theme-sounds')).data;
     assert.equal(initial.musicVolume,s.config.audio.volume);
     const [first,second]=initial.maps;
-    const volumes={music:{[first.id]:.08,[second.id]:.6},maps:{[first.id]:0},events:{correct:.7,footsteps:.03}};
+    const volumes={music:{[first.id]:.08,[second.id]:.6},maps:{[first.id]:0},events:{correct:.7,footsteps:.03,npcEmojiUnlocked:.5,highFive:0,doubleWow:.4}};
     const body={action:'assign',revision:initial.revision,maps:initial.sounds.maps,events:initial.sounds.events,volumes};
     assert.equal((await student('/api/admin/theme-sounds',body)).status,403);
     const saved=await admin('/api/admin/theme-sounds',body);
@@ -89,7 +90,7 @@ test('map music defaults to none, requires a playlist track, and follows asset r
   assert.throws(()=>parseTheme(theme),/Map music must be selected/);
 });
 test('built-in themes assign playable defaults for every map and event',()=>{
-  assert.equal(SOUND_EVENTS.length,16);
+  assert.equal(SOUND_EVENTS.length,19);
   const themes=[defaultTheme(defaultGameConfig()),...themePresets.flatMap(preset=>[preset.theme,preset.demoTheme].filter(Boolean))];
   for(const theme of themes){
     const contents=new Set();
@@ -145,6 +146,55 @@ test('saved built-in themes created before Sounds gain defaults without overridi
     assert.ok(upgradedImport.theme.sounds.clips.some(clip=>clip.src===upgradedImport.theme.sounds.events.footsteps));
   } finally {s.sqlite.close();}
 });
+test('new celebration sounds upgrade saved and imported built-in themes while preserving explicit selections and silence',async()=>{
+  const s=setup();
+  const additions=['npcEmojiUnlocked','highFive','doubleWow'];
+  try {
+    for (const preset of themePresets) {
+      const previous=structuredClone(preset.theme);
+      const defaults=Object.fromEntries(additions.map(id=>[id,previous.sounds.events[id]]));
+      previous.sounds.clips=previous.sounds.clips.filter(clip=>!Object.values(defaults).includes(clip.src));
+      for(const id of additions)delete previous.sounds.events[id];
+      // Imported packs remap bundled assets, so recognize their legacy assignments too.
+      for(const imported of [false,true]){
+        const remapped=mapThemeAssets(previous,(path)=>imported?`/api/assets/${createHash('sha256').update(path).digest('hex')}.${path.split('.').at(-1)}`:path);
+        s.sqlite.prepare("INSERT INTO theme_catalog(id,payload,revision) VALUES('active',?,1) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,revision=revision+1").run(JSON.stringify(remapped));
+        const upgraded=(await activeTheme(s.db,s.config)).theme;
+        for(const id of additions){
+          assert.equal(upgraded.sounds.events[id],defaults[id],`${preset.id}: ${id}`);
+          assert.ok(upgraded.sounds.clips.some(clip=>clip.src===defaults[id]));
+        }
+        assert.deepEqual(upgraded.sounds.maps,remapped.sounds.maps);
+        assert.equal(upgraded.sounds.events.correct,remapped.sounds.events.correct);
+      }
+      previous.sounds.events.npcEmojiUnlocked=null;
+      previous.sounds.events.highFive=previous.sounds.events.correct;
+      previous.sounds.volumes={events:{doubleWow:0}};
+      s.sqlite.prepare("UPDATE theme_catalog SET payload=?,revision=revision+1 WHERE id='active'").run(JSON.stringify(previous));
+      const preserved=(await activeTheme(s.db,s.config)).theme;
+      assert.equal(preserved.sounds.events.npcEmojiUnlocked,null);
+      assert.equal(preserved.sounds.events.highFive,previous.sounds.events.correct);
+      assert.equal(preserved.sounds.events.doubleWow,defaults.doubleWow);
+      assert.equal(soundVolume(preserved.sounds,'events','doubleWow'),0);
+      assert.ok(!preserved.sounds.clips.some(clip=>clip.src===defaults.npcEmojiUnlocked));
+    }
+  }finally{s.sqlite.close();}
+});
+
+test('adding default celebration sounds respects a full sound library',async()=>{
+  const s=setup();
+  try{
+    const previous=structuredClone(themePresets[0].theme);
+    for(const id of ['npcEmojiUnlocked','highFive','doubleWow']){
+      previous.sounds.clips=previous.sounds.clips.filter(clip=>clip.src!==previous.sounds.events[id]);
+      delete previous.sounds.events[id];
+    }
+    while(previous.sounds.clips.length<40)previous.sounds.clips.push({name:'Custom cue',src:`/custom/${previous.sounds.clips.length}.wav`,source:'upload'});
+    s.sqlite.prepare("INSERT INTO theme_catalog(id,payload,revision) VALUES('active',?,1)").run(JSON.stringify(previous));
+    assert.deepEqual((await activeTheme(s.db,s.config)).theme.sounds,previous.sounds);
+  }finally{s.sqlite.close();}
+});
+
 test('sound library uploads, map and event assignments, exports, and removal',async()=>{
   const s=setup();
   try {
@@ -163,7 +213,8 @@ test('sound library uploads, map and event assignments, exports, and removal',as
     assert.equal(clip.source,'upload');
     assert.equal((await student(clip.src)).status,200);
     const mapId=uploaded.data.maps[0].id;
-    const assignments={action:'assign',revision:uploaded.data.revision,maps:{[mapId]:clip.src},events:{correct:clip.src,transport:clip.src}};
+    assert.ok(['npcEmojiUnlocked','highFive','doubleWow'].every(id=>initial.events.some(event=>event.id===id)));
+    const assignments={action:'assign',revision:uploaded.data.revision,maps:{[mapId]:clip.src},events:{correct:clip.src,transport:clip.src,npcEmojiUnlocked:clip.src,highFive:clip.src,doubleWow:clip.src}};
     const saved=await admin('/api/admin/theme-sounds',assignments);
     assert.equal(saved.status,200,JSON.stringify(saved.data));
     assert.equal((await admin('/api/config')).data.theme.sounds.maps[mapId],clip.src);
@@ -175,11 +226,13 @@ test('sound library uploads, map and event assignments, exports, and removal',as
     const mapped=mapThemeAssets((await admin('/api/admin/packs')).data.theme,path=>'/copied'+path);
     assert.equal(mapped.sounds.maps[mapId],'/copied'+clip.src);
     assert.equal(mapped.sounds.events.correct,'/copied'+clip.src);
+    for(const id of ['npcEmojiUnlocked','highFive','doubleWow'])assert.equal(mapped.sounds.events[id],'/copied'+clip.src);
     const removed=await admin('/api/admin/theme-sounds',{action:'delete',revision:saved.data.revision,src:clip.src});
     assert.equal(removed.status,200,JSON.stringify(removed.data));
     assert.deepEqual(removed.data.sounds.clips,[]);
     assert.equal(removed.data.sounds.maps[mapId],null);
     assert.equal(removed.data.sounds.events.correct,null);
+    for(const id of ['npcEmojiUnlocked','highFive','doubleWow'])assert.equal(removed.data.sounds.events[id],null);
     const revisions=(await admin('/api/admin/packs')).data;
     const importForm=new FormData();
     importForm.set('file',new Blob([archive],{type:'application/zip'}),'sounds-theme.zip');

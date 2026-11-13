@@ -14,6 +14,7 @@ import {
   ArrowLeftRight,
 } from "lucide-react";
 import EntityEditor from "./entity-editor";
+import EntityEmojiEditor from "./entity-emoji-editor";
 import { EntityMarker } from "../entity-dialogue";
 import { entitiesSchema, entityLocationAvailable, findEntityLocation, entitySize, entityOccupiesTile } from "@/lib/non-player-entities.mjs";
 import type { EntityCharacter, NonPlayerEntity } from "@/lib/non-player-entities";
@@ -1118,7 +1119,7 @@ export default function MapSettings({
             }
           }}
         />
-        <div className="entity-map-layer">{entities.filter(e => e.map === mapId).map(e => <EntityMarker key={e.id} entity={dragPreview?.kind === "entity" && dragPreview.id === e.id ? { ...e, location: { x: dragPreview.x, y: dragPreview.y } } : e} character={characters.find(c => c.id === e.characterId)} showName selected={e.id === selectedEntity || (dragPreview?.kind === "entity" && dragPreview.id === e.id)} />)}</div></div>
+        <div className="entity-map-layer">{entities.filter(e => e.map === mapId).map(e => <EntityMarker key={e.id} entity={dragPreview?.kind === "entity" && dragPreview.id === e.id ? { ...e, location: { x: dragPreview.x, y: dragPreview.y } } : e} character={characters.find(c => c.id === e.characterId)} revealInvisible showName selected={e.id === selectedEntity || (dragPreview?.kind === "entity" && dragPreview.id === e.id)} />)}</div></div>
         <div className="map-canvas-meta">
           <div className="map-legend">
             <span>
@@ -1295,6 +1296,10 @@ export default function MapSettings({
           </p>
         )}
         {message && <p role="status">{message}</p>}
+        </div>
+        {panel === "entities" && selectedNpc && <fieldset className="entity-fields entity-editor entity-emoji-panel" disabled={busy} aria-label={`${selectedNpc.name} secret emoji interactions`}>
+          <EntityEmojiEditor key={selectedNpc.id} entity={selectedNpc} onChange={updateEntity} />
+        </fieldset>}
         <div className="map-edit-footer">
           <div>
             <button
@@ -1330,7 +1335,6 @@ export default function MapSettings({
           >
             {busy ? "Saving…" : entityOnly ? "Save entities" : "Save map"}
           </button>
-        </div>
         </div>
       </div>
     </EditorContainer>

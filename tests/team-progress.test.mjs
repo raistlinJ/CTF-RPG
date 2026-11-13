@@ -60,9 +60,11 @@ test("a team solve shares score, completion, prerequisites, rewards, review and 
     assert.equal(solved.status, 200);
     assert.equal(solved.data.awardedPoints, 90);
     assert.equal(solved.data.score, 90);
+    assert.equal(solved.data.celebrationProgress.completed[0].id,"first");
     const shared = (await bob("/api/game")).data;
     assert.deepEqual(shared.solved, ["first"]);
     assert.equal(shared.score, 90);
+    assert.deepEqual(shared.celebrationProgress.completed,solved.data.celebrationProgress.completed,"teammates receive the same newly completed challenge celebration metadata");
     assert.equal(shared.challenges.find(c => c.id === "first").awardedPoints, 90);
     assert.ok(shared.challenges.some(c => c.id === "next"));
     assert.deepEqual(shared.inventory.keys, ["red"]);
@@ -89,6 +91,7 @@ test("a team solve shares score, completion, prerequisites, rewards, review and 
     }
     assert.equal((await other("/api/game")).data.score, 0);
     assert.deepEqual((await other("/api/game")).data.solved, []);
+    assert.deepEqual((await other("/api/game")).data.celebrationProgress.completed,[]);
     assert.equal((await other("/api/game", { id: "first", action: "review-answer" })).status, 403);
     const newcomer = client();
     await newcomer("/api/auth", { username: "diana", password: "student-password", hero: "web", mode: "register" });
@@ -124,6 +127,7 @@ test("grading a written response completes it for the team, another grade adds n
       const game = (await call("/api/game")).data;
       assert.equal(game.score, 70);
       assert.deepEqual(game.solved, ["written"]);
+      assert.equal(game.celebrationProgress.completed[0].id,"written","grading creates a team celebration even without a direct answer submission");
       assert.deepEqual(game.inventory.keys, ["blue"]);
       assert.equal(game.challenges.find(c => c.id === "written").submission.status, "graded");
       assert.equal(game.challenges.find(c => c.id === "written").submission.grade, 70);

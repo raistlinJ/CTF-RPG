@@ -239,6 +239,13 @@
       "when": 1794502800001,
       "tag": "0033_emoji_recipients",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1794502800002,
+      "tag": "0034_entity_emoji_discoveries",
+      "breakpoints": true
     }
   ]
 }

@@ -44,27 +44,36 @@ export function seedAsset(path) {
 }
 function withBundledSounds(theme) {
   const sounds = theme.sounds;
-  const base = theme.title === "Agentic Circuit" && theme.badge === "cpu"
-    ? "/themes/agentic-circuit/audio/sounds"
-    : theme.title === "North Pole Quest" && theme.badge === "snowflake"
-      ? "/audio/sounds/north-pole"
-      : null;
+  const bundled = [
+    ["Agentic Circuit", "cpu", "/themes/agentic-circuit/audio/sounds"],
+    ["North Pole Quest", "snowflake", "/audio/sounds/north-pole"],
+    ["Halloween Hollow", "compass", "/themes/halloween/audio/sounds"],
+    ["Solstice Vanguard", "snowflake", "/themes/solstice-vanguard/audio/sounds"],
+    ["Environment Development: Launch Protocol", "cpu", "/themes/agentic-circuit/audio/sounds"],
+    ["Dynamic SRE Part 1: Breakpoint Rebellion", "cpu", "/themes/agentic-circuit/audio/sounds"],
+  ];
+  const base = bundled.find(([title, badge]) => theme.title === title && theme.badge === badge)?.[2];
   if (!base || !Array.isArray(theme.world?.maps)) return theme;
   if (sounds && (sounds.clips?.length || Object.keys(sounds.maps || {}).length || Object.keys(sounds.events || {}).length)) {
-    // Older saved built-in themes already have sound settings. Add the new cue
-    // while preserving an administrator's explicit None or custom selection.
+    // Add newly introduced cues to older built-in themes without replacing
+    // explicit None, custom clips, or per-event volumes (including zero).
+    const addedEvents = new Set(["footsteps", "npcEmojiUnlocked", "highFive", "doubleWow"]);
     const bundledPaths = sounds.clips?.some(clip => clip.src.startsWith(`${base}/`));
-    const importedBuiltIn = sounds.clips?.length >= SOUND_EVENTS.length &&
-      SOUND_EVENTS.filter(event => event.id !== "footsteps").every(event => Object.hasOwn(sounds.events || {}, event.id));
+    const originalEvents = SOUND_EVENTS.filter(event => !addedEvents.has(event.id));
+    const importedBuiltIn = sounds.clips?.length >= originalEvents.length &&
+      originalEvents.every(event => Object.hasOwn(sounds.events || {}, event.id));
     if (!bundledPaths && !importedBuiltIn) return theme;
-    const src = `${base}/footsteps.wav`;
-    if (sounds.clips.some(clip => clip.src === src) && Object.hasOwn(sounds.events || {}, "footsteps")) return theme;
-    if (sounds.clips.length >= 40 && !sounds.clips.some(clip => clip.src === src)) return theme;
-    return { ...theme, sounds: {
-      ...sounds,
-      clips: sounds.clips.some(clip => clip.src === src) ? sounds.clips : [...sounds.clips, {name:"Footsteps",src,source:"theme"}],
-      events: Object.hasOwn(sounds.events || {}, "footsteps") ? sounds.events : {...sounds.events,footsteps:src},
-    } };
+    const clips = [...sounds.clips], events = {...sounds.events};
+    for (const event of SOUND_EVENTS.filter(event => addedEvents.has(event.id))) {
+      if (Object.hasOwn(events, event.id)) continue;
+      const src = `${base}/${event.id}.wav`;
+      if (!clips.some(clip => clip.src === src)) {
+        if (clips.length >= 40) continue;
+        clips.push({name:event.label,src,source:"theme"});
+      }
+      events[event.id] = src;
+    }
+    return { ...theme, sounds: {...sounds,clips,events} };
   }
   return { ...theme, sounds: { ...defaultSoundConfig(base, theme.world.maps.map(map => map.id)), ...(sounds?.volumes ? { volumes: sounds.volumes } : {}) } };
 }

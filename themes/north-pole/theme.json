@@ -878,7 +878,7 @@
         "source": "theme"
       },
       {
-        "name": "Challenge discovery",
+        "name": "Challenge opened",
         "src": "/audio/sounds/north-pole/discovery.wav",
         "source": "theme"
       },
@@ -943,6 +943,21 @@
         "source": "theme"
       },
       {
+        "name": "NPC emoji secret unlocked",
+        "src": "/audio/sounds/north-pole/npcEmojiUnlocked.wav",
+        "source": "theme"
+      },
+      {
+        "name": "High-five",
+        "src": "/audio/sounds/north-pole/highFive.wav",
+        "source": "theme"
+      },
+      {
+        "name": "Double wow",
+        "src": "/audio/sounds/north-pole/doubleWow.wav",
+        "source": "theme"
+      },
+      {
         "name": "Map entry",
         "src": "/audio/sounds/north-pole/mapEntry.wav",
         "source": "theme"
@@ -973,7 +988,10 @@
       "hintUnlocked": "/audio/sounds/north-pole/hintUnlocked.wav",
       "lockedRoute": "/audio/sounds/north-pole/lockedRoute.wav",
       "routeUnlocked": "/audio/sounds/north-pole/routeUnlocked.wav",
-      "searchEmpty": "/audio/sounds/north-pole/searchEmpty.wav"
+      "searchEmpty": "/audio/sounds/north-pole/searchEmpty.wav",
+      "npcEmojiUnlocked": "/audio/sounds/north-pole/npcEmojiUnlocked.wav",
+      "highFive": "/audio/sounds/north-pole/highFive.wav",
+      "doubleWow": "/audio/sounds/north-pole/doubleWow.wav"
     }
   }
 }

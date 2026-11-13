@@ -10,6 +10,10 @@ export default function EntityEditor({ entity, characters, onChange, dialogueHre
   return <div className="entity-editor">
     <label>Character name<input aria-label="Character name" value={entity.name} maxLength={80} onChange={e => onChange({ ...entity, name: e.target.value })} /></label>
     <label>Appearance<select aria-label="Character appearance" value={entity.characterId} onChange={e => onChange({ ...entity, characterId: e.target.value })}>{characters.filter(c => c.appearanceFor !== "player" || c.id === entity.characterId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+    <label>Visibility<select aria-label="Character visibility" value={entity.invisible ? "invisible" : "visible"} onChange={e => onChange({ ...entity, invisible: e.target.value === "invisible" })}>
+      <option value="visible">Visible · blocks movement</option>
+      <option value="invisible">Invisible · hidden, walk-through</option>
+    </select><small>{entity.invisible ? "No artwork, name, or marker appears during play. Place it on walkable ground; players must stand on its exact X/Y tile and Search to discover it." : "Players can see this character and Search from a tile beside its edge."}</small></label>
     <label>Tile allocation<select aria-label="Character tile allocation" value={entity.size || 1} onChange={e => onChange({ ...entity, size: Number(e.target.value) as 1 | 2 | 3 })}>{([1, 2, 3] as const).map(size => <option key={size} value={size}>{size} × {size} tiles</option>)}</select><small>Coordinates mark the top-left tile. The outlined area must be free of challenges, spawns, doors, transports and other characters.</small></label>
     <div className="entity-coordinates">{(["x", "y"] as const).map(axis => <label key={axis}>{axis.toUpperCase()} coordinate<input aria-label={`Character ${axis.toUpperCase()} coordinate`} type="number" min={0} max={axis === "x" ? 39 : 27} value={entity.location[axis]} onChange={e => onChange({ ...entity, location: { ...entity.location, [axis]: Number(e.target.value) } })} /></label>)}</div>
     <div className="entity-dialogue-link">
