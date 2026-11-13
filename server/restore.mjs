@@ -179,7 +179,7 @@ try {
         +everyone.messaging,
       );
     const insertMessage = sqlite.prepare(
-      "INSERT INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at) VALUES(?,?,?,?,?,?,?)",
+      "INSERT INTO team_messages(id,sender_user,sender_team,recipient_team,recipient_user,sender,text,created_at) VALUES(?,?,?,?,?,?,?,?)",
     );
     for (const m of snapshot.teamMessages)
       insertMessage.run(
@@ -187,6 +187,7 @@ try {
         m.sender_user,
         m.sender_team,
         m.recipient_team,
+        m.recipient_user,
         m.sender,
         m.text,
         m.created_at,

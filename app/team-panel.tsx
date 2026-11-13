@@ -4,8 +4,9 @@ import { clientUuid } from "@/lib/client-uuid.mjs";
 import { PersonalMuteButton, PersonalMuteControls, type PersonalMutes } from "./personal-mutes";
 import { useEffect, useRef, useState } from "react";
 import { PlayerEmotePicker } from "./player-emotes";
-import { isPlayerEmote, teamEmojiNotice } from "@/lib/player-emotes.mjs";
+import { isPlayerEmote } from "@/lib/player-emotes.mjs";
 import type { SentTeamEmoji } from "./team-emoji-effects";
+import type { ConversationInbox } from "./use-conversation-inbox";
 import {
   Dialog,
   DialogContent,
@@ -15,11 +16,11 @@ import {
 import {AlertDialog,AlertDialogContent,AlertDialogHeader,AlertDialogTitle,AlertDialogDescription,AlertDialogFooter,AlertDialogCancel} from "@/components/ui/alert-dialog";
 import {
   MessageCircle,
-  Users,
   Send,
-  Trophy,
   ChevronLeft,
-  RefreshCw,
+  Smile,
+  Plus,
+  Settings,
 } from "lucide-react";
 export type TeamFeatures = {
   everyone: { names: boolean; scores: boolean; messaging: boolean };
@@ -44,6 +45,7 @@ type Message = {
   fromTeam: TeamCard | null;
   toTeam: TeamCard;
   text: string | null;
+  toUser?: string | null;
   canPersonalMute?: boolean;
   personalMuted?: boolean;
   createdAt: number;
@@ -68,6 +70,8 @@ export default function TeamPanel({
   onRead,
   personalMutes,
   onEmojiSent,
+  inbox,
+  initialMode = "emoji",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -76,6 +80,8 @@ export default function TeamPanel({
   onRead: (at: number) => void;
   personalMutes?: PersonalMutes;
   onEmojiSent?: (event: SentTeamEmoji) => void;
+  inbox: ConversationInbox;
+  initialMode?: "text" | "emoji";
 }) {
   const [data, setData] = useState<ResponseData | null>(null),
     [error, setError] = useState(""),
@@ -83,6 +89,9 @@ export default function TeamPanel({
     [busy, setBusy] = useState(false),
     [text, setText] = useState(""),
     [selectedEmoji, setSelectedEmoji] = useState(""),
+    [view, setView] = useState<"inbox" | "new" | "settings">("inbox"),
+    [search, setSearch] = useState(""),
+    [sendNotice, setSendNotice] = useState(""),
     [confirmClear, setConfirmClear] = useState(false),
     [clearing, setClearing] = useState(false),
     [clearNotice, setClearNotice] = useState("");
@@ -93,12 +102,22 @@ export default function TeamPanel({
     sendFailed = useRef(false);
   const loadRequest = useRef<{version:number;controller:AbortController}|null>(null);
   const selectedRef = useRef(selected);
-  const canSendTeamEmoji = !!data?.ownTeam && !data.isAdmin && !!data.team && !data.team.isYourTeam && selected !== "instructors";
+  const sending = useRef(false);
+  const canSendTeamEmoji = !!data?.team?.canMessage;
   selectedRef.current = selected;
-  async function load(silent = false, signal?: AbortSignal) {
+  function markConversationRead(target: string, response: ResponseData) {
+    const through = new Map<string, number>();
+    for (const message of response.messages || []) {
+      if (message.personalMuted) continue;
+      const id = response.isAdmin && target === "instructors" ? message.fromTeam?.id : target;
+      if (id) through.set(id, Math.max(through.get(id) || 0, message.createdAt));
+    }
+    for (const [id, at] of through) inbox.markRead(id, at);
+  }
+  async function load(silent = false, signal?: AbortSignal, force = false) {
     const target = selected,
       version = generation.current;
-    if (loadRequest.current?.version === version) return true;
+    if (loadRequest.current?.version === version && !force) return true;
     loadRequest.current?.controller.abort();
     const controller = new AbortController();
     loadRequest.current = {version,controller};
@@ -110,7 +129,7 @@ export default function TeamPanel({
     try {
       const r = await fetch(
           "/api/team-social" +
-            (target ? "?team=" + encodeURIComponent(target) : ""),
+            (target ? "?view=conversation&team=" + encodeURIComponent(target) : ""),
           {signal:controller.signal},
         ),
         d = (await r.json()) as ResponseData;
@@ -118,12 +137,13 @@ export default function TeamPanel({
       if (!controller.signal.aborted && version === generation.current && target === selectedRef.current) {
         setData(d);
         if (!sendFailed.current) setError("");
-        if (target === d.ownTeam || target === "instructors")
-          onRead(d.latestMessageAt);
+        if (target && nearBottom.current) {
+          markConversationRead(target, d);
+        }
       }
       return true;
     } catch (e) {
-      if (!signal?.aborted && version === generation.current && target === selectedRef.current)
+      if (!controller.signal.aborted && !signal?.aborted && version === generation.current && target === selectedRef.current)
         setError((e as Error).message);
       return false;
     } finally {
@@ -140,7 +160,10 @@ export default function TeamPanel({
     setData(null);
     setError("");
     setText("");
-    setSelectedEmoji("");
+    setView("inbox");
+    setSearch("");
+    setSendNotice("");
+    setSelectedEmoji(initialMode === "emoji" ? "👋" : "");
     request.current = { id: "", text: "", team: "" };
     if (!open) return;
     let first = true;
@@ -153,7 +176,7 @@ export default function TeamPanel({
       poller.stop();
       loadRequest.current?.controller.abort();
     };
-  }, [open, selected]);
+  }, [open, selected, initialMode]);
   useEffect(() => { if (open) void load(true); }, [personalMutes?.settings?.revision]);
   useEffect(() => {
     if (nearBottom.current && messageList.current)
@@ -169,6 +192,8 @@ export default function TeamPanel({
       const result = await r.json() as {error?:string;clearedThrough:number};
       if (!r.ok) throw Error(result.error || "Could not clear your chats.");
       onRead(result.clearedThrough);
+      for (const conversation of inbox.conversations) inbox.markRead(conversation.id, result.clearedThrough);
+      inbox.refresh();
       setClearNotice("Your chat history has been cleared. New messages will appear here.");
       if (version === generation.current) {
         generation.current++;
@@ -177,11 +202,12 @@ export default function TeamPanel({
       }
     } catch(e) {setError((e as Error).message);} finally {setClearing(false);setConfirmClear(false);}
   }
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
-    const emoji = canSendTeamEmoji && isPlayerEmote(selectedEmoji) ? selectedEmoji : "";
-    if (busy || clearing || !selected || (!emoji && !text.trim())) return;
+  async function send(emoji = "") {
+    if (emoji && !isPlayerEmote(emoji)) return;
+    if (sending.current || busy || clearing || !selected || !data?.team?.canMessage || (!emoji && !text.trim())) return;
+    sending.current = true;
     setBusy(true);
+    setSendNotice("");
     sendFailed.current = false;
     setError("");
     const target = selected,
@@ -201,10 +227,13 @@ export default function TeamPanel({
         d = (await r.json()) as { error?: string };
       if (!r.ok) throw Error(d.error || "Could not send message.");
       if (version === generation.current) {
-        if (emoji && data?.team) onEmojiSent?.({ id: request.current.id, emoji, toTeam: { id: target, label: data.team.label } });
+        if (emoji && target !== "instructors" && (data.isAdmin || target !== data.ownTeam)) onEmojiSent?.({ id: request.current.id, emoji, toTeam: { id: target, label: data.team.label } });
         if (!emoji) setText("");
         request.current = { id: "", text: "", team: "" };
-        void load(true);
+        nearBottom.current = true;
+        setSendNotice(emoji ? `Sent ${emoji}` : "Message sent");
+        void load(true, undefined, true);
+        inbox.refresh();
       }
     } catch (e) {
       if (version === generation.current) {
@@ -217,231 +246,83 @@ export default function TeamPanel({
       }
     } finally {
       clearTimeout(timeout);
+      sending.current = false;
       setBusy(false);
     }
   }
-  return (
-    <>
+  const query = search.trim().toLocaleLowerCase();
+  const conversations = inbox.conversations.filter(conversation => !query || `${conversation.label} ${conversation.preview.text}`.toLocaleLowerCase().includes(query));
+  const teams = (data?.teams || []).filter(team => (!data?.isAdmin || team.id !== "instructors") && (team.canReadMessages || team.canMessage) && (!query || team.label.toLocaleLowerCase().includes(query)));
+  function back() { setView("inbox"); setSearch(""); if (selected) onSelect(null); }
+  function readVisibleMessages() {
+    if (selected && data && nearBottom.current) markConversationRead(selected, data);
+  }
+  return <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="team-dialog">
-        <div className="team-dialog-heading">
-          <div>
-            <span className="eyebrow">{selected ? "MESSAGES & TEAM DETAILS" : "EXPEDITION TEAMS"}</span>
-            <DialogTitle>
-              {selected ? data?.team?.label || "Team details" : "Teams"}
-            </DialogTitle>
+      <DialogContent className={`team-dialog phone-chat ${selected ? "phone-thread" : "phone-inbox"}`}>
+        <div className="phone-chat-header">
+          {(selected || view !== "inbox") && <button type="button" className="phone-icon-button" aria-label="Back to messages" onClick={back}><ChevronLeft size={23} /></button>}
+          <div className="phone-chat-title">
+            <DialogTitle>{selected ? data?.team?.label || "Conversation" : view === "new" ? "New message" : view === "settings" ? "Chat settings" : "Messages"}</DialogTitle>
+            <DialogDescription>{selected ? (selected === "instructors" ? "Instructor conversation" : `${data?.team?.members ?? "…"} explorer${data?.team?.members === 1 ? "" : "s"}${data?.team?.isYourTeam ? " · Your team" : ""}`) : view === "inbox" ? inbox.unreadCount ? `${inbox.unreadCount} unread message${inbox.unreadCount === 1 ? "" : "s"}` : "All caught up" : view === "new" ? "Choose a team to message" : "Your inbox preferences"}</DialogDescription>
           </div>
-          <button
-            className="icon-button"
-            aria-label="Refresh team details"
-            onClick={() => void load()}
-          >
-            <RefreshCw size={17} />
-          </button>
+          {!selected && view === "inbox" && <div className="phone-header-actions">
+            <button type="button" className="phone-icon-button" aria-label="New message" onClick={() => { setView("new"); setSearch(""); }}><Plus size={21} /></button>
+            <button type="button" className="phone-icon-button" aria-label="Chat settings" onClick={() => setView("settings")}><Settings size={19} /></button>
+          </div>}
         </div>
-        <DialogDescription className="team-message-help">
-          Reopen this conversation anytime with Messages in the game header or press M while exploring.
-        </DialogDescription>
-        {personalMutes && <PersonalMuteControls controls={personalMutes} />}
-        {selected && (
-          <button
-            className="text-button team-back"
-            onClick={() => onSelect(null)}
-          >
-            <ChevronLeft size={16} />
-            All teams
-          </button>
-        )}
-        {clearNotice && <p role="status">{clearNotice}</p>}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {loading && !data ? (
-          <p role="status">Loading teams…</p>
-        ) : (
-          data && (
-            <>
-              {!selected ? (
-                <div className="team-directory">
-                  {data.teams?.map((t) => (
-                    <button key={t.id} onClick={() => onSelect(t.id)}>
-                      <div>
-                        <b>{t.label}</b>
-                        <small>
-                          {t.id === "instructors"
-                            ? "Shared inbox for all administrators"
-                            : `${t.isYourTeam ? "Your team · " : ""}${t.members} explorers`}
-                        </small>
-                      </div>
-                      {t.score !== undefined && (
-                        <strong>
-                          {t.score?.toLocaleString()}
-                          <small>points</small>
-                        </strong>
-                      )}
-                      {t.canReadMessages && <span className="team-open-messages"><MessageCircle size={17} aria-hidden="true" /> Open messages</span>}
-                    </button>
-                  ))}
-                  {!data.teams?.length && <p>No teams yet.</p>}
-                </div>
-              ) : (
-                <>
-                  <div className="team-card-stats">
-                    <span>
-                      <Users size={17} />
-                      {selected === "instructors"
-                        ? "Your team and administrators"
-                        : `${data.team?.members} explorers${data.team?.isYourTeam ? " · Your team" : ""}`}
-                    </span>
-                    {data.team?.score !== undefined && (
-                      <strong>
-                        <Trophy size={19} />
-                        {data.team?.score?.toLocaleString()} points
-                      </strong>
-                    )}
-                  </div>
-                  {data.team?.canReadMessages ? (
-                    <>
-                      <h3>
-                        {selected === "instructors"
-                          ? "Instructor conversation"
-                          : data.team?.isYourTeam
-                            ? "Team inbox"
-                            : "Conversation with your team"}
-                      </h3>
-                      <div
-                        ref={messageList}
-                        onScroll={(e) => {
-                          const list = e.currentTarget;
-                          nearBottom.current =
-                            list.scrollHeight -
-                              list.scrollTop -
-                              list.clientHeight <
-                            48;
-                        }}
-                        className="team-message-list"
-                        aria-label="Team messages"
-                      >
-                        {data.messages?.map((m) => (
-                          <article
-                            key={m.id}
-                            className={m.outgoing ? "outgoing" : ""}
-                          >
-                            <div>
-                              <b>{m.sender}</b>
-                              <span>
-                                {m.fromTeam?.label || "Instructor"}
-                                {m.toTeam.id !== data.ownTeam
-                                  ? " → " + m.toTeam.label
-                                  : ""}
-                              </span>
-                              <time
-                                dateTime={new Date(m.createdAt).toISOString()}
-                              >
-                                {new Date(m.createdAt).toLocaleString([], {
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </time>
-                            </div>
-                            {m.personalMuted ? <p className="personal-muted-message">Message hidden — you muted this player.</p> : <p>{m.fromTeam && m.fromTeam.id !== m.toTeam.id && isPlayerEmote(m.text)
-                              ? teamEmojiNotice({ ...m, emoji: m.text }, "Your team")
-                              : m.text}</p>}
-                            <div className="team-message-actions">
-                              {m.canPersonalMute && personalMutes && <PersonalMuteButton controls={personalMutes} username={m.sender} muted={m.personalMuted} />}
-                              {data.team?.isYourTeam && !data.isAdmin && !m.fromTeam && !m.outgoing && (
-                                <button className="text-button" onClick={() => onSelect("instructors")}>Reply to instructors</button>
-                              )}
-                              {(data.team?.isYourTeam ||
-                                (data.isAdmin && selected === "instructors")) &&
-                                m.fromTeam &&
-                                (data.isAdmin ||
-                                  m.fromTeam.id !== data.ownTeam) && (
-                                  <button
-                                    className="text-button"
-                                    onClick={() => onSelect(m.fromTeam!.id)}
-                                  >
-                                    Reply to {m.fromTeam.label}
-                                  </button>
-                                )}
-                            </div>
-                          </article>
-                        ))}
-                        {!data.messages?.length && (
-                          <p className="empty-messages">No messages yet.</p>
-                        )}
-                      </div>
-                      {data.team?.canMessage ? (
-                        <form className="team-message-form" onSubmit={send}>
-                          {canSendTeamEmoji && <div className="team-message-modes" role="group" aria-label="Message type">
-                            <button type="button" aria-pressed={!selectedEmoji} disabled={busy} onClick={() => setSelectedEmoji("")}>Text message</button>
-                            <button type="button" aria-pressed={!!selectedEmoji} disabled={busy} onClick={() => setSelectedEmoji("👋")}>Emoji</button>
-                          </div>}
-                          {selectedEmoji && canSendTeamEmoji ? <PlayerEmotePicker
-                            onSelect={setSelectedEmoji} selected={selectedEmoji} disabled={busy}
-                            description={`Send an emoji to ${data.team.label}. Nearby recipients will glow for 5 seconds.`}
-                          /> : <label>
-                            Message{" "}
-                            {data.team?.isYourTeam
-                              ? "your team"
-                              : data.team?.label}
-                            <textarea
-                              required
-                              maxLength={1000}
-                              rows={3}
-                              value={text}
-                              onChange={(e) => setText(e.target.value)}
-                              placeholder="Write a message…"
-                              disabled={busy}
-                            />
-                          </label>}
-                          <div>
-                            <small>
-                              {selectedEmoji && canSendTeamEmoji ? "Emoji reaction" : `${text.length}/1000`} ·{" "}
-                              {selected === "instructors"
-                                ? "visible to your team and administrators"
-                                : "visible to team members"}
-                            </small>
-                            <button
-                              className="primary"
-                              aria-busy={busy}
-                              disabled={busy || (!(selectedEmoji && canSendTeamEmoji) && !text.trim())}
-                            >
-                              <Send size={16} />
-                              {busy ? "Sending…" : selectedEmoji && canSendTeamEmoji ? "Send emoji" : "Send message"}
-                            </button>
-                          </div>
-                        </form>
-                      ) : (
-                        <p className="team-muted">
-                          {data.muted
-                            ? "Chat is muted for your account or team. You can still read messages."
-                            : selected === "instructors" && data.isAdmin
-                              ? "Select Reply on a message to open that team’s conversation."
-                              : "Messaging is turned off by your instructor."}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="team-muted">
-                      {data.team?.isYourTeam
-                        ? "Team messaging is turned off by your instructor."
-                        : "Messaging other teams is turned off by your instructor."}
-                    </p>
-                  )}
-                </>
-              )}
-            </>
-          )
-        )}
-        <div className="team-message-footer">{data && <button type="button" className="secondary-button" disabled={clearing||busy} onClick={()=>setConfirmClear(true)}>Clear my chats</button>}<button type="button" className="secondary-button" onClick={() => onOpenChange(false)}>Close messages</button></div>
+        {(error || (!selected && inbox.error)) && <p className="phone-chat-alert error" role="alert">{error || inbox.error}</p>}
+        {clearNotice && <p className="phone-chat-alert" role="status">{clearNotice}</p>}
+        {!selected ? <div className="phone-inbox-body">
+          {view !== "settings" && <label className="phone-chat-search"><span className="sr-only">{view === "new" ? "Search teams" : "Search conversations"}</span><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder={view === "new" ? "Search teams" : "Search messages"} /></label>}
+          {view === "settings" ? <div className="phone-chat-settings">
+            {personalMutes && <PersonalMuteControls controls={personalMutes} />}
+            <section className="phone-history-settings"><h3>Chat history</h3><p>Clear your copy of past conversations. Other people keep theirs.</p><button type="button" className="text-button clear-chat-history" disabled={clearing || busy} onClick={() => setConfirmClear(true)}>Clear my chats</button></section>
+          </div> : view === "new" ? <div className="phone-conversation-list" aria-label="Teams to message">
+            {loading && !data && <p className="phone-empty">Loading teams…</p>}
+            {teams.map(team => <button type="button" className="phone-conversation-row" key={team.id} onClick={() => onSelect(team.id)}>
+              <span className={`phone-chat-avatar ${team.id === "instructors" ? "instructor" : ""}`} aria-hidden="true">{team.id === "instructors" ? "IN" : team.label.slice(0, 2).toUpperCase()}</span>
+              <span className="phone-row-content"><strong>{team.label}</strong><span>{team.id === "instructors" ? "Message your instructors" : `${team.isYourTeam ? "Your team · " : ""}${team.members} explorers`}</span></span><MessageCircle size={18} aria-hidden="true" />
+            </button>)}
+            {data && !teams.length && <p className="phone-empty">No teams match your search.</p>}
+          </div> : <div className="phone-conversation-list" aria-label="Conversations">
+            {inbox.loading && <p className="phone-empty" role="status">Loading messages…</p>}
+            {conversations.map(conversation => <button type="button" key={conversation.id} className={`phone-conversation-row ${conversation.unreadCount ? "unread" : ""}`} onClick={() => onSelect(conversation.id)} aria-label={`${conversation.label}${conversation.unreadCount ? `, ${conversation.unreadCount} unread messages` : ""}`}>
+              <span className={`phone-chat-avatar ${conversation.id === "instructors" ? "instructor" : ""}`} aria-hidden="true">{conversation.id === "instructors" ? "IN" : conversation.label.slice(0, 2).toUpperCase()}</span>
+              <span className="phone-row-content"><span className="phone-row-heading"><strong>{conversation.label}</strong><time dateTime={new Date(conversation.latestAt).toISOString()}>{new Date(conversation.latestAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></span><span className="phone-message-preview">{conversation.preview.mine ? "You" : conversation.preview.sender}: {conversation.preview.text}</span></span>
+              {conversation.unreadCount > 0 && <span className="phone-unread-badge" aria-hidden="true">{conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}</span>}
+            </button>)}
+            {!inbox.loading && !conversations.length && <div className="phone-empty"><MessageCircle size={34} aria-hidden="true" /><h3>{query ? "No matching conversations" : "No messages yet"}</h3><p>{query ? "Try another name or message." : "Start a conversation with a team."}</p>{!query && <button type="button" className="secondary-button" onClick={() => setView("new")}>New message</button>}</div>}
+          </div>}
+        </div> : <>
+          {loading && !data && <p className="phone-empty" role="status">Loading conversation…</p>}
+          {data?.team?.canReadMessages ? <div ref={messageList} className="team-message-list phone-message-list" role="region" tabIndex={0} aria-label={`Messages with ${data.team.label}`} onScroll={event => { const list = event.currentTarget; nearBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 48; if (nearBottom.current) readVisibleMessages(); }}>
+            {data.messages?.map(message => <article key={message.id} className={`${message.outgoing ? "outgoing" : "incoming"}${isPlayerEmote(message.text) ? " emoji-message" : ""}`}>
+              <div><b>{message.sender}</b>{message.toUser ? <span>To {message.toUser} · User only</span> : message.fromTeam && <span>{message.fromTeam.label}</span>}<time dateTime={new Date(message.createdAt).toISOString()}>{new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></div>
+              {message.personalMuted ? <p className="personal-muted-message">Message hidden — you muted this player.</p> : <p className={isPlayerEmote(message.text) ? "phone-emoji-text" : undefined}>{message.text}</p>}
+              <div className="team-message-actions">
+                {message.canPersonalMute && personalMutes && <PersonalMuteButton controls={personalMutes} username={message.sender} muted={message.personalMuted} />}
+                {data.isAdmin && selected === "instructors" && message.fromTeam && <button type="button" className="text-button" onClick={() => onSelect(message.fromTeam!.id)}>Reply to {message.fromTeam.label}</button>}
+              </div>
+            </article>)}
+            {!data.messages?.length && <div className="phone-empty"><MessageCircle size={30} aria-hidden="true" /><p>Start with a wave 👋</p></div>}
+          </div> : data && <p className="phone-empty">Messaging this team is turned off by your instructor.</p>}
+          {data?.team?.canReadMessages && data.team.canMessage ? <form className="phone-composer" aria-label="Message composer" onSubmit={event => { event.preventDefault(); if (!selectedEmoji) void send(); }}>
+            <div className="phone-compose-tabs" role="group" aria-label="Message type">
+              <button type="button" aria-pressed={!!selectedEmoji} disabled={busy} onClick={() => setSelectedEmoji("👋")}><Smile size={17} aria-hidden="true" /> Emoji</button>
+              <button type="button" aria-pressed={!selectedEmoji} disabled={busy} onClick={() => setSelectedEmoji("")}><MessageCircle size={17} aria-hidden="true" /> Text</button>
+            </div>
+            {selectedEmoji && canSendTeamEmoji ? <PlayerEmotePicker onSelect={emoji => void send(emoji)} disabled={busy || clearing} description="Tap an emoji to send" /> : <div className="phone-text-compose"><textarea required maxLength={1000} rows={2} value={text} aria-label={`Message ${data.team.label}`} placeholder="Write a message…" onChange={event => setText(event.target.value)} onKeyDown={event => {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) {
+                event.preventDefault();
+                if (!event.repeat) event.currentTarget.form?.requestSubmit();
+              }
+            }} disabled={busy} /><button type="submit" className="phone-send-button" aria-label="Send message" disabled={busy || clearing || !text.trim()}><Send size={18} aria-hidden="true" /></button></div>}
+            <small className="phone-send-status" role="status">{busy ? "Sending…" : sendNotice || (selectedEmoji ? "" : `${text.length}/1000 · Enter to send · Shift+Enter for a new line`)}</small>
+          </form> : data?.team?.canReadMessages && <p className="phone-chat-alert">{data.muted ? "Your account or team is muted. You can still read messages." : selected === "instructors" && data.isAdmin ? "Tap Reply to open a team's conversation." : "Sending messages is turned off."}</p>}
+        </>}
       </DialogContent>
     </Dialog>
-    <AlertDialog open={confirmClear} onOpenChange={value=>{if(!clearing)setConfirmClear(value);}}><AlertDialogContent className="chat-confirmation"><AlertDialogHeader><AlertDialogTitle>Clear your chat history?</AlertDialogTitle><AlertDialogDescription>This hides all past sent and received chats from your view, across every team and the instructor conversation. Your teammates, recipients, and administrators keep their copies. New messages will still appear. You cannot undo this clear.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={clearing}>Cancel</AlertDialogCancel><button type="button" className="secondary-button danger-button" disabled={clearing} onClick={()=>void clearChats()}>{clearing?"Clearing…":"Clear my chats"}</button></AlertDialogFooter></AlertDialogContent></AlertDialog>
-    </>
-  );
+    <AlertDialog open={confirmClear} onOpenChange={value => { if (!clearing) setConfirmClear(value); }}><AlertDialogContent className="chat-confirmation"><AlertDialogHeader><AlertDialogTitle>Clear your chat history?</AlertDialogTitle><AlertDialogDescription>This hides past sent and received chats from your view. Your teammates, recipients, and administrators keep their copies. New messages will still appear.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={clearing}>Cancel</AlertDialogCancel><button type="button" className="secondary-button danger-button" disabled={clearing} onClick={() => void clearChats()}>{clearing ? "Clearing…" : "Clear my chats"}</button></AlertDialogFooter></AlertDialogContent></AlertDialog>
+  </>;
 }

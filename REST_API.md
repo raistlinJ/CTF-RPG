@@ -38,6 +38,7 @@ Use a valid player `hero` ID from `GET /api/config` if supplying a character on 
 | POST | `/api/admin/challenge-files?name=FILE` | Upload a raw file body (up to 4 MB); returns `name`, `filename`, `url`, and `size` for the challenge download list. Save the challenge separately. |
 | POST | `/api/admin/ctfd-import` | Preview/apply a multipart CTFd import, with explicit skipped-file decisions. |
 | POST | `/api/admin/maps` | Edit ground, spawns, entities and transports. |
+| GET, POST | `/api/admin/warp` | Admin-only live map counts and occupant lists; teleport the signed-in admin to a map's spawn. |
 | GET, POST | `/api/admin/theme-media` | Manage image catalogs, appearances, and map backgrounds. |
 | GET, POST | `/api/admin/theme-audio` | Manage MIDI tracks, map music assignments, and playback settings. |
 | GET, POST | `/api/admin/theme-sounds` | Manage sound clips and assign them to maps and events. |
@@ -46,15 +47,31 @@ Use a valid player `hero` ID from `GET /api/config` if supplying a character on 
 | GET, POST | `/api/admin/notifications` | Read/send notifications, delete one, or clear notification history. |
 | GET | `/api/admin/backup` | Download the complete recreation ZIP. |
 | GET | `/api/scoreboard` | Read rankings with the account's configured permissions. |
+| GET | `/api/chat-conversations` | Conversation previews and per-conversation unread counts. |
+| GET, POST | `/api/team-social` | Team directory, chat history and sending messages or emojis. |
 | GET, POST | `/api/chat-mutes` | Read/update the signed-in account's personal chat mutes. |
 
 Game state shares challenge completions, earned scores, challenge prerequisites, and earned rewards across current teammates. Each challenge awards points once per team; repeated correct answers return `correct:true` and `awardedPoints:0`. The challenge’s `awardedPoints` in game state remains the saved shared award. Instructor grading creates one award per team/challenge; regrading its original response updates that award. Team rankings and user progress count legacy duplicates once using the highest saved award. Hint purchases unlock for every current teammate, charge once per team/hint, and reduce the team’s eventual challenge award regardless of the solver. Point and item costs are shared, including for manual grading. A written submission locks new team hints for that challenge; previously purchased hints remain readable. Shared hint changes reach active games through the presence revision.
 
 These are the same endpoints used by the admin UI. JSON writes use `Content-Type: application/json`; map, media/audio/sound, and pack uploads use the endpoint's multipart form format. Editing uses the current `revision` and, where required, `themeRevision` / `contentRevision` returned by the corresponding reads. A stale save returns 409; refresh before applying changes again.
 
+## Administrator warp
+
+`GET /api/admin/warp` returns `{themeRevision, visibility, maps}`. Each map includes `id`, `name`, `playerCount`, and `players` with `username`, `role`, and an optional `team: {id, name}`. Counts include only recent valid presence with live sessions; `playerCount` is `null` when visibility is off. Post `{"map":"MAP_ID","themeRevision":REVISION}` to warp the signed-in administrator; the response is `{map, pos:{x,y}, themeRevision}`. The server chooses the destination spawn and updates temporary presence when visibility is enabled. It does not change assigned starts, unlocks, rewards or other players. Students cannot access either operation; stale map revisions return 409.
+
+## Conversation inbox
+
+`GET /api/chat-conversations` returns `{conversations, unreadCount, scope}` for the signed-in account. Each conversation includes `id`, `label`, `unreadCount`, `latestAt`, `preview: {id, text, sender, mine}`, and `isYourTeam`. Students receive separate internal-team, external-team and instructor conversations; admins receive one instructor conversation per student team. Permissions, disabled teams, hidden names, personal mutes and cleared history apply. Unread counts cover all matching history, beyond the 100-message thread display limit.
+
+The optional URL-encoded `read` query contains `{baseline: TIMESTAMP, through: {CONVERSATION_ID: TIMESTAMP}}`. The browser stores this state per account and team (or admin scope); opening a thread advances only that conversation’s timestamp. Omitting it counts all incoming visible history as unread. This does not write server-side read state. The response’s scope is `admin` or the student’s team ID.
+
+`GET /api/team-social?view=conversation&team=TEAM_ID` returns the selected conversation. The student’s own-team thread contains internal messages only; instructor replies appear in the separate `instructors` thread. An admin’s selected team thread combines that team’s questions with instructor replies and excludes student-to-student messages. Requests without `view=conversation` retain the aggregate history behavior. Send through the existing POST body `{id, team, text}`. The UI defaults to emojis and sends on one tap; text messages send with Enter or the send button, while Shift+Enter inserts a new line.
+
 ## Team emoji messages
 
-Emoji-only cross-team messages use the normal `/api/team-social` POST body, for example `{"id":"UUID","team":"TEAM_ID","text":"👋"}`. The five supported reactions are 👋, 👍, 👎, 😮 and 😢. Presence responses include recent `teamEmojis` events with `id`, `emoji`, `sender`, `fromTeam`, `toTeam`, `outgoing` and `remainingMs`. Only the sending account and receiving teammates receive these events; messaging permissions, personal mutes, cleared history and team-name visibility still apply. Each client displays a new event once for five seconds, highlighting the sender for receivers and visible recipient teammates for the sender. Emoji messages remain ordinary chat records for history, backups, moderation, retry deduplication and rate limiting.
+Emoji-only cross-team messages use the normal `/api/team-social` POST body, for example `{"id":"UUID","team":"TEAM_ID","text":"👋"}`. The five supported reactions are 👋, 👍, 👎, 😮 and 😢. Add `recipient: "USERNAME"` to send only to one current member of the destination team; omit it for team delivery. User targeting is accepted only for these emoji messages and is included in retry deduplication. A recipient whose membership changed must be selected again. User-only events, history, previews and unread counts are restricted to the sender and selected recipient; administrators can audit them through `/api/admin/chats`. The player-card toggle defaults to User. Presence responses include recent `teamEmojis` events with `id`, `emoji`, `sender`, `fromTeam`, `toTeam`, `outgoing` and `remainingMs`, plus `toUser` for user-only sends. Only the sending account and selected user or receiving teammates receive these events; messaging permissions, personal mutes, cleared history and team-name visibility still apply. Administrator sends do not require team membership, use `fromTeam:null`, and follow instructor messaging permissions. Each client displays a new event once for five seconds, drawing a directional delivery line with a traveling emoji from the sender to visible recipients on the current map (static with reduced motion enabled). Simultaneous delivery lines use distinct colors and thin strokes. Emoji messages remain ordinary chat records for history, backups, moderation and retry deduplication. Students share a five-sends-per-minute limit across text, team emojis, user-only emojis and instructor messages. Authenticated administrators are exempt from the send-rate limit; messaging permissions still apply.
+
+Self-hosted SQLite adds `recipient_user` on startup. Cloudflare/D1 deployments must apply `drizzle/0033_emoji_recipients.sql` before deploying the updated messaging APIs. Full backups preserve recipient targeting; older backups default to team delivery.
 
 ## Personal chat mutes
 

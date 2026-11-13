@@ -194,12 +194,14 @@ export const teamMessages = sqliteTable(
     recipientTeam: text("recipient_team")
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
+    recipientUser: text("recipient_user").references(() => students.id, { onDelete: "cascade" }),
     sender: text("sender").notNull(),
     text: text("text").notNull(),
     createdAt: integer("created_at").notNull(),
   },
   (t) => [
     index("idx_team_messages_created_id").on(t.createdAt,t.id),
+    index("idx_team_messages_recipient_user_created").on(t.recipientUser,t.createdAt),
     index("idx_team_messages_recipient_created").on(
       t.recipientTeam,
       t.createdAt,

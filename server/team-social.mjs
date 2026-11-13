@@ -1,3 +1,4 @@
+import { isPlayerEmote } from "../lib/player-emotes.mjs";
 import { sharedAggregate } from './shared-cache.mjs';
 import { chatClearedThrough } from './chat-history.mjs';
 import { personalMuteContext, personalizeMessages } from './personal-mutes.mjs';
@@ -50,7 +51,7 @@ export async function teamInbox(db, features, team, userId, admin, config) {
 export async function messageStats(db, features, team, userId, admin, config = {accounts:{users:[]}}) {
   const clearedThrough = await chatClearedThrough(db,userId);
   const loadReceived = () => team ? db.prepare(
-    `SELECT sender_user,sender_team,COUNT(*) AS count,MAX(created_at) AS latest FROM team_messages WHERE created_at>? AND recipient_team=? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) GROUP BY sender_user,sender_team`
+    `SELECT sender_user,sender_team,recipient_user,COUNT(*) AS count,MAX(created_at) AS latest FROM team_messages WHERE created_at>? AND recipient_team=? AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) GROUP BY sender_user,sender_team,recipient_user`
   ).bind(clearedThrough,team,+features.messaging,+features.everyone.messaging).all().then(r=>r.results) : Promise.resolve([]);
   const received = clearedThrough ? await loadReceived() : await sharedAggregate(db,JSON.stringify(["chat-received",team,features.messaging,features.everyone.messaging]),loadReceived);
   const loadInstructors = () => admin && features.messaging ? db.prepare(
@@ -58,7 +59,7 @@ export async function messageStats(db, features, team, userId, admin, config = {
   ).bind(clearedThrough).all().then(r=>r.results) : Promise.resolve([]);
   const instructors = !admin || !features.messaging ? [] : clearedThrough ? await loadInstructors() : await sharedAggregate(db,"chat-instructors",loadInstructors);
   const context = userId ? await personalMuteContext(db,config,userId,[...received,...instructors].map(m=>m.sender_user)) : null;
-  const allowed = [...received.filter(m=>m.sender_user !== (userId || null) && (m.sender_team === null || !context?.isMuted(m.sender_user))),...instructors.filter(m=>!context?.isMuted(m.sender_user))];
+  const allowed = [...received.filter(m=>(m.recipient_user === null || m.recipient_user === userId) && m.sender_user !== (userId || null) && (m.sender_team === null || !context?.isMuted(m.sender_user))),...instructors.filter(m=>!context?.isMuted(m.sender_user))];
   return {receivedCount:allowed.reduce((sum,m)=>sum+m.count,0),latestMessageAt:Math.max(0,...allowed.map(m=>m.latest || 0))};
 }
 export function sharedTeamScores(db, config) {
@@ -206,6 +207,14 @@ export async function handleTeamSocial(
         { error: "Choose a team and write a message of 1–1000 characters." },
         400,
       );
+    let recipient = null;
+    if (body.recipient !== undefined) {
+      if (typeof body.recipient !== "string" || !/^[a-z0-9_-]{3,24}$/.test(body.recipient) || !isPlayerEmote(body.text.trim()) || body.team === "instructors")
+        return reply({ error: "Choose a player and one of the supported emojis." }, 400);
+      recipient = await db.prepare("SELECT s.id,s.username,m.team FROM students s JOIN team_members m ON m.user=s.id WHERE s.username=? AND s.disabled=0").bind(body.recipient).first();
+      if (!recipient || recipient.team !== body.team || recipient.id === u?.id)
+        return reply({ error: "This player or their team changed. Reopen their player card." }, 409);
+    }
     const priorInstructor = await db
       .prepare("SELECT * FROM instructor_messages WHERE id=?")
       .bind(body.id)
@@ -299,7 +308,7 @@ export async function handleTeamSocial(
       );
     const existing = await db
       .prepare(
-        "SELECT sender_user,sender_team,recipient_team,text FROM team_messages WHERE id=?",
+        "SELECT sender_user,sender_team,recipient_team,recipient_user,text FROM team_messages WHERE id=?",
       )
       .bind(body.id)
       .first();
@@ -308,6 +317,7 @@ export async function handleTeamSocial(
         existing.sender_user !== (u?.id || null) ||
         existing.sender_team !== (admin ? null : own) ||
         existing.recipient_team !== body.team ||
+        existing.recipient_user !== (recipient?.id || null) ||
         existing.text !== body.text.trim()
       )
         return reply({ error: "Message reference is already in use." }, 409);
@@ -315,30 +325,35 @@ export async function handleTeamSocial(
     }
     const now = Date.now(),
       defaults = teamPolicy(features, internal).messaging;
-    // Membership, feature switch, recipient and per-sender throttle are checked in the write.
+    // Membership, features and recipients stay enforced for admins; only students are throttled.
     const r = await db
       .prepare(
-        `INSERT OR IGNORE INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at)
- SELECT ?,?,?,t.id,?,?,? FROM teams t WHERE t.id=? AND t.disabled=0
+        `INSERT OR IGNORE INTO team_messages(id,sender_user,sender_team,recipient_team,recipient_user,sender,text,created_at)
+ SELECT ?,?,?,t.id,?,?,?,? FROM teams t WHERE t.id=? AND t.disabled=0
+ AND (? IS NULL OR EXISTS(SELECT 1 FROM students target JOIN team_members recipient ON recipient.user=target.id WHERE target.id=? AND target.disabled=0 AND recipient.team=t.id))
  AND (CASE WHEN ?=1 THEN COALESCE((SELECT messaging FROM team_social_settings WHERE id='active'),?) ELSE COALESCE((SELECT everyone_messaging FROM team_social_settings WHERE id='active'),(SELECT messaging FROM team_social_settings WHERE id='active'),?) END)=1
  AND (?=1 OR EXISTS(SELECT 1 FROM team_members m JOIN teams source ON source.id=m.team WHERE m.user=? AND m.team=? AND source.muted=0 AND source.disabled=0))
- AND (SELECT COUNT(*) FROM team_messages WHERE sender_user IS ? AND created_at>?)+(SELECT COUNT(*) FROM instructor_messages WHERE sender_user IS ? AND created_at>?)<5
+ AND (?=1 OR (SELECT COUNT(*) FROM team_messages WHERE sender_user IS ? AND created_at>?)+(SELECT COUNT(*) FROM instructor_messages WHERE sender_user IS ? AND created_at>?)<5)
  AND (? IS NULL OR EXISTS(SELECT 1 FROM students WHERE id=? AND muted=0 AND disabled=0))`,
       )
       .bind(
         body.id,
         u?.id || null,
         admin ? null : own,
+        recipient?.id || null,
         admin ? "Instructor" : u.username,
         body.text.trim(),
         now,
         body.team,
+        recipient?.id || null,
+        recipient?.id || null,
         +internal,
         +defaults,
         +defaults,
         +admin,
         u?.id || null,
         own,
+        +admin,
         u?.id || null,
         now - 60000,
         u?.id || null,
@@ -350,7 +365,7 @@ export async function handleTeamSocial(
     if (!(r.meta?.changes ?? r.changes)) {
       const saved = await db
         .prepare(
-          "SELECT sender_user,sender_team,recipient_team,text FROM team_messages WHERE id=?",
+          "SELECT sender_user,sender_team,recipient_team,recipient_user,text FROM team_messages WHERE id=?",
         )
         .bind(body.id)
         .first();
@@ -359,6 +374,7 @@ export async function handleTeamSocial(
         saved.sender_user === (u?.id || null) &&
         saved.sender_team === (admin ? null : own) &&
         saved.recipient_team === body.team &&
+        saved.recipient_user === (recipient?.id || null) &&
         saved.text === body.text.trim()
       )
         return reply({ sent: true, id: body.id });
@@ -454,6 +470,7 @@ export async function handleTeamSocial(
       features,
       ownTeam: own,
       teams: [...teams.map(summary), instructorCard],
+      isAdmin: admin,
       muted,
       latestMessageAt: await teamInbox(db, features, own, u?.id, admin, config),
     });
@@ -482,9 +499,9 @@ export async function handleTeamSocial(
         const replies = (
           await db
             .prepare(
-              "SELECT id,sender,text,created_at FROM team_messages WHERE recipient_team=? AND sender_team IS NULL ORDER BY created_at DESC,id DESC LIMIT 100",
+              "SELECT id,sender_user,sender,text,created_at,(SELECT username FROM students WHERE id=recipient_user) AS to_user FROM team_messages WHERE recipient_team=? AND sender_team IS NULL AND (recipient_user IS NULL OR recipient_user=?) ORDER BY created_at DESC,id DESC LIMIT 100",
             )
-            .bind(own)
+            .bind(own,u?.id || null)
             .all()
         ).results;
         messages.push(
@@ -495,6 +512,7 @@ export async function handleTeamSocial(
             fromTeam: null,
             toTeam: summary(teams.find((t) => t.id === own)),
             text: m.text,
+            toUser: m.to_user || null,
             createdAt: m.created_at,
             outgoing: false,
           })),
@@ -520,12 +538,19 @@ export async function handleTeamSocial(
   if (!selected) return reply({ error: "This team was disbanded." }, 404);
   let messages = [];
   if (summary(selected).canReadMessages) {
-    const predicate = admin
+    const phoneView = url.searchParams.get("view") === "conversation";
+    const predicate = phoneView && admin
+      ? "(recipient_team=? AND sender_team IS NULL)"
+      : phoneView && selectedId === own
+        ? "(sender_team=? AND recipient_team=?)"
+        : admin
       ? "(recipient_team=? OR sender_team=?)"
       : selectedId === own
         ? "(recipient_team=? OR sender_team=?)"
         : "((sender_team=? AND recipient_team=?) OR (sender_team=? AND recipient_team=?))";
-    const args = admin
+    const args = phoneView && admin
+      ? [selectedId]
+      : admin
       ? [selectedId, selectedId]
       : selectedId === own
         ? [own, own]
@@ -533,9 +558,9 @@ export async function handleTeamSocial(
     const rows = (
       await db
         .prepare(
-          `SELECT id,sender_user,sender_team,recipient_team,sender,text,created_at FROM team_messages WHERE ${predicate} AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) ORDER BY created_at DESC,id DESC LIMIT 100`,
+          `SELECT id,sender_user,sender_team,recipient_team,sender,text,created_at,(SELECT username FROM students WHERE id=recipient_user) AS to_user FROM team_messages WHERE ${predicate} AND (recipient_user IS NULL OR sender_user=? OR recipient_user=?) AND ((?=1 AND (sender_team IS NULL OR sender_team=recipient_team)) OR (?=1 AND sender_team IS NOT NULL AND sender_team<>recipient_team)) ORDER BY created_at DESC,id DESC LIMIT 100`,
         )
-        .bind(...args, +features.messaging, +features.everyone.messaging)
+        .bind(...args, u?.id || null, u?.id || null, +features.messaging, +features.everyone.messaging)
         .all()
     ).results;
     if (admin && features.messaging) {
@@ -564,6 +589,7 @@ export async function handleTeamSocial(
         ? summary(teams.find((t) => t.id === m.recipient_team))
         : instructorCard,
       text: m.text,
+      toUser: m.to_user || null,
       createdAt: m.created_at,
       outgoing: admin ? m.sender_team === null : m.sender_team === own,
     }));

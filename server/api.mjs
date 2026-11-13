@@ -33,7 +33,9 @@ import {
 import { handleTeamSocial } from "./team-social.mjs";
 import { handlePersonalMutes } from "./personal-mutes.mjs";
 import { handleChatHistory, handleAdminChats } from "./chat-history.mjs";
+import { handleChatConversations } from "./chat-conversations.mjs";
 import { handlePresence } from "./presence.mjs";
+import { handleAdminWarp } from "./admin-warp.mjs";
 import { spawnSchema, canSpawn, resolveSpawn } from "../lib/spawn.mjs";
 import { updateMap } from "./maps.mjs";
 import { handleReview, gradingCompatible } from "./review.mjs";
@@ -267,6 +269,8 @@ function createRequestApi({
     if (path === "/api/admin/challenge-files") return handleChallengeFileUpload(req, {user, platformAdmin, assetStore});
     if (["/api/admin/mute", "/api/admin/scoreboard"].includes(path))
       return handleSocialControls(req, { db, user, platformAdmin });
+    if (path === "/api/admin/warp")
+      return handleAdminWarp(req, { db, config, user, platformAdmin, theme, themeRevision });
     if (["/api/presence", "/api/admin/presence"].includes(path))
       return handlePresence(req, {
         db,
@@ -280,6 +284,7 @@ function createRequestApi({
     if (["/api/team-social", "/api/admin/team-social"].includes(path))
       return handleTeamSocial(req, { db, config, user, platformAdmin });
     if (path === "/api/chat-history") return handleChatHistory(req,{db,user});
+    if (path === "/api/chat-conversations") return handleChatConversations(req, { db, config, user, platformAdmin });
     if (path === "/api/admin/chats") return handleAdminChats(req,{db,user,platformAdmin});
     if (path === "/api/chat-mutes") return handlePersonalMutes(req,{db,config,user});
     if (["/api/teams", "/api/admin/teams"].includes(path))

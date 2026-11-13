@@ -115,6 +115,7 @@ export function validateSnapshot(input) {
               sender_user: z.string().nullable(),
               sender_team: z.string().nullable(),
               recipient_team: z.string(),
+              recipient_user: z.string().nullable().default(null),
               sender: z.string().min(1).max(80),
               text: z.string().min(1).max(1000),
               created_at: z.number().int().min(0),
@@ -286,6 +287,7 @@ export function validateSnapshot(input) {
     snapshot.teamMessages.some(
       (m) =>
         (m.sender_user !== null && !ids.has(m.sender_user)) ||
+        (m.recipient_user !== null && !ids.has(m.recipient_user)) ||
         (m.sender_team !== null && !teamIds.has(m.sender_team)) ||
         !teamIds.has(m.recipient_team),
     )
@@ -469,7 +471,7 @@ export async function createSnapshot({ db, config, challenges, theme }) {
     teamMessages: (
       await db
         .prepare(
-          "SELECT id,sender_user,sender_team,recipient_team,sender,text,created_at FROM team_messages ORDER BY created_at,id",
+          "SELECT id,sender_user,sender_team,recipient_team,recipient_user,sender,text,created_at FROM team_messages ORDER BY created_at,id",
         )
         .bind()
         .all()

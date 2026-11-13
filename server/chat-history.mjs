@@ -20,7 +20,7 @@ export async function handleChatHistory(req, {db, user}) {
 
 const sources = {team:'team_messages', instructor:'instructor_messages'};
 const allChats = `SELECT 'team' AS kind,m.id,m.sender,COALESCE(s.username,'') AS username,m.sender_team AS from_id,
-  COALESCE(f.name,'Instructors') AS from_name,m.recipient_team AS to_id,t.name AS to_name,m.text,m.created_at
+  COALESCE(f.name,'Instructors') AS from_name,m.recipient_team AS to_id,CASE WHEN m.recipient_user IS NULL THEN t.name ELSE '@'||(SELECT username FROM students WHERE id=m.recipient_user)||' (User only)' END AS to_name,m.text,m.created_at
   FROM team_messages m LEFT JOIN students s ON s.id=m.sender_user LEFT JOIN teams f ON f.id=m.sender_team JOIN teams t ON t.id=m.recipient_team
   UNION ALL SELECT 'instructor' AS kind,m.id,m.sender,COALESCE(s.username,'') AS username,m.team AS from_id,t.name AS from_name,NULL AS to_id,'Instructors' AS to_name,m.text,m.created_at
   FROM instructor_messages m LEFT JOIN students s ON s.id=m.sender_user JOIN teams t ON t.id=m.team`;

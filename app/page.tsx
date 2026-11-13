@@ -6,6 +6,8 @@ import { useExplorerMotion } from "./use-explorer-motion";
 import { useHeldMovement } from "./use-held-movement";
 // CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 import TeamPanel from "./team-panel";
+import { useConversationInbox } from "./use-conversation-inbox";
+import AdminWarp from "./admin-warp";
 import { usePersonalMutes, PersonalMuteButton, PersonalMuteControls, type PersonalMutes } from "./personal-mutes";
 import ChallengeCutscene, { type Cutscene } from "./challenge-cutscene";
 import { EntityConversation, EntityMarker } from "./entity-dialogue";
@@ -20,7 +22,8 @@ import { KEY_PALETTE, hintCostLabel } from "@/lib/inventory-data.mjs";
 import { PlayerInventory, TransportUnlock, type Inventory, type LockedTransport } from "./player-inventory";
 import { usePlayerPresence, type NearbyPlayer, type SolveShine } from "./use-player-presence";
 import { PlayerEmotePicker, PlayerEmoteBubble } from "./player-emotes";
-import { TeamEmojiGlows, TeamEmojiNotices, type TeamEmojiEvent } from "./team-emoji-effects";
+import TeamEmojiPicker from "./team-emoji-picker";
+import { TeamEmojiLinks, TeamEmojiNotices, type TeamEmojiEvent, type SentTeamEmoji } from "./team-emoji-effects";
 import TeamSetup, { type Team } from "./team-setup";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import ScoresPanel from "./scoreboard/scores-panel";
@@ -604,7 +607,7 @@ export function World({
             }} />
         ))}
         {!onSelect && <>
-          <TeamEmojiGlows events={teamEmojis} players={players} />
+          <TeamEmojiLinks events={teamEmojis} players={players} self={selfPlayer} />
           <TeamEmojiNotices events={teamEmojis} />
         </>}
       </div>
@@ -764,10 +767,12 @@ export default function Game() {
   } | null>(null);
   const [teamPanelOpen, setTeamPanelOpen] = useState(false),
     [selectedTeam, setSelectedTeam] = useState<string | null>(null),
+    [teamMessageMode, setTeamMessageMode] = useState<"text" | "emoji">("emoji"),
     [readMessagesAt, setReadMessagesAt] = useState(0);
   const personalMutes = usePersonalMutes(user?.username, !!playerTile || teamPanelOpen);
-  function openTeam(id: string | null) {
+  function openTeam(id: string | null, mode: "text" | "emoji" = "emoji") {
     setSelectedTeam(id);
+    setTeamMessageMode(mode);
     setTeamPanelOpen(true);
   }
   useEffect(() => {
@@ -787,13 +792,13 @@ export default function Game() {
     config?.themeRevision,
     readMessagesAt,
   );
-  const hasUnreadMessages = presence.latestMessageAt > readMessagesAt;
+  const conversationInbox = useConversationInbox(user?.username, canAdmin ? "admin" : team?.id, !!user && (canAdmin || !!team));
+  const hasUnreadMessages = conversationInbox.unreadCount > 0;
   function openMessages() {
     const inbox = canAdmin ? "instructors" : team?.id;
     if (!inbox) return;
     setPlayerTile(null);
-    // Incoming messages go to the inbox; otherwise reopen the last conversation.
-    openTeam(hasUnreadMessages ? inbox : selectedTeam || inbox);
+    openTeam(null);
   }
   const [entities, setEntities] = useState<EntitySummary[]>([]);
   function applyGame(d: GameState) {
@@ -1311,12 +1316,12 @@ export default function Game() {
               type="button"
               className="text-button game-messages-button"
               aria-haspopup="dialog"
-              aria-label={hasUnreadMessages ? `Messages: ${presence.messageCount > 0 ? presence.messageCount + " unread" : "new messages"}` : "Messages"}
+              aria-label={hasUnreadMessages ? `Messages: ${conversationInbox.unreadCount} unread` : "Messages"}
               title="Open or reopen messages (M)"
               onClick={openMessages}
             >
               <MessageCircle size={17} aria-hidden="true" /> Messages
-              {hasUnreadMessages && <span className="message-unread-count" aria-live="polite" aria-atomic="true">{presence.messageCount > 0 ? presence.messageCount : "New"}</span>}
+              {hasUnreadMessages && <span className="message-unread-count" aria-live="polite" aria-atomic="true">{conversationInbox.unreadCount}</span>}
             </button>
           )}
           {user && (canAdmin || team) && (
@@ -1405,22 +1410,28 @@ export default function Game() {
           presence.sendEmote(emoji);
           setPlayerTile(null);
         }}
-        featureRevision={presence.features.revision}
-        onMessage={(id) => {
+        onTeamEmojiSent={event => {
+          presence.sentTeamEmoji(event);
+          conversationInbox.refresh();
           setPlayerTile(null);
-          openTeam(id);
+        }}
+        featureRevision={presence.features.revision}
+        onMessage={(id, mode) => {
+          setPlayerTile(null);
+          openTeam(id, mode);
         }}
       />
       <TeamPanel
+        inbox={conversationInbox}
         onEmojiSent={event => {
           presence.sentTeamEmoji(event);
-          setTeamPanelOpen(false);
         }}
         personalMutes={personalMutes}
         open={teamPanelOpen}
         onOpenChange={setTeamPanelOpen}
         selected={selectedTeam}
-        onSelect={setSelectedTeam}
+        initialMode={teamMessageMode}
+        onSelect={id => { setSelectedTeam(id); setTeamMessageMode("emoji"); }}
         onRead={markMessagesRead}
       />
       {audioError && (
@@ -1564,7 +1575,7 @@ export default function Game() {
               hero={chosen}
               players={presence.players}
               selfMarkers={presence.self}
-              messageCount={presence.messageCount}
+              messageCount={conversationInbox.unreadCount}
               onOpenMessages={openMessages}
               solveShines={presence.solveShines}
               teamEmojis={presence.teamEmojis}
@@ -1665,6 +1676,14 @@ export default function Game() {
                   <span className="small-pill">LEVEL 01 · EXPLORER</span>
                 </div>
               </div>
+              {canAdmin && config && <AdminWarp currentMap={map} username={user.username} themeRevision={config.themeRevision} onWarp={destination => {
+                setPlace({ map: destination.map, pos: { ...destination.pos } });
+                setPlayerTile(null);
+                setActive(null);
+                setTalkingTo(null);
+                setNearbyOptions(null);
+                setLockedTransport(null);
+              }} />}
             </div>
             <div className="score-panel">
               <Trophy size={22} />
@@ -1915,19 +1934,21 @@ function PlayerPopup({
   viewerUsername,
   viewerTeam,
   onEmote,
+  onTeamEmojiSent,
 }: {
   tile: { map: string; x: number; y: number } | null;
   onClose: () => void;
   players: NearbyPlayer[];
   characters: Character[];
   adminSprite?: string | null;
-  onMessage: (id: string) => void;
+  onMessage: (id: string, mode?: "text" | "emoji") => void;
   featureRevision: number;
   canAdmin: boolean;
   personalMutes: PersonalMutes;
   viewerUsername?: string;
   viewerTeam: string | null;
   onEmote: (emoji: string) => void;
+  onTeamEmojiSent: (event: SentTeamEmoji) => void;
 }) {
   const [teams, setTeams] = useState<
     { id: string; label: string; score?: number; canMessage: boolean }[] | null
@@ -2025,7 +2046,7 @@ function PlayerPopup({
         {players.some(player => player.username === viewerUsername) && <PlayerEmotePicker onSelect={onEmote} />}
         <PersonalMuteControls controls={personalMutes} />
         <div className="player-card-list">
-          {players.map((p) => {
+          {players.filter(p => p.username !== viewerUsername).map((p) => {
             const t = teams?.find(
               (t) => t.id === (p.role === "admin" ? "instructors" : p.team),
             );
@@ -2061,7 +2082,7 @@ function PlayerPopup({
                     <button
                       type="button"
                       className="player-message"
-                      onClick={() => onMessage(t.id)}
+                      onClick={() => onMessage(t.id, "text")}
                     >
                       {p.role === "admin"
                         ? "Message instructors"
@@ -2086,6 +2107,9 @@ function PlayerPopup({
                     <PersonalMuteButton controls={personalMutes} username={p.username} />
                   )}
                 </div>
+                {t?.canMessage && p.role !== "admin" && p.team && (canAdmin || (viewerTeam && p.team !== viewerTeam)) && (
+                  <TeamEmojiPicker team={t} username={p.username} onSent={onTeamEmojiSent} />
+                )}
               </article>
             );
           })}

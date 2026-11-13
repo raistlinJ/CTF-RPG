@@ -66,7 +66,7 @@ const percentile=(values,p)=>values.length?Number([...values].sort((a,b)=>a-b)[M
     if(i%13===0)sqlite.prepare('INSERT INTO personal_chat_settings(user,mute_all,revision) VALUES(?,1,1)').run(actor.id);
     if(i%17===0)sqlite.prepare('INSERT INTO chat_history_settings(user,cleared_through) VALUES(?,?)').run(actor.id,now-86400000);
   }
-  const teamMessage=sqlite.prepare('INSERT INTO team_messages VALUES(?,?,?,?,?,?,?)'),instructorMessage=sqlite.prepare('INSERT INTO instructor_messages VALUES(?,?,?,?,?,?)');
+  const teamMessage=sqlite.prepare('INSERT INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at) VALUES(?,?,?,?,?,?,?)'),instructorMessage=sqlite.prepare('INSERT INTO instructor_messages VALUES(?,?,?,?,?,?)');
   for(let i=0;i<messageCount;i++){
     const sender=actors[i%largest],at=now-600000-Math.floor(i/Math.max(1,messageCount)*172800000);
     if(i%5===0)instructorMessage.run('load-message-'+i,sender.id,sender.team,sender.username,'Load-test instructor message '+i,at);

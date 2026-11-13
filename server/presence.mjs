@@ -120,7 +120,7 @@ export async function handlePresence(
     count: countByChallenge.get(c.id) || 0,
   }));
   const social = {
-    teamEmojis: await teamEmojiEvents(db, config, u, member?.team, features, now),
+    teamEmojis: await teamEmojiEvents(db, config, u, member?.team, features, now, admin),
     notifications: await notificationStats(db,u),
     challengeSolves,
     gameRevision: `${themeRevision}:${currentCatalog.revision}:${settings.revision}:${[...milestones].join(",")}:${completions.map((r) => `${r.challenge}=${r.points}@${r.user}`).join(",")}:${JSON.stringify(hints.map(h => [h.challenge, h.hint, h.cost]))}:${JSON.stringify(submitted)}`,

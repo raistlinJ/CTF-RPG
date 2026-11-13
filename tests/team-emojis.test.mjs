@@ -4,7 +4,44 @@ import { DatabaseSync } from "node:sqlite";
 import { createApi } from "../server/api.mjs";
 import { createSQLiteAdapter, initializeSchema } from "../server/sqlite.mjs";
 import { parseGame } from "../lib/config-schema.mjs";
-import { PLAYER_EMOTES, EMOTE_DURATION_MS, teamEmojiNotice, teamEmojiTargets } from "../lib/player-emotes.mjs";
+import { createSnapshot, validateSnapshot } from "../server/backup.mjs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { PLAYER_EMOTES, EMOTE_DURATION_MS, teamEmojiNotice, teamEmojiTargets, teamEmojiConnections, emojiDeliveryColors, EMOJI_DELIVERY_COLORS } from "../lib/player-emotes.mjs";
+
+test("emoji delivery lines point from the sender to visible recipients without exposing unseen players", () => {
+  const alice = { username: "alice", team: "alpha", x: 18, y: 20 };
+  const annika = { username: "annika", team: "alpha", x: 18, y: 21 };
+  const bobby = { username: "bobby", team: "beta", x: 20, y: 20 };
+  const bruno = { username: "bruno", team: "beta", x: 20, y: 20 };
+  const carol = { username: "carol", team: "gamma", x: 25, y: 20 };
+  const event = { sender: "alice", toTeam: { id: "beta" }, outgoing: true };
+  assert.deepEqual(teamEmojiConnections(event, [annika, bobby, bruno, carol], alice), [
+    { from: alice, to: bobby }, { from: alice, to: bruno },
+  ]);
+  const incoming = { ...event, outgoing: false };
+  assert.deepEqual(teamEmojiConnections(incoming, [alice, annika, bruno], bobby), [{ from: alice, to: bobby }]);
+  assert.deepEqual(teamEmojiConnections(incoming, [annika, bruno], bobby), []);
+  assert.deepEqual(teamEmojiConnections(incoming, [alice, bobby], carol), []);
+  assert.deepEqual(teamEmojiConnections(event, [bobby], annika), []);
+  assert.deepEqual(teamEmojiConnections(event, [bobby], undefined), []);
+  const direct = { ...event, toUser: "bruno" };
+  assert.deepEqual(teamEmojiConnections(direct, [bobby, bruno], alice), [{ from: alice, to: bruno }]);
+  assert.deepEqual(teamEmojiConnections({ ...direct, outgoing: false }, [alice], bobby), []);
+  assert.deepEqual(teamEmojiConnections({ ...direct, outgoing: false }, [alice], bruno), [{ from: alice, to: bruno }]);
+  assert.equal(teamEmojiNotice({ ...direct, emoji: "👋" }), "You sent bruno a 👋");
+  assert.equal(teamEmojiNotice({ ...direct, outgoing: false, emoji: "👋" }), "alice sent you a 👋");
+});
+
+test("simultaneous emoji paths receive distinct colors even when their hashes collide", () => {
+  const keys = Array.from({ length: EMOJI_DELIVERY_COLORS.length }, (_, i) => `delivery-${i * EMOJI_DELIVERY_COLORS.length}:bobby`);
+  const colors = emojiDeliveryColors(keys);
+  assert.equal(new Set(colors).size, keys.length);
+  assert.deepEqual(emojiDeliveryColors(keys), colors);
+  assert.equal(new Set(emojiDeliveryColors([...keys, "overflow", "another delivery"])).size, keys.length + 2);
+});
 
 async function fixture() {
   const sqlite = new DatabaseSync(":memory:");
@@ -42,8 +79,93 @@ async function fixture() {
     return response.data.teamEmojis;
   };
   const send = (call, team, emoji, id = crypto.randomUUID()) => call("/api/team-social", { id, team, text: emoji });
-  return { sqlite, clients, alpha, beta, send, feed };
+  return { sqlite, db, config, clients, alpha, beta, send, feed };
 }
+
+test("user-only emojis reach one recipient, isolate history and unread counts, and preserve safe retries", async () => {
+  const s = await fixture();
+  try {
+    const { alice, annika, bobby, bruno, carol, teacher } = s.clients;
+    const id = crypto.randomUUID();
+    const body = { id, team: s.beta, text: "👋", recipient: "bobby" };
+    assert.equal((await alice("/api/team-social", body)).status, 200);
+    assert.equal((await alice("/api/team-social", body)).status, 200);
+    assert.equal((await alice("/api/team-social", { ...body, recipient: "bruno" })).status, 409);
+    const teamRetry = { id, team:s.beta, text:"👋" };
+    assert.equal((await alice("/api/team-social", teamRetry)).status, 409);
+    assert.equal((await s.feed(alice))[0].toUser, "bobby");
+    assert.equal((await s.feed(bobby))[0].toUser, "bobby");
+    for (const call of [annika, bruno, carol, teacher]) assert.deepEqual(await s.feed(call), []);
+    for (const [call, selected, expected] of [[alice,s.beta,1],[annika,s.beta,0],[bobby,s.alpha,1],[bruno,s.alpha,0],[carol,s.beta,0],[teacher,s.beta,0]]) {
+      for (const view of ["", "&view=conversation"]) {
+        const history = await call(`/api/team-social?team=${selected}${view}`);
+        assert.equal(history.status, 200);
+        assert.equal(history.data.messages.length, expected);
+        if (expected) assert.equal(history.data.messages[0].toUser, "bobby");
+      }
+      const inbox = await call("/api/chat-conversations");
+      assert.equal(inbox.data.unreadCount, call === bobby ? 1 : 0);
+    }
+    const stats = call => call("/api/presence", { map: "town", x:18, y:20, themeRevision:0 });
+    assert.equal((await stats(bobby)).data.receivedCount, 1);
+    assert.equal((await stats(bruno)).data.receivedCount, 0);
+    assert.equal((await alice("/api/team-social", { ...body, id:crypto.randomUUID(), recipient:"carol" })).status, 409);
+    assert.equal((await alice("/api/team-social", { ...body, id:crypto.randomUUID(), text:"private text" })).status, 400);
+    assert.equal((await alice("/api/team-social", { ...body, id:crypto.randomUUID() }, "https://evil.test")).status, 403);
+    await bobby("/api/chat-mutes", { action:"mute-all", revision:0 });
+    assert.deepEqual(await s.feed(bobby), []);
+    assert.equal((await bobby("/api/chat-conversations")).data.unreadCount, 0);
+    assert.equal((await s.send(alice,s.beta,"👍")).status,200);
+    assert.equal((await s.feed(bruno)).length,1, "team sends still reach the other teammate");
+  } finally { s.sqlite.close(); }
+});
+
+test("admin user-only emojis remain private in instructor conversations and survive full restoration", async () => {
+  const s = await fixture();
+  let folder;
+  try {
+    const { teacher, alice, annika } = s.clients;
+    const id = crypto.randomUUID();
+    assert.equal((await teacher("/api/team-social", { id, team:s.alpha, text:"👍", recipient:"alice" })).status,200);
+    assert.equal((await s.feed(alice))[0].toUser,"alice");
+    assert.deepEqual(await s.feed(annika),[]);
+    assert.equal((await alice("/api/team-social?team=instructors")).data.messages[0].toUser,"alice");
+    assert.deepEqual((await annika("/api/team-social?team=instructors")).data.messages,[]);
+    assert.equal((await annika("/api/chat-conversations")).data.unreadCount,0);
+    assert.equal((await teacher("/api/admin/chats")).data.messages[0].to_name,"@alice (User only)");
+    const snapshot = await createSnapshot({ db:s.db, config:s.config, challenges:[] });
+    const recipient = s.sqlite.prepare("SELECT id FROM students WHERE username='alice'").get().id;
+    assert.equal(snapshot.teamMessages[0].recipient_user,recipient);
+    assert.throws(() => validateSnapshot({ ...snapshot, teamMessages:[{ ...snapshot.teamMessages[0], recipient_user:"missing" }] }));
+    const legacy = structuredClone(snapshot); delete legacy.teamMessages[0].recipient_user;
+    assert.equal(validateSnapshot(legacy).teamMessages[0].recipient_user,null);
+    folder = mkdtempSync(resolve(tmpdir(),"emoji-recipient-"));
+    cpSync("server",resolve(folder,"server"),{recursive:true});
+    cpSync("lib",resolve(folder,"lib"),{recursive:true});
+    symlinkSync(resolve("node_modules"),resolve(folder,"node_modules"),"dir");
+    const file=resolve(folder,"backup.json"), path=resolve(folder,"restored.sqlite");
+    writeFileSync(file,JSON.stringify(snapshot));
+    const result=spawnSync(process.execPath,[resolve(folder,"server/restore.mjs"),file],{env:{...process.env,DATABASE_PATH:path},encoding:"utf8"});
+    assert.equal(result.status,0,result.stderr);
+    const restored=new DatabaseSync(path);
+    try {
+      assert.equal(restored.prepare("SELECT recipient_user FROM team_messages WHERE id=?").get(id).recipient_user,recipient);
+      restored.prepare("DELETE FROM team_members WHERE user=?").run(recipient);
+      restored.prepare("DELETE FROM students WHERE id=?").run(recipient);
+      assert.equal(restored.prepare("SELECT COUNT(*) n FROM team_messages").get().n,0,"deleting a recipient cannot turn their private emoji into a team send");
+    } finally { restored.close(); }
+  } finally { s.sqlite.close(); if(folder)rmSync(folder,{recursive:true,force:true}); }
+});
+
+test("hosted emoji migration adds recipient metadata without changing old team sends", () => {
+  const sql = new DatabaseSync(":memory:");
+  try {
+    sql.exec("PRAGMA foreign_keys=ON;CREATE TABLE students(id TEXT PRIMARY KEY);CREATE TABLE team_messages(id TEXT PRIMARY KEY,created_at INTEGER);INSERT INTO team_messages VALUES('old',0);");
+    sql.exec(readFileSync("drizzle/0033_emoji_recipients.sql","utf8"));
+    assert.equal(sql.prepare("SELECT recipient_user FROM team_messages WHERE id='old'").get().recipient_user,null);
+    assert.ok(sql.prepare("PRAGMA foreign_key_list(team_messages)").all().some(row=>row.from==="recipient_user"&&row.on_delete==="CASCADE"));
+  } finally { sql.close(); }
+});
 
 test("team emojis notify every recipient, target the correct glows, retain history, and expire without replaying retries", async t => {
   const s = await fixture();
@@ -118,13 +240,12 @@ test("team emoji effects respect personal mutes, hidden names, messaging switche
   } finally { s.sqlite.close(); }
 });
 
-test("own-team and instructor emoji messages remain ordinary chats; unsupported emojis never create directed effects", async () => {
+test("own-team and student-to-instructor emoji messages remain ordinary chats; unsupported emojis never create directed effects", async () => {
   const s = await fixture();
   try {
-    const { alice, annika, bobby, teacher } = s.clients;
+    const { alice, annika, bobby } = s.clients;
     for (const [team, emoji] of [[s.alpha, "👋"], ["instructors", "👍"], [s.beta, "🎉"]])
       assert.equal((await s.send(alice, team, emoji)).status, 200);
-    assert.equal((await s.send(teacher, s.alpha, "😮")).status, 200);
     assert.deepEqual(await s.feed(alice), []);
     assert.deepEqual(await s.feed(annika), []);
     assert.deepEqual(await s.feed(bobby), []);
@@ -132,5 +253,64 @@ test("own-team and instructor emoji messages remain ordinary chats; unsupported 
     assert.equal((await alice("/api/team-social", { id: crypto.randomUUID(), team: s.beta, text: "👋" }, "https://elsewhere.test")).status, 403);
     s.sqlite.prepare("UPDATE students SET muted=1 WHERE username='alice'").run();
     assert.equal((await s.send(alice, s.beta, "👋")).status, 403);
+  } finally { s.sqlite.close(); }
+});
+
+test("admins can send text, team emojis and user emojis without the student send limit", async t => {
+  const s = await fixture();
+  try {
+    t.mock.method(Date, "now", () => 1794502800000);
+    const { teacher, alice } = s.clients;
+    for (let i = 0; i < 12; i++) {
+      const body = { id: crypto.randomUUID(), team: s.beta, text: i % 3 === 0 ? `Message ${i}` : "👋", ...(i % 3 === 2 ? { recipient: "bobby" } : {}) };
+      assert.equal((await teacher("/api/team-social", body)).status, 200);
+      assert.equal((await teacher("/api/team-social", body)).status, 200, "retries remain deduplicated");
+    }
+    assert.equal(s.sqlite.prepare("SELECT COUNT(*) n FROM team_messages WHERE sender_team IS NULL").get().n, 12);
+    for (let i = 0; i < 5; i++) {
+      const body = { id: crypto.randomUUID(), team: i === 0 ? "instructors" : s.beta, text: "👍", ...(i % 2 ? { recipient: "bobby" } : {}) };
+      assert.equal((await alice("/api/team-social", body)).status, 200);
+    }
+    assert.equal((await alice("/api/team-social", { id: crypto.randomUUID(), team: s.beta, text: "👋", admin: true })).status, 429);
+    assert.equal((await s.send(alice, "instructors", "Extra message")).status, 429);
+    const features = (await teacher("/api/admin/team-social")).data;
+    await teacher("/api/admin/team-social", { ...features, messaging: false });
+    assert.equal((await s.send(teacher, s.beta, "👋")).status, 403, "admin messaging permissions still apply");
+  } finally { s.sqlite.close(); }
+});
+
+test("administrators can send team emojis without team membership; effects follow instructor messaging permissions", async t => {
+  const s = await fixture();
+  try {
+    const { teacher, alice, annika, bobby, carol } = s.clients;
+    const now = Date.now();
+    t.mock.method(Date, "now", () => now);
+    const id = crypto.randomUUID();
+    assert.equal((await s.send(teacher, s.alpha, "😮", id)).status, 200);
+    assert.equal((await s.send(teacher, s.alpha, "😮", id)).status, 200);
+    const outgoing = await s.feed(teacher);
+    assert.equal(outgoing.length, 1);
+    assert.equal(outgoing[0].outgoing, true);
+    assert.equal(outgoing[0].toTeam.id, s.alpha);
+    const incoming = await s.feed(alice);
+    assert.equal(incoming.length, 1);
+    assert.equal(incoming[0].sender, "teacher");
+    assert.equal(incoming[0].fromTeam, null);
+    assert.equal(teamEmojiNotice(incoming[0]), "Instructors sent you a 😮");
+    assert.equal(teamEmojiTargets(incoming[0], { username: "teacher", team: null }), true);
+    assert.equal(teamEmojiTargets(outgoing[0], { username: "annika", team: s.alpha }), true);
+    assert.equal((await s.feed(annika)).length, 1);
+    assert.deepEqual(await s.feed(bobby), []);
+    assert.deepEqual(await s.feed(carol), []);
+    await alice("/api/chat-mutes", { action: "mute-all", revision: 0 });
+    assert.equal((await s.feed(alice)).length, 1, "instructors remain exempt from personal mutes");
+    let features = (await teacher("/api/admin/team-social")).data;
+    features = (await teacher("/api/admin/team-social", { ...features, everyone: { ...features.everyone, messaging: false } })).data;
+    assert.equal((await s.feed(alice)).length, 1);
+    assert.equal((await s.feed(teacher)).length, 1);
+    await teacher("/api/admin/team-social", { ...features, messaging: false, everyone: { ...features.everyone, messaging: true } });
+    assert.deepEqual(await s.feed(alice), []);
+    assert.deepEqual(await s.feed(teacher), []);
+    assert.equal((await s.send(teacher, s.alpha, "👋")).status, 403);
   } finally { s.sqlite.close(); }
 });

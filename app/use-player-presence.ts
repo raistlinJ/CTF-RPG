@@ -30,6 +30,7 @@ export function usePlayerPresence(
   const [selfEmote, setSelfEmote] = useState<(PlayerEmote & { username: string }) | undefined>();
   const pendingEmote = useRef<PlayerEmote | null>(null);
   const refreshPresence = useRef<(() => void) | null>(null);
+  useEffect(() => { refreshPresence.current?.(); }, [map]);
   const seenTeamEmojis = useRef(new Map<string, number>());
   const [teamEmojiState, setTeamEmojiState] = useState<{ username?: string; events: TeamEmojiEvent[] }>({ events: [] });
   function sentTeamEmoji(event: SentTeamEmoji) {

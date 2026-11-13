@@ -112,6 +112,9 @@ CREATE INDEX IF NOT EXISTS idx_instructor_messages_created_id ON instructor_mess
 CREATE INDEX IF NOT EXISTS idx_sessions_user_expires ON sessions(user,expires);
 CREATE INDEX IF NOT EXISTS idx_solved_challenge ON solved(challenge);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_id ON notifications(created_at,id);`);
+  if (!sqlite.prepare("PRAGMA table_info(team_messages)").all().some(c => c.name === "recipient_user"))
+    sqlite.exec("ALTER TABLE team_messages ADD COLUMN recipient_user TEXT REFERENCES students(id) ON DELETE CASCADE");
+  sqlite.exec("CREATE INDEX IF NOT EXISTS idx_team_messages_recipient_user_created ON team_messages(recipient_user,created_at)");
   if (!sqlite.prepare("PRAGMA table_info(written_responses)").all().some(c=>c.name==="submitted_team")) sqlite.exec("ALTER TABLE written_responses ADD COLUMN submitted_team TEXT");
   if (!sqlite.prepare("PRAGMA table_info(written_responses)").all().some(c=>c.name==="rewards_payload")) sqlite.exec(`ALTER TABLE written_responses ADD COLUMN rewards_payload TEXT NOT NULL DEFAULT '{"keys":[],"incantations":[]}'`);
   if (!sqlite.prepare("PRAGMA table_info(purchased_hints)").all().some(c=>c.name==="reward_cost")) sqlite.exec(`ALTER TABLE purchased_hints ADD COLUMN reward_cost TEXT NOT NULL DEFAULT '{"keys":[],"incantations":[]}'`);

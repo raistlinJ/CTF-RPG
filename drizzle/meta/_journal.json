@@ -232,6 +232,13 @@
       "when": 1794502800000,
       "tag": "0032_player_emotes",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1794502800001,
+      "tag": "0033_emoji_recipients",
+      "breakpoints": true
     }
   ]
 }

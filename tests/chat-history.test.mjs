@@ -81,7 +81,7 @@ test('admin history identifies both directions, includes muted and cleared messa
     }
     assert.equal((await teacher('/api/admin/chats?offset=-1')).status,400);
     const id=s.sqlite.prepare("SELECT id FROM students WHERE username='bobby'").get().id;
-    const insert=s.sqlite.prepare('INSERT INTO team_messages VALUES(?,?,?,?,?,?,?)');
+    const insert=s.sqlite.prepare('INSERT INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at) VALUES(?,?,?,?,?,?,?)');
     for(let n=0;n<52;n++)insert.run(crypto.randomUUID(),id,s.beta,s.alpha,'bobby','page '+n,Date.now()-1000);
     assert.equal((await teacher('/api/admin/chats')).data.messages.length,50);
     const next=(await teacher('/api/admin/chats?offset=50')).data;assert.equal(next.messages.length,5);assert.equal(next.total,55);
@@ -154,7 +154,7 @@ test('chat cursors page tied timestamps across both streams without duplicates o
     for(let i=0;i<123;i++){
       const id='tied-'+String(i).padStart(4,'0');
       if(i%2)s.sqlite.prepare('INSERT INTO instructor_messages VALUES(?,?,?,?,?,?)').run(id,sender,s.alpha,'alice','question '+i,at);
-      else s.sqlite.prepare('INSERT INTO team_messages VALUES(?,?,?,?,?,?,?)').run(id,sender,s.alpha,s.beta,'alice','message '+i,at);
+      else s.sqlite.prepare('INSERT INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at) VALUES(?,?,?,?,?,?,?)').run(id,sender,s.alpha,s.beta,'alice','message '+i,at);
     }
     const get=async(cursor,filter='')=>s.clients.teacher('/api/admin/chats?'+new URLSearchParams({...cursor?{cursor}:{},...filter?{to:filter}:{}}));
     let page=(await get()).data;const seen=new Set(page.messages.map(m=>m.kind+':'+m.id));assert.equal(page.messages.length,50);assert.ok(page.nextCursor);
@@ -181,7 +181,7 @@ test('indexed chat search preserves literal searches, current names, updates, an
  const s=await fixture();try {
   assert.equal(s.db.capabilities.chatSearch,true);
   const sender=s.sqlite.prepare("SELECT id FROM students WHERE username='bobby'").get().id;
-  const insert=s.sqlite.prepare('INSERT INTO team_messages VALUES(?,?,?,?,?,?,?)');
+  const insert=s.sqlite.prepare('INSERT INTO team_messages(id,sender_user,sender_team,recipient_team,sender,text,created_at) VALUES(?,?,?,?,?,?,?)');
   for(const [index,text] of ['Needle in text','literal %_ body','a "quoted" phrase','écho café','line\nbreak','C++ exercise','nothing special'].entries())insert.run('search-'+index,sender,s.beta,s.alpha,'Historical sender',text,Date.now()-1000);
   s.sqlite.prepare('INSERT INTO instructor_messages VALUES(?,?,?,?,?,?)').run('search-instructor',sender,s.beta,'Historical sender','Needle for instructors',Date.now()-1000);
   s.sqlite.prepare("UPDATE teams SET name='Renamed Beta' WHERE id=?").run(s.beta);

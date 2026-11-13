@@ -66,6 +66,92 @@ const auth = (c, username, mode = "register") =>
     hero: "web",
     mode,
   });
+test("only administrators can list map occupants or warp; counts include active users and team names across maps", async () => {
+  const { sqlite, client } = setup();
+  try {
+    const admin = client(), alice = client(), mate = client(), bobby = client(), guest = client();
+    await auth(admin, "teacher", "login");
+    await auth(alice, "alice"); await auth(mate, "annika"); await auth(bobby, "bobby");
+    const alpha = (await alice("/api/teams", { mode: "create", name: "Alpha", password: "team-password" })).data.team;
+    await mate("/api/teams", { mode: "join", id: alpha.id, password: "team-password" });
+    const beta = (await bobby("/api/teams", { mode: "create", name: "Beta", password: "team-password" })).data.team;
+    const town = { map: "town", x: 18, y: 20, themeRevision: 0 };
+    const castle = { map: "castle", x: 20, y: 23, themeRevision: 0 };
+    await admin("/api/presence", town); await alice("/api/presence", town); await mate("/api/presence", town); await bobby("/api/presence", castle);
+    assert.equal((await guest("/api/admin/warp")).status, 401);
+    assert.equal((await guest("/api/admin/warp", { map: "castle", themeRevision: 0 })).status, 401);
+    assert.equal((await alice("/api/admin/warp")).status, 403);
+    assert.equal((await alice("/api/admin/warp", { map: "castle", themeRevision: 0 })).status, 403);
+    assert.equal((await admin("/api/admin/warp", undefined, "DELETE")).status, 405);
+    // Multiple live sessions must not double-count an explorer.
+    sqlite.prepare("INSERT INTO sessions(token,user,expires) SELECT 'another-session',id,? FROM students WHERE username='alice'").run(Date.now() + 60000);
+    let roster = (await admin("/api/admin/warp")).data;
+    assert.deepEqual(roster.maps.map(map => map.id), defaultWorld.maps.map(map => map.id));
+    assert.equal(roster.maps.find(map => map.id === "town").playerCount, 3);
+    const visitors = roster.maps.find(map => map.id === "castle");
+    assert.equal(visitors.playerCount, 1);
+    assert.deepEqual(visitors.players, [{ username: "bobby", role: "student", team: { id: beta.id, name: "Beta" } }]);
+    assert.deepEqual(roster.maps.find(map => map.id === "town").players.find(player => player.username === "alice").team, { id: alpha.id, name: "Alpha" });
+    assert.ok(roster.maps.some(map => map.playerCount === 0 && map.players.length === 0));
+    await bobby("/api/presence", town);
+    roster = (await admin("/api/admin/warp")).data;
+    assert.equal(roster.maps.find(map => map.id === "town").playerCount, 4);
+    assert.equal(roster.maps.find(map => map.id === "castle").playerCount, 0);
+    sqlite.prepare("UPDATE player_presence SET updated_at=? WHERE user=(SELECT id FROM students WHERE username='bobby')").run(Date.now() - 20001);
+    sqlite.prepare("UPDATE teams SET disabled=1 WHERE id=?").run(alpha.id);
+    roster = (await admin("/api/admin/warp")).data;
+    assert.deepEqual(roster.maps.flatMap(map => map.players).map(player => player.username), ["teacher"]);
+    sqlite.prepare("UPDATE teams SET disabled=0 WHERE id=?").run(alpha.id);
+    sqlite.prepare("UPDATE students SET disabled=1 WHERE username='alice'").run();
+    sqlite.prepare("DELETE FROM sessions WHERE user=(SELECT id FROM students WHERE username='annika')").run();
+    roster = (await admin("/api/admin/warp")).data;
+    assert.deepEqual(roster.maps.flatMap(map => map.players).map(player => player.username), ["teacher"]);
+  } finally { sqlite.close(); }
+});
+
+test("admin warp accepts every current map, updates only the acting admin's live position, and rejects forged or stale destinations", async () => {
+  const { sqlite, client } = setup();
+  try {
+    const admin = client();
+    await auth(admin, "teacher", "login");
+    const originalSpawn = (await admin("/api/auth")).data.user.spawn;
+    const roster = (await admin("/api/admin/warp")).data;
+    for (const map of roster.maps) {
+      const response = await admin("/api/admin/warp", { map: map.id, themeRevision: roster.themeRevision });
+      assert.equal(response.status, 200, JSON.stringify(response.data));
+      assert.deepEqual(response.data.pos, defaultWorld.maps.find(info => info.id === map.id).spawn);
+      const position = sqlite.prepare("SELECT map,x,y FROM player_presence WHERE user=(SELECT id FROM students WHERE username='teacher')").get();
+      assert.deepEqual({ ...position }, { map: map.id, x: response.data.pos.x, y: response.data.pos.y });
+    }
+    const before = sqlite.prepare("SELECT * FROM player_presence").all();
+    assert.equal((await admin("/api/admin/warp", { map: "not-a-map", themeRevision: 0 })).status, 400);
+    assert.equal((await admin("/api/admin/warp", { map: "castle", themeRevision: 99 })).status, 409);
+    for (const body of [[], { map: "castle" }, { map: "castle", themeRevision: "0" }, { map: "castle", themeRevision: 0, username: "someone-else" }, { map: "castle", themeRevision: 0, pos: { x: 0, y: 0 } }])
+      assert.equal((await admin("/api/admin/warp", body)).status, 400);
+    assert.deepEqual(sqlite.prepare("SELECT * FROM player_presence").all(), before);
+    assert.deepEqual((await admin("/api/auth")).data.user.spawn, originalSpawn);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM unlocked_transports").get().n, 0);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM solved").get().n, 0);
+    const response = await admin("/api/admin/warp", { map: "castle", themeRevision: 0 });
+    assert.equal(response.status, 200);
+    assert.equal((await admin("/api/admin/warp")).data.maps.find(map => map.id === "castle").playerCount, 1);
+  } finally { sqlite.close(); }
+});
+
+test("warp remains available when player visibility is off, with unavailable counts and no live tracking writes", async () => {
+  const { sqlite, client } = setup();
+  try {
+    const admin = client(); await auth(admin, "teacher", "login");
+    await admin("/api/admin/presence", { visibility: "off", revision: 0 });
+    const roster = (await admin("/api/admin/warp")).data;
+    assert.equal(roster.visibility, "off");
+    assert.ok(roster.maps.every(map => map.playerCount === null && map.players.length === 0));
+    const destination = (await admin("/api/admin/warp", { map: "castle", themeRevision: 0 })).data;
+    assert.equal(destination.map, "castle");
+    assert.deepEqual(destination.pos, defaultWorld.maps.find(map => map.id === "castle").spawn);
+    assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM player_presence").get().n, 0);
+  } finally { sqlite.close(); }
+});
 test("player reactions are shared with visible players, expire after five seconds without poll renewal, and are removed on leave", async t => {
   const { sqlite, client } = setup();
   try {

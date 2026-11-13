@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import TeamPanel from "@/app/team-panel";
+import { useConversationInbox } from "@/app/use-conversation-inbox";
 import { usePersonalMutes } from "@/app/personal-mutes";
 import type { Team } from "@/app/team-setup";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
@@ -24,6 +25,7 @@ export default function TeamsAdmin() {
     [query, setQuery] = useState(""), [confirmDelete, setConfirmDelete] = useState(false);
   const [chatUsername, setChatUsername] = useState<string>();
   const personalMutes = usePersonalMutes(chatUsername,panelOpen);
+  const chatInbox = useConversationInbox(chatUsername, "admin", allowed && panelOpen);
   useEffect(() => {
     if (!allowed) return;
     let live = true;
@@ -100,7 +102,7 @@ export default function TeamsAdmin() {
       </>}
     </section>
     {giftTeam && <GiftPointsDialog team={giftTeam} onClose={()=>setGiftTeam(null)} onSaved={async points=>{await load();setMessage(`Gifted ${points.toLocaleString()} points to ${giftTeam.name}.`);}}/>}
-    <TeamPanel personalMutes={chatUsername ? personalMutes : undefined} open={panelOpen} onOpenChange={setPanelOpen} selected={viewedTeam} onSelect={setViewedTeam} onRead={()=>{}}/>
+    <TeamPanel inbox={chatInbox} personalMutes={chatUsername ? personalMutes : undefined} open={panelOpen} onOpenChange={setPanelOpen} selected={viewedTeam} onSelect={setViewedTeam} onRead={()=>{}}/>
     <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}><AlertDialogContent><AlertDialogHeader>
       <AlertDialogTitle>Delete {selected.length} {selected.length===1?"team":"teams"}?</AlertDialogTitle>
       <AlertDialogDescription>Members will choose a team again. Their accounts, individual points and challenge progress stay saved. Team messages and point gifts are removed.</AlertDialogDescription>
