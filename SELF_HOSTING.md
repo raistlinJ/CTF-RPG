@@ -84,6 +84,21 @@ docker compose up --build -d
 
 Open `http://localhost:3000`. The default port binds to loopback. For direct HTTP access from other computers, use `APP_BIND=0.0.0.0 docker compose up --build -d`; set `APP_PORT` to change port 3000. Manage accounts through **Manage → Users** after signing in as the protected admin.
 
+If an older Dockerfile fails at `npm ci` with `spawn sh EACCES` during esbuild's postinstall, use the current Dockerfile, which sets `npm_config_script_shell=/bin/sh` in the build stage. This bypasses shell lookup through `PATH` while keeping dependency install scripts enabled. Rebuild with fresh base-image metadata and without cached layers:
+
+```sh
+docker compose build --pull --no-cache ctf-rpg
+docker compose up -d ctf-rpg
+```
+
+If the error persists with `/bin/sh` in the error message, check whether Node can launch the system shell on that Docker host:
+
+```sh
+docker run --rm node:24-bookworm-slim node -e 'const r = require("node:child_process").spawnSync("/bin/sh", ["-c", "echo shell-ok"], { stdio: "inherit" }); if (r.error) console.error(r.error); process.exit(r.status ?? 1)'
+```
+
+A permission failure in this check points to the Docker host or base-image execution environment; inspect host security logs and Docker storage mount options before changing application permissions.
+
 To run Docker on port 3001 and rebuild after application changes:
 
 ```sh

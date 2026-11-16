@@ -1,6 +1,8 @@
 # CTF-RPG — Copyright (c) 2026 Jaime C Acosta
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
+# Resolve npm lifecycle shells directly instead of searching PATH for sh.
+ENV npm_config_script_shell=/bin/sh
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
