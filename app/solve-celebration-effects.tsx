@@ -19,8 +19,10 @@ export default function SolveCelebrationEffects({ celebration, onDismiss }: { ce
     </div>
     <section className="solve-celebration-card" role="status" aria-live="polite" aria-atomic="true">
       <div className="solve-celebration-emblem" aria-hidden="true"><Icon /></div>
-      <div><span className="solve-celebration-kicker">{celebration.expedition ? "THE GRAND FINALE" : celebration.boss ? "BOSS VICTORY" : celebration.chainLength >= 5 ? "LEGENDARY PROGRESS" : celebration.milestone ? "PROGRESS MILESTONE" : "VICTORY"}</span>
-        <h2>{celebration.title}</h2><p>{celebration.detail}</p></div>
+      <div className="solve-celebration-content"><span className="solve-celebration-kicker">{celebration.expedition ? "THE GRAND FINALE" : celebration.boss ? "BOSS VICTORY" : celebration.chainLength >= 5 ? "LEGENDARY PROGRESS" : celebration.milestone ? "PROGRESS MILESTONE" : "VICTORY"}</span>
+        <h2>{celebration.title}</h2>
+        <div className="solve-celebration-points"><strong>+{celebration.points.toLocaleString()}</strong><span>points gained</span></div>
+        <p>{celebration.detail}</p></div>
       <button type="button" onClick={onDismiss} aria-label="Dismiss celebration"><X size={17} /></button>
     </section>
   </div>;

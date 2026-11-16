@@ -13,7 +13,7 @@ import { usePersonalMutes, PersonalMuteButton, PersonalMuteControls, type Person
 import ChallengeCutscene, { type Cutscene } from "./challenge-cutscene";
 import { EntityConversation, EntityMarker } from "./entity-dialogue";
 import SolvedAnswer from "./solved-answer";
-import ChallengeMarkdown from "./challenge-markdown";
+import { ChallengeBriefing, ChallengeHints } from "./challenge-materials";
 import { drawCharacter, matchingSprite, MAP_AVATAR_SIZE, type SpriteImage } from "@/lib/character-artwork";
 import { administratorAppearance } from "@/lib/administrator-appearance.mjs";
 import type { EntitySummary } from "@/lib/non-player-entities";
@@ -129,6 +129,7 @@ type Challenge = {
   caseSensitive: boolean;
   remainingPoints: number;
   awardedPoints: number | null;
+  solvedByYou?: boolean | null;
   hintCost: number;
   hintsLocked?: boolean;
   hints: {
@@ -844,7 +845,7 @@ export default function Game() {
   }
   const [entities, setEntities] = useState<EntitySummary[]>([]);
   function applyGame(d: GameState) {
-    solveCelebrations.observe(d.celebrationProgress);
+    solveCelebrations.observe(d.celebrationProgress, d.challenges);
     setEntities(d.entities || []);
     setInventory(d.inventory || {keys:[],incantations:[]});
     setUnlockedTransports(d.unlockedTransports || []);
@@ -1233,6 +1234,7 @@ export default function Game() {
         if (d.expeditionComplete && !expeditionComplete) playEventSound("expeditionComplete", 1.5);
         setFeedback(`Treasure collected! +${d.awardedPoints} points${gained.length ? `. Added to Inventory: ${gained.join(", ")}.` : ""}`);
         setNotice(`${active.object} collected. Keep exploring!`);
+        setActive(null);
       } else { playEventSound("incorrect"); setFeedback("Not quite. Take another look and try again."); }
     } catch (e) {
       setFeedbackSuccess(false);
@@ -1823,33 +1825,24 @@ export default function Game() {
           if (!v) setActive(null);
         }}
       >
-        <DialogContent className={`challenge-modal${active?.icon === "boss" ? " boss-challenge-modal" : ""}`}>
+        <DialogContent className={`challenge-modal${active?.icon === "boss" ? " boss-challenge-modal" : ""}`} aria-describedby={undefined}>
           <div key={active?.id} className="challenge-modal-scroll" role="region" aria-label="Challenge details" tabIndex={0}>
-            <span className="eyebrow">{active?.icon === "boss" ? "BOSS CHALLENGE" : "CHALLENGE"}</span>
-            <DialogTitle>{active?.icon === "boss" && <span className="sr-only">Boss Challenge: </span>}{active?.object}</DialogTitle>
-            <div className="challenge-meta">
-              <span>{active?.region}</span>
-              <span>{presence.challengeSolves.find((c) => c.id === active?.id)?.count ?? active?.solveCount ?? 0} solves</span>
-              <span>
-                +{active?.awardedPoints ?? active?.remainingPoints} points
-              </span>
+            <div className="challenge-heading">
+              <span className="eyebrow">{active?.icon === "boss" ? "BOSS CHALLENGE" : "CHALLENGE"}</span>
+              <DialogTitle>{active?.icon === "boss" && <span className="sr-only">Boss Challenge: </span>}{active?.object}</DialogTitle>
+              <div className="challenge-meta">
+                <span>{active?.region}</span>
+                <span>{presence.challengeSolves.find((c) => c.id === active?.id)?.count ?? active?.solveCount ?? 0} solves</span>
+                <span>
+                  +{active?.awardedPoints ?? active?.remainingPoints} points
+                </span>
+              </div>
             </div>
-            <ChallengeMarkdown className="question">{active?.text}</ChallengeMarkdown>
-            {active?.rewards && (active.rewards.keys.length > 0 || active.rewards.incantationCount > 0) && <p className="challenge-inventory-rewards">Inventory rewards: {[...active.rewards.keys.map(color => `${color} key`), ...(active.rewards.incantationCount ? [`${active.rewards.incantationCount} incantation${active.rewards.incantationCount === 1 ? "" : "s"}`] : [])].join(" · ")}</p>}
+            {active && <ChallengeBriefing text={active.text} downloads={active.downloads} rewards={active.rewards} />}
             {active && (active.discoveryVideo || active.solveVideo) && <div className="cutscene-replays" aria-label="Replay cutscenes">
               {active.discoveryVideo && <button type="button" className="text-button" onClick={() => void playCutscene(active, "discovery", true)}>Replay discovery cutscene</button>}
               {solved.includes(active.id) && active.solveVideo && <button type="button" className="text-button" onClick={() => void playCutscene(active, "solve", true)}>Replay solve cutscene</button>}
             </div>}
-            <p className="reward-details">
-              {active?.grading === "manual"
-                ? "Written response · admin review"
-                : active?.answerRules || (active?.caseSensitive
-                  ? "Case-sensitive flag"
-                  : "Case-insensitive flag")}
-              {active && active.hintCost > 0
-                ? ` · ${active.hintCost} points spent on hints`
-                : ""}
-            </p>
             {active?.submission && (
               <section className="submission-status" aria-label="Response status">
                 <b>
@@ -1865,72 +1858,22 @@ export default function Game() {
                 </p>
               </section>
             )}
-            {!!active?.hints.length && (
-              <section className="challenge-hints" aria-label="Challenge hints">
-                <h3>
-                  Hints <small>Hints unlock for your whole team. Costs reduce your team’s completion points and rewards once per hint.</small>
-                </h3>
-                {active.hintsLocked && !active.submission && !solved.includes(active.id) && <p>Hints are locked because a teammate has submitted an answer.</p>}
-                {active.hints.map((h) => (
-                  <div className="challenge-hint" key={h.id}>
-                    <div className="hint-title">
-                      <b>{h.label}</b>
-                      {h.unlocked ? (
-                        <span>
-                          {hintCostLabel(h.cost, h.rewardCost)} · unlocked
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={
-                            busy ||
-                            solved.includes(active.id) ||
-                            !!active.submission ||
-                            active.hintsLocked ||
-                            !h.available
-                          }
-                          onClick={() => unlockHint(h.id)}
-                        >
-                          {hintCostLabel(h.cost, h.rewardCost) === "Free" ? "Reveal free hint" : `Unlock · ${hintCostLabel(h.cost, h.rewardCost)}`}
-                        </button>
-                      )}
-                    </div>
-                    {!h.unlocked && !h.available && !solved.includes(active.id) && !active.submission && <p>A reward required by this hint has already been used for another hint.</p>}
-                    {h.unlocked && <ChallengeMarkdown>{h.text}</ChallengeMarkdown>}
-                  </div>
-                ))}
-              </section>
-            )}
-            {hintMessage && (
-              <p className="hint-status" role="status">
-                {hintMessage}
-              </p>
-            )}
+            {active && <ChallengeHints hints={active.hints} locked={active.hintsLocked} busy={busy}
+              completed={solved.includes(active.id)} submitted={!!active.submission} message={hintMessage}
+              onUnlock={id => void unlockHint(id)} />}
             {active && solved.includes(active.id) && <SolvedAnswer key={active.id} challengeId={active.id} />}
           </div>
           <div className="challenge-modal-actions">
-            {!!active?.downloads.length && (
-              <section
-                className="challenge-downloads"
-                aria-label="Challenge files"
-              >
-                <h3>Challenge files</h3>
-                <div className="challenge-download-links">
-                  {active.downloads.map((file, index) => (
-                    <a
-                      key={`${file.url}:${index}`}
-                      href={file.url}
-                      download={file.filename || file.name}
-                      title={file.name}
-                      target={file.url.startsWith("https:") ? "_blank" : undefined}
-                      rel="noopener noreferrer"
-                    >
-                      <span>↓</span> {file.name}
-                    </a>
-                  ))}
-                </div>
-              </section>
-            )}
+            <p className="reward-details">
+              {active?.grading === "manual"
+                ? "Written response · admin review"
+                : active?.answerRules || (active?.caseSensitive
+                  ? "Case-sensitive flag"
+                  : "Case-insensitive flag")}
+              {active && active.hintCost > 0
+                ? ` · ${active.hintCost} points spent on hints`
+                : ""}
+            </p>
             {active && solved.includes(active.id) ? (
               <button className="primary" type="button" onClick={() => setActive(null)}>Keep exploring</button>
             ) : <form onSubmit={submit}>

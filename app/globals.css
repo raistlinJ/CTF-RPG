@@ -717,7 +717,7 @@ input::placeholder {
   border: 1px solid #66847c !important;
   padding: 0 !important;
   border-radius: 12px !important;
-  max-width: 530px !important;
+  max-width: 680px !important;
 }
 .challenge-modal h2 {
   font:
@@ -725,7 +725,8 @@ input::placeholder {
   padding-right: 16px;
   overflow-wrap: anywhere;
 }
-.challenge-modal-scroll > .eyebrow {
+.challenge-heading { display: grid; gap: 12px; min-width: 0; padding-bottom: 22px; border-bottom: 1px solid #45616d; }
+.challenge-heading > .eyebrow {
   padding-right: 24px;
 }
 .challenge-modal > [data-slot="dialog-close"] {
@@ -754,12 +755,18 @@ input::placeholder {
   color: #e3ca86;
 }
 .question {
-  font-size: 20px;
-  line-height: 1.6;
-  border-top: 1px solid #405964;
-  padding-top: 20px;
+  font-size: 18px;
+  line-height: 1.7;
   overflow-wrap: anywhere;
 }
+.challenge-section-title { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 15px; font-weight: 700; color: #d6e8ed; }
+.challenge-briefing { min-width: 0; }
+.challenge-briefing > .challenge-section-title { color: #a9c5d0; font-size: 12px; text-transform: uppercase; letter-spacing: .09em; }
+.challenge-heading h2 { margin: 0; line-height: 1.2; font-weight: 600; }
+.challenge-modal .question :is(h1, h2, h3, h4, h5, h6) { padding: 0; font-weight: 600; }
+.challenge-modal .question :is(h2, h3) { padding-bottom: .4em; border-bottom: 1px solid #ffffff20; }
+.challenge-modal .question blockquote { background: #102532; padding: 12px 16px; border-radius: 0 6px 6px 0; color: #d6e8ed; }
+.challenge-modal .question blockquote > :last-child { margin-bottom: 0; }
 .challenge-modal .primary {
   width: 100%;
   margin-top: 18px;
@@ -773,10 +780,11 @@ input::placeholder {
 .boss-challenge-modal > [data-slot="dialog-close"] { background: #3b1d2b; }
 .boss-challenge-modal .challenge-meta,
 .boss-challenge-modal .reward-details { color: #e6bdc6; }
-.boss-challenge-modal .question,
-.boss-challenge-modal .challenge-hints,
-.boss-challenge-modal .challenge-downloads,
-.boss-challenge-modal .challenge-hint { border-color: #80505f; }
+.boss-challenge-modal .challenge-heading,
+.boss-challenge-modal .challenge-downloads { border-color: #80505f; }
+.boss-challenge-modal .question blockquote,
+.boss-challenge-modal .challenge-downloads { background: #2a1420; }
+.boss-challenge-modal .challenge-download-links a { background: #492535; border-color: #986373; }
 .boss-challenge-modal .challenge-modal-actions { border-color: #80505f; }
 .boss-challenge-modal .primary { background: #f3b6a2; color: #4b1826; }
 .boss-challenge-modal .challenge-inventory-rewards,
@@ -1056,18 +1064,15 @@ input::placeholder {
   gap: 0 !important;
   overflow: hidden;
 }
-.challenge-modal-scroll { display:grid;gap:16px;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:var(--challenge-modal-padding); }
+.challenge-modal-scroll { display:grid;gap:24px;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:var(--challenge-modal-padding); }
 .challenge-modal-scroll:focus-visible { outline:2px solid #94d1b7;outline-offset:-4px; }
 .challenge-modal-scroll .submission-status { white-space:normal; }
 .challenge-modal-actions { display:grid;gap:12px;flex-shrink:0;min-width:0;padding:16px var(--challenge-modal-padding) var(--challenge-modal-padding);border-top:1px solid #405964; }
-.challenge-modal-actions .challenge-downloads { min-width:0;border:0;padding:0; }
-.challenge-modal-actions .challenge-downloads h3 { margin:0 0 6px;font-size:14px; }
-.challenge-download-links { display:flex;gap:12px;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 0 4px; }
-.challenge-modal-actions .challenge-download-links a { display:block;flex-shrink:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:14px; }
-.challenge-modal-actions .challenge-download-links a span { font-size:16px; }
 .challenge-modal-actions .primary { margin-top:12px; }
 .challenge-modal-actions > .primary { margin-top:0; }
 .challenge-modal-actions > [role="status"] { margin:0; }
+.challenge-modal-actions .reward-details { margin: 0; font-size: 13px; line-height: 1.5; }
+.challenge-modal-actions label { font-size: 14px; font-weight: 600; }
 .challenge-modal .challenge-modal-actions textarea { height:clamp(72px,16dvh,160px);min-height:72px;max-height:20dvh;resize:vertical; }
 @media(max-height:600px) {
   .challenge-modal { --challenge-modal-padding:16px; }
@@ -1257,70 +1262,37 @@ input::placeholder {
 .reward-key-options input { width: auto; margin: 0; }
 .challenge-reward-settings .reward-incantations { display:block; margin-top:20px; padding-top:18px; border-top:1px solid #385561; }
 .key-swatch { width: 12px; height: 12px; flex: 0 0 12px; border-radius: 50%; }
-.challenge-inventory-rewards { color: #bde9cf; font-size: 14px; }
+.challenge-inventory-rewards { display: flex; align-items: flex-start; gap: 10px; color: #bde9cf; font-size: 13px; }
+.challenge-inventory-rewards > svg { flex-shrink: 0; margin-top: 2px; }
+.challenge-inventory-rewards p { display: grid; gap: 4px; margin: 0; line-height: 1.5; }
+.challenge-inventory-rewards b { font-weight: 600; }
 .challenge-video-settings .admin-repeater {
   display: grid;
   gap: 12px;
 }
-.challenge-hints,
-.challenge-downloads {
-  border-top: 1px solid #405964;
-  padding-top: 16px;
-}
-.challenge-hints h3,
-.challenge-downloads h3 {
-  font-size: 16px;
-  font-weight: 500;
-  margin: 0 0 12px;
-}
-.challenge-hints h3 small {
-  display: block;
-  font-size: 13px;
-  color: #aac4c9;
-  margin-top: 6px;
-  font-weight: 400;
-}
-.challenge-hint {
-  padding: 14px 0;
-  border-bottom: 1px solid #405964;
-}
-.hint-title {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: space-between;
-  align-items: center;
-}
-.hint-title b {
-  font-size: 14px;
-  font-weight: 500;
-}
-.hint-title span {
-  font-size: 13px;
-  color: #a3e7ca;
-}
-.hint-title button {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  padding: 8px 10px;
-  color: #e3ca86;
-  border: 1px solid #7e7651;
-  border-radius: 5px;
-  font-size: 14px;
-  background: #233c40;
-}
-.challenge-hint p {
-  color: #dfd3b0;
-  font-size: 16px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  margin: 12px 0 0;
-}
-.hint-status {
-  color: #a3e7ca;
-  font-size: 14px;
-  line-height: 1.6;
-}
+.challenge-downloads { min-width: 0; padding: 16px; border: 1px solid #496b7a; border-radius: 10px; background: #122b38; }
+.challenge-download-links { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.challenge-hints { min-width: 0; padding: 18px; border: 1px solid #a88a4d; border-radius: 12px; background: #302f25; }
+.challenge-hints-heading { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; }
+.challenge-hints-heading .challenge-section-title { margin: 0; color: #ffe2a1; font-size: 17px; }
+.challenge-hints-heading > span { color: #f3dfb5; font-size: 12px; }
+.challenge-hints-help { margin: 10px 0 16px; color: #e2d4b9; font-size: 13px; line-height: 1.6; }
+.challenge-hint-list { display: grid; gap: 12px; }
+.challenge-hint { min-width: 0; padding: 16px; border: 1px solid #687580; border-left: 4px solid #8799a2; border-radius: 8px; background: #172d39; }
+.challenge-hint.is-unlocked { border-color: #af9255; border-left-color: #ffd276; background: #493a24; }
+.hint-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.hint-title h4 { display: flex; align-items: flex-start; gap: 8px; min-width: 0; margin: 0; color: #f2f6f8; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.hint-title h4 svg { flex-shrink: 0; margin-top: 2px; color: #c0d1db; }
+.is-unlocked .hint-title h4 svg { color: #ffe2a1; }
+.hint-unlocked { padding: 4px 8px; border: 1px solid #b5985b; border-radius: 5px; color: #ffe8b8; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.hint-title button { max-width: 100%; overflow-wrap: anywhere; padding: 9px 12px; color: #261d0d; border: 1px solid #ffe2a1; border-radius: 6px; font-size: 13px; font-weight: 600; background: #f5d28a; min-height: 40px; }
+.hint-title button:hover:not(:disabled) { background: #ffe6b3; }
+.hint-title button:focus-visible { outline: 2px solid #fff2d0; outline-offset: 3px; }
+.hint-title button:disabled { opacity: .6; cursor: default; }
+.hint-content { margin-top: 14px; padding-top: 14px; border-top: 1px solid #ad925566; color: #fff3d8; font-size: 16px; line-height: 1.7; }
+.hint-notice { margin: 12px 0 0; color: #f3dfb5; font-size: 13px; line-height: 1.6; }
+.challenge-hints > .hint-notice { margin-bottom: 16px; }
+.hint-status { margin: 14px 0 0; color: #d3f4df; font-size: 13px; line-height: 1.6; }
 .hint-reward-costs {
   min-width: 0;
   margin: 16px 0;
@@ -1349,28 +1321,16 @@ input::placeholder {
 .hint-reward-costs > small {
   display: block;
 }
-.challenge-downloads a {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  color: #a3e7ca;
-  font-size: 16px;
-  line-height: 1.6;
-  margin: 10px 0;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-.challenge-downloads a span {
-  font-size: 20px;
-}
-.hint-title button:disabled {
-  cursor: default;
-}
+.challenge-download-links a { display: flex; align-items: flex-start; gap: 8px; max-width: 100%; padding: 9px 12px; border: 1px solid #5b8090; border-radius: 6px; background: #203f4d; color: #c7efff; font-size: 14px; line-height: 1.5; text-decoration: underline; text-underline-offset: 3px; }
+.challenge-download-links a svg { flex-shrink: 0; margin-top: 2px; }
+.challenge-download-links a span { min-width: 0; overflow-wrap: anywhere; }
+.challenge-download-links a:hover { background: #2c5263; }
+.challenge-download-links a:focus-visible { outline: 2px solid #bcecff; outline-offset: 3px; }
 @media (max-width: 500px) {
-  .hint-title {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
+  .challenge-hints { padding: 14px; }
+  .challenge-hint { padding: 12px; }
+  .hint-title { align-items: flex-start; }
+  .hint-title h4 { flex-basis: 100%; }
 }
 .admin-link {
   color: #a3e7ca;
@@ -2437,7 +2397,10 @@ input::placeholder {
 .entity-list > div > button[aria-pressed="true"] { border-color: #ffe293; color: #ffe293; }
 .entity-dialogue { max-width: 640px; width: min(640px, 94vw); max-height: 90vh; overflow-y: auto; background: #142c39; color: #e5f0ef; border-color: #456575; }
 .entity-dialogue-heading { display: flex; align-items: center; gap: 16px; padding-right: 24px; }
-.entity-dialogue-heading .entity-portrait { width: 72px; height: 72px; flex-shrink: 0; }
+/* Reserve the full sprite height so tall portraits stay clear of the dialogue. */
+.entity-dialogue-heading .entity-portrait { width: 72px; height: auto; min-height: 72px; flex-shrink: 0; }
+.entity-dialogue-heading .entity-portrait img { height: auto; }
+.entity-dialogue-heading .entity-portrait > svg { height: auto; }
 .entity-dialogue-heading > div { min-width: 0; }
 .entity-dialogue-heading h2 { font-size: 25px; overflow-wrap: anywhere; }
 .entity-dialogue-heading small { color: #dcc28c; font-size: 11px; }
@@ -2824,6 +2787,10 @@ input::placeholder {
 .solve-celebration-emblem svg { width:30px;height:30px; }
 .solve-celebration-kicker { color:var(--victory-color);font-size:10px;font-weight:700;letter-spacing:2px; }
 .solve-celebration-card h2 { margin:4px 0;font-size:clamp(21px,3vw,30px);line-height:1.15; }
+.solve-celebration-content { min-width:0; }
+.solve-celebration-points { display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px 10px;max-width:100%;margin:8px 0 4px;padding:8px 12px;border:1px solid var(--victory-color);border-radius:10px;background:#071c29;color:var(--victory-color); }
+.solve-celebration-points strong { font-size:clamp(30px,6vw,40px);font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums;overflow-wrap:anywhere; }
+.solve-celebration-points span { color:#e1efef;font-size:12px;font-weight:600; }
 .solve-celebration-card p { margin:6px 0 0;color:#d4e4ee;font-size:13px;line-height:1.5;overflow-wrap:anywhere; }
 .solve-celebration-card>button { position:absolute;right:10px;top:10px;display:grid;place-items:center;width:28px;height:28px;background:#10232f88;border:1px solid #718999;border-radius:50%;color:#e6f4fc;pointer-events:auto;cursor:pointer; }
 .solve-celebration-card>button:focus-visible { outline:2px solid white;outline-offset:3px; }

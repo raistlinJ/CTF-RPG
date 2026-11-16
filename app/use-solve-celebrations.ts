@@ -1,17 +1,17 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { advanceSolveCelebrations } from "@/lib/solve-celebrations.mjs";
-export type SolveCelebration = { id: string; title: string; detail: string; tier: number; duration: number; boss: boolean; chainLength: number; milestone: number; expedition: boolean; map: string; x: number; y: number };
+export type SolveCelebration = { id: string; title: string; detail: string; points: number; tier: number; duration: number; boss: boolean; chainLength: number; milestone: number; expedition: boolean; map: string; x: number; y: number };
 export type CelebrationProgress = { scope: string; expeditionComplete: boolean; completed: { id: string; object: string; map: string; x: number; y: number; boss: boolean; chainLength: number; chainComplete: boolean }[] };
 type ProgressTracker = { scope: string; seen: string[]; highWater: number; expeditionCelebrated: boolean };
 
 export function useSolveCelebrations(paused = false) {
   const tracker = useRef<ProgressTracker | null>(null);
   const [queue, setQueue] = useState<SolveCelebration[]>([]);
-  const observe = useCallback((progress?: CelebrationProgress) => {
+  const observe = useCallback((progress?: CelebrationProgress, awards: { id: string; awardedPoints: number | null; solvedByYou?: boolean | null }[] = []) => {
     if (!progress) return;
     const changedScope = tracker.current?.scope !== progress.scope;
-    const { state, celebration } = advanceSolveCelebrations(tracker.current, progress) as { state: ProgressTracker; celebration: SolveCelebration | null };
+    const { state, celebration } = advanceSolveCelebrations(tracker.current, progress, awards) as { state: ProgressTracker; celebration: SolveCelebration | null };
     tracker.current = state;
     if (changedScope) setQueue([]);
     if (celebration) setQueue(previous => [...previous.slice(-4), celebration]);

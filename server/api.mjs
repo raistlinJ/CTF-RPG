@@ -226,6 +226,7 @@ function createRequestApi({
               (response?.hint_cost ?? hintCost),
           ),
           awardedPoints: award?.points ?? null,
+          solvedByYou: award ? award.user === userId : null,
           hintCost: response?.hint_cost ?? hintCost,
           hintsLocked: !!award || responses.some(r => r.challenge === c.id),
           hints: c.hints.map((h) => {

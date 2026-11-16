@@ -72,9 +72,37 @@ test("milestones celebrate each five team completions and the expedition finale 
   assert.equal(advanceSolveCelebrations(final.state,progress(catalog,catalog.map(c=>c.id),"alice:alpha",true)).celebration,null);
 });
 
+test("celebration points use actual awards for new completions, including combined and zero-point solves", () => {
+  const catalog = linear(3);
+  const initial = baseline(progress(catalog, ["step-1"]));
+  const awards = [{ id: "step-1", awardedPoints: 500 }, { id: "step-2", awardedPoints: 85 }, { id: "step-3", awardedPoints: 40 }];
+  const result = advanceSolveCelebrations(initial, progress(catalog, catalog.map(c => c.id)), awards);
+  assert.equal(result.celebration.points, 125, "count net awards for fresh completions, excluding earlier solves");
+  assert.equal(advanceSolveCelebrations(result.state, progress(catalog, catalog.map(c => c.id)), awards).celebration, null);
+  const zero = advanceSolveCelebrations(initial, progress(catalog, ["step-1", "step-2"]), [{ id: "step-2", awardedPoints: 0 }]);
+  assert.equal(zero.celebration.points, 0, "a zero-point completion still gets a celebration");
+});
+
 test("landmark lighting uses the matching themed building, then the largest landmark or room spawn", () => {
   const world={startMap:"outside",buildings:[{id:"workshop",x:3,y:4,w:4,h:3},{id:"castle",x:20,y:5,w:8,h:6}],maps:[{id:"outside",spawn:{x:18,y:20}},{id:"workshop",spawn:{x:10,y:16}}]};
   assert.deepEqual(celebrationLandmark(world,"outside",{map:"workshop"}),{x:5,y:5.5,w:4,h:3});
   assert.deepEqual(celebrationLandmark(world,"outside",{map:"outside"}),{x:24,y:8,w:8,h:6});
   assert.deepEqual(celebrationLandmark(world,"workshop",{map:"workshop"}),{x:10,y:16,w:5,h:5});
+});
+
+test("teammate wording follows the recorded solver for single, grouped and boss celebrations", () => {
+  const catalog = [challenge("first"), challenge("second"), challenge("boss", [], { icon: "boss" })];
+  const initial = baseline(progress(catalog, []));
+  const own = { id: "first", awardedPoints: 85, solvedByYou: true };
+  const teammate = { ...own, solvedByYou: false };
+  assert.equal(advanceSolveCelebrations(initial, progress(catalog, ["first"]), [own]).celebration.title, "Challenge solved!");
+  const shared = advanceSolveCelebrations(initial, progress(catalog, ["first"]), [teammate]);
+  assert.equal(shared.celebration.title, "Your teammate solved a challenge!");
+  assert.equal(shared.celebration.points, 85);
+  const grouped = advanceSolveCelebrations(initial, progress(catalog, ["first", "second"]), [own, { id: "second", awardedPoints: 40, solvedByYou: false }]);
+  assert.equal(grouped.celebration.title, "Your team solved 2 challenges!");
+  assert.equal(grouped.celebration.points, 125);
+  const boss = advanceSolveCelebrations(initial, progress(catalog, ["boss"]), [{ id: "boss", awardedPoints: 100, solvedByYou: false }]);
+  assert.equal(boss.celebration.title, "Boss defeated!");
+  assert.equal(boss.celebration.detail, "Your teammate solved Challenge boss");
 });

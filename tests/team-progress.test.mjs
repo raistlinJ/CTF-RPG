@@ -61,11 +61,14 @@ test("a team solve shares score, completion, prerequisites, rewards, review and 
     assert.equal(solved.data.awardedPoints, 90);
     assert.equal(solved.data.score, 90);
     assert.equal(solved.data.celebrationProgress.completed[0].id,"first");
+    assert.equal(solved.data.challenges.find(c => c.id === "first").solvedByYou, true);
     const shared = (await bob("/api/game")).data;
     assert.deepEqual(shared.solved, ["first"]);
     assert.equal(shared.score, 90);
     assert.deepEqual(shared.celebrationProgress.completed,solved.data.celebrationProgress.completed,"teammates receive the same newly completed challenge celebration metadata");
     assert.equal(shared.challenges.find(c => c.id === "first").awardedPoints, 90);
+    assert.equal(shared.challenges.find(c => c.id === "first").solvedByYou, false);
+    assert.equal(shared.challenges.find(c => c.id === "next").solvedByYou, null);
     assert.ok(shared.challenges.some(c => c.id === "next"));
     assert.deepEqual(shared.inventory.keys, ["red"]);
     const after = (await bob("/api/presence", position)).data;
