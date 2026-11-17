@@ -611,7 +611,7 @@ export function World({
           aria-label={
             onSelect
               ? `${selectionLabel || "Challenge location picker"}: ${mapName(map)}. Click a tile or use arrow keys to choose a location.${onChallengeDrop ? " Select a challenge, then drag it to move. Escape cancels a drag." : ""}`
-              : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, E to search, and walk into doorways to enter or exit.`
+              : `Exploration map: ${mapName(map)}. Use arrow keys or WASD to move, Enter to search, and walk into doorways to enter or exit.`
           }
         />
         {!onSelect && <div className={`explorer-sprite${hero.administrator ? " is-administrator" : ""}`} aria-hidden="true">
@@ -1125,8 +1125,9 @@ export default function Game() {
   useEffect(() => {
     if (!user || (!canAdmin && !team)) return;
     const handler = (e: KeyboardEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
       if (
-        (e.target as HTMLElement).closest(
+        target?.closest(
           "input,textarea,select,[contenteditable=true]",
         ) ||
         active ||
@@ -1135,7 +1136,12 @@ export default function Game() {
         playerTile
       )
         return;
-      if (e.key.toLowerCase() === "e") {
+      if (e.key === "Enter") {
+        if (
+          e.defaultPrevented || e.repeat || e.isComposing || e.keyCode === 229 ||
+          e.ctrlKey || e.metaKey || e.altKey || e.shiftKey ||
+          target?.closest('button,a[href],summary,form,[role="button"],[role="link"],[contenteditable]:not([contenteditable="false"])')
+        ) return;
         e.preventDefault();
         search();
       }
@@ -1665,8 +1671,8 @@ export default function Game() {
               <button type="button" aria-haspopup="dialog" onClick={() => setInventoryOpen(true)}>
                 <Backpack size={16} aria-hidden="true" /> Inventory{inventory.keys.length + inventory.incantations.length > 0 ? ` (${inventory.keys.length + inventory.incantations.length})` : ""}
               </button>
-              <button type="button" onClick={search}>
-                <Sparkles size={16} /> Search nearby <kbd>E</kbd>
+              <button type="button" onClick={search} aria-keyshortcuts="Enter">
+                <Sparkles size={16} /> Search nearby <kbd>Enter</kbd>
               </button>
             </div>
             </div>
@@ -1684,7 +1690,7 @@ export default function Game() {
                 <kbd>D</kbd> or arrow keys to move
               </span>
               <span>
-                <kbd>E</kbd> search nearby
+                <kbd>Enter</kbd> search nearby
               </span>
               <span><kbd>M</kbd> messages · click the message bubble above your explorer</span>
               <span>Look for ✦ sparkles and character speech bubbles</span>
