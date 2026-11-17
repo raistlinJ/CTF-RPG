@@ -84,20 +84,20 @@ docker compose up --build -d
 
 Open `http://localhost:3000`. The default port binds to loopback. For direct HTTP access from other computers, use `APP_BIND=0.0.0.0 docker compose up --build -d`; set `APP_PORT` to change port 3000. Manage accounts through **Manage → Users** after signing in as the protected admin.
 
-If an older Dockerfile fails at `npm ci` with `spawn sh EACCES` during esbuild's postinstall, use the current Dockerfile, which sets `npm_config_script_shell=/bin/sh` in the build stage. This bypasses shell lookup through `PATH` while keeping dependency install scripts enabled. Rebuild with fresh base-image metadata and without cached layers:
+If `npm ci` fails with `spawn sh EACCES`, `spawn /bin/sh EACCES`, or an esbuild binary permission error, inspect the Docker host's security logs:
 
 ```sh
-docker compose build --pull --no-cache ctf-rpg
-docker compose up -d ctf-rpg
+journalctl -k --since "15 minutes ago" --no-pager \
+  | grep -Ei 'apparmor|denied|audit|seccomp'
 ```
 
-If the error persists with `/bin/sh` in the error message, check whether Node can launch the system shell on that Docker host:
+On Debian 13/Proxmox hosts with older Docker packages, AppArmor entries containing `profile="docker-default"`, `family="unix"`, and `info="failed protocol match"` identify a policy ABI compatibility problem. Node uses Unix socket pairs for child-process pipes, so a launch with inherited streams can succeed while npm installation fails. Compare using a piped launch:
 
 ```sh
-docker run --rm node:24-bookworm-slim node -e 'const r = require("node:child_process").spawnSync("/bin/sh", ["-c", "echo shell-ok"], { stdio: "inherit" }); if (r.error) console.error(r.error); process.exit(r.status ?? 1)'
+docker run --rm node:24-bookworm-slim node -e 'const r = require("node:child_process").spawnSync("/bin/sh", ["-c", "echo shell-ok"], { encoding: "utf8" }); if (r.error) console.error(r.error); else console.log(r.stdout); process.exit(r.status ?? 1)'
 ```
 
-A permission failure in this check points to the Docker host or base-image execution environment; inspect host security logs and Docker storage mount options before changing application permissions.
+Repair the host's Docker AppArmor policy or use a Docker package containing the [upstream AppArmor ABI fix](https://github.com/moby/profiles/releases/tag/apparmor/v0.2.0), which explicitly selects ABI 3.0. Setting `npm_config_script_shell=/bin/sh` selects the shell directly but does not resolve this denial. Keep dependency install scripts enabled; skipping them alone leaves native packages incompletely installed.
 
 To run Docker on port 3001 and rebuild after application changes:
 
